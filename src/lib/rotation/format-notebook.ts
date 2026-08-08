@@ -16,6 +16,14 @@ export function formatThemeForNotebook(label: string): string {
   return code;
 }
 
+/** Notebook column for prior-assignment gap (business days). */
+export function formatGapForNotebook(
+  gapFromPreviousBusinessDays: number | undefined,
+): string {
+  if (gapFromPreviousBusinessDays == null) return "";
+  return `${gapFromPreviousBusinessDays}営業日`;
+}
+
 export function formatNotebookCopy(
   days: RotationDay[],
   members: Member[],
@@ -30,12 +38,13 @@ export function formatNotebookCopy(
     ...ROTATION_INSTRUCTION_BLOCK.split("\n"),
     "",
     "新ローテーション",
-    "日付\t当番\tテーマ",
+    "日付\t当番\tテーマ\t前回間隔",
     ...days.map((d) => {
       const who = memberName.get(d.memberId) ?? d.memberId;
       const full = valueLabel.get(d.valueItemId) ?? d.valueItemId;
       const theme = formatThemeForNotebook(full);
-      return `${d.date}\t${who}\t${theme}`;
+      const gap = formatGapForNotebook(d.gapFromPreviousBusinessDays);
+      return `${d.date}\t${who}\t${theme}\t${gap}`;
     }),
   ];
   return lines.join("\n");

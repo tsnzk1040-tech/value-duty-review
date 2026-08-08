@@ -220,12 +220,12 @@ export function RotationWorkbench() {
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">前回ローテ（必須）</h2>
         <p className="text-xs text-muted-foreground">
-          形式: 1行が「YYYY-MM-DD + Tab + 当番名 + Tab + テーマ」。ノート用テキストの日別行をそのまま貼れる。
+          形式: 1行が「YYYY-MM-DD + Tab + 当番名 + Tab + テーマ」（任意で Tab + 前回間隔）。ノート用テキストの日別行をそのまま貼れる。
         </p>
         <Textarea
           value={previousPaste}
           onChange={(e) => setPreviousPaste(e.target.value)}
-          placeholder={"2026-07-28\t常塚（新ローテ）\t6-④\n..."}
+          placeholder={"2026-08-27\t常塚（新ローテ）\t1-②\t20営業日\n..."}
           className="min-h-28 font-mono text-xs"
         />
         <Button variant="outline" onClick={registerPrevious}>
