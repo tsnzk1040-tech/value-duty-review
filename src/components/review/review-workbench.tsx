@@ -23,6 +23,7 @@ import {
   formatReviewPost,
   formatThanks,
   loadReviewDraft,
+  pickClosingVariation,
   saveReviewDraft,
   selectedLinkCount,
   type ReviewDraft,
@@ -356,12 +357,15 @@ export function ReviewWorkbench() {
           setHint(data.error ?? "所感の生成に失敗した");
           return;
         }
-        patch({ leaderNote: data.leaderNote ?? "" });
+        patch({
+          leaderNote: data.leaderNote ?? "",
+          closing: pickClosingVariation(draft!.closing),
+        });
         const via =
           data.provider === "gemini"
             ? `Gemini${data.model ? ` (${data.model})` : ""}`
             : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
-        setHint(`所感下書きを出した（${via}）。貼り返した参照を踏まえ、自分のエッセンスに脚色して`);
+        setHint(`所感下書きを出した（${via}）。締めも別案に差し替えた。脚色して`);
       } catch {
         setHint("所感リクエストに失敗した。ネットワークを確認して");
       } finally {
@@ -905,6 +909,16 @@ export function ReviewWorkbench() {
               value={draft.closing}
               onChange={(e) => patch({ closing: e.target.value })}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full"
+              onClick={() =>
+                patch({ closing: pickClosingVariation(draft.closing) })
+              }
+            >
+              別の呼びかけにする
+            </Button>
           </div>
           <Button
             className="h-11 w-full"

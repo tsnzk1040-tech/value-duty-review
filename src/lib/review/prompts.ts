@@ -1,4 +1,8 @@
 import {
+  CLOSING_VARIATIONS,
+  stripTrailingClosingVariation,
+} from "@/lib/review/closing";
+import {
   summaryPrefix,
   summarySuffix,
   valueHeadingForLabel,
@@ -277,7 +281,7 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     "【絶対に書かない】",
     "  - お礼定型（「〜さん、振り返りコメント共有…」）",
     "  - Value要約定型（「Value…のN番目…想いを共有頂きました」）",
-    "  - 締め専用の定型だけ（「皆さんと一緒にやっていきましょう」単体）— 締め欄は別",
+    "  - 締め専用の定型だけ（「皆さんと一緒にやっていきましょう」等）— 締め欄は別",
     "  - Value帯名の長々した再掲、行動指針全文、次回テーマ／担当",
     "  - 「ですね」、実装・POC・スキル名などのメタ",
     "",
@@ -322,7 +326,7 @@ export function polishLeaderNote(raw: string): string {
     /^[^\n]*(さん、)?振り返りコメント共有頂きありがとうございます[。．]?\s*/m,
     "",
   );
-  out = out.replace(/\n*皆さんと一緒にやっていきましょう[。．]?\s*$/u, "");
+  out = stripTrailingClosingVariation(out);
   return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -330,7 +334,15 @@ export function isWeakLeaderNote(body: string): boolean {
   if (body.length < 60) return true;
   if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
   if (/ですね|ますね/.test(body)) return true;
-  if (/^皆さんと一緒にやっていきましょう/.test(body.trim())) return true;
+  const trimmed = body.trim();
+  if (
+    CLOSING_VARIATIONS.some((c) => {
+      const bare = c.replace(/[。．]$/u, "");
+      return trimmed === c || trimmed === bare || trimmed.startsWith(bare);
+    })
+  ) {
+    return true;
+  }
   return false;
 }
 

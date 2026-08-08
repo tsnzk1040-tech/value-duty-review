@@ -2,6 +2,7 @@ import { generateLeaderStub } from "@/lib/review/providers/leader";
 import { generateSummaryStub } from "@/lib/review/providers/summary";
 import { repairDuplicatedGuidelinePhrase } from "@/lib/review/final-check";
 import { formatThanks } from "@/lib/review/thanks";
+import { DEFAULT_CLOSING } from "@/lib/review/closing";
 
 export { extractSummaryPoints } from "@/lib/review/draft-extract";
 export { formatThanks } from "@/lib/review/thanks";
@@ -11,14 +12,17 @@ export {
   themeOrdinal,
   valueHeadingForLabel,
 } from "@/lib/review/theme-meta";
+export {
+  CLOSING_VARIATIONS,
+  DEFAULT_CLOSING,
+  pickClosingVariation,
+} from "@/lib/review/closing";
 
 export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v4";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
   "（お名前）さん、振り返りコメント共有頂きありがとうございます";
-
-export const DEFAULT_CLOSING = "皆さんと一緒にやっていきましょう。";
 
 export type ReviewStep = 1 | 2 | 3 | 4 | 5;
 
