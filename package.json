@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate-reviews": "tsx scripts/migrate-reviews.mts"
+    "db:migrate-reviews": "tsx scripts/migrate-reviews.mts",
+    "db:seed-sample-history": "tsx scripts/seed-history-from-sample.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
