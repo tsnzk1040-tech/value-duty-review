@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  generateReviewClosingDraft,
   generateReviewKeywordSuggestions,
   generateReviewLeaderDraft,
   generateReviewResearchBrief,
@@ -159,8 +160,35 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   }
 
+  if (body.kind === "closing") {
+    if (!body.leaderNote?.trim()) {
+      return NextResponse.json(
+        { error: "leaderNote is required for closing draft" },
+        { status: 400 },
+      );
+    }
+    if (!body.themeLabel?.trim() || !body.sourcePost?.trim()) {
+      return NextResponse.json(
+        { error: "themeLabel and sourcePost are required" },
+        { status: 400 },
+      );
+    }
+    const result = await generateReviewClosingDraft({
+      kind: "closing",
+      leaderNote: body.leaderNote,
+      summary: body.summary ?? "",
+      sourcePost: body.sourcePost,
+      themeLabel: body.themeLabel,
+      exclude: body.exclude,
+    });
+    return NextResponse.json(result);
+  }
+
   return NextResponse.json(
-    { error: "kind must be summary, keyword-suggestions, search, research-brief, or leader" },
+    {
+      error:
+        "kind must be summary, keyword-suggestions, search, research-brief, leader, or closing",
+    },
     { status: 400 },
   );
 }

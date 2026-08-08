@@ -3,7 +3,12 @@ import type {
   LeaderGenerateInput,
   SummaryGenerateInput,
 } from "@/lib/review/prompts";
+import type { ClosingGenerateInput } from "@/lib/review/closing";
 import { loadHistoryNotesForDraft } from "@/lib/review/history";
+import {
+  generateClosingGemini,
+  generateClosingStub,
+} from "@/lib/review/providers/closing";
 import {
   generateKeywordSuggestionsGemini,
   generateKeywordSuggestionsStub,
@@ -86,12 +91,22 @@ export type ReviewResearchBriefRequest = {
   selectedLinks: { title: string; url: string }[];
 };
 
+export type ReviewClosingGenerateRequest = {
+  kind: "closing";
+  leaderNote: string;
+  summary: string;
+  sourcePost: string;
+  themeLabel: string;
+  exclude?: string;
+};
+
 export type ReviewDraftGenerateRequest =
   | ReviewSummaryGenerateRequest
   | ReviewLeaderGenerateRequest
   | ReviewSearchGenerateRequest
   | ReviewKeywordSuggestRequest
-  | ReviewResearchBriefRequest;
+  | ReviewResearchBriefRequest
+  | ReviewClosingGenerateRequest;
 
 export type ReviewSummaryGenerateResponse = {
   kind: "summary";
@@ -134,12 +149,22 @@ export type ReviewResearchBriefResponse = {
   fallbackReason?: string;
 };
 
+export type ReviewClosingGenerateResponse = {
+  kind: "closing";
+  closing: string;
+  candidates: string[];
+  provider: GenerateProviderId;
+  model?: string;
+  fallbackReason?: string;
+};
+
 export type ReviewDraftGenerateResponse =
   | ReviewSummaryGenerateResponse
   | ReviewLeaderGenerateResponse
   | ReviewSearchGenerateResponse
   | ReviewKeywordSuggestResponse
-  | ReviewResearchBriefResponse;
+  | ReviewResearchBriefResponse
+  | ReviewClosingGenerateResponse;
 
 function resolveProviderPreference(): "auto" | "gemini" | "stub" {
   const raw = process.env.REVIEW_GENERATE_PROVIDER?.trim().toLowerCase();
@@ -393,6 +418,51 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: stub.leaderNote,
+      provider: "stub",
+      fallbackReason: message,
+    };
+  }
+}
+
+export async function generateReviewClosingDraft(
+  input: ReviewClosingGenerateRequest,
+): Promise<ReviewClosingGenerateResponse> {
+  const closingInput: ClosingGenerateInput = {
+    leaderNote: input.leaderNote,
+    summary: input.summary,
+    sourcePost: input.sourcePost,
+    themeLabel: input.themeLabel,
+    exclude: input.exclude,
+  };
+
+  const gate = shouldUseStub();
+  if (gate.stub) {
+    const stub = generateClosingStub(closingInput);
+    return {
+      kind: "closing",
+      closing: stub.closing,
+      candidates: stub.candidates,
+      provider: "stub",
+      fallbackReason: gate.reason,
+    };
+  }
+
+  try {
+    const result = await generateClosingGemini(closingInput);
+    return {
+      kind: "closing",
+      closing: result.closing,
+      candidates: result.candidates,
+      provider: result.provider,
+      model: result.model,
+    };
+  } catch (err) {
+    const stub = generateClosingStub(closingInput);
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      kind: "closing",
+      closing: stub.closing,
+      candidates: stub.candidates,
       provider: "stub",
       fallbackReason: message,
     };

@@ -23,7 +23,6 @@ import {
   formatReviewPost,
   formatThanks,
   loadReviewDraft,
-  pickClosingVariation,
   saveReviewDraft,
   selectedLinkCount,
   type ReviewDraft,
@@ -42,6 +41,7 @@ export function ReviewWorkbench() {
   const [generating, setGenerating] = useState(false);
   const [manualUrl, setManualUrl] = useState("");
   const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
+  const [closingCandidates, setClosingCandidates] = useState<string[]>([]);
 
   useEffect(() => {
     if (!ready) return;
@@ -357,17 +357,95 @@ export function ReviewWorkbench() {
           setHint(data.error ?? "所感の生成に失敗した");
           return;
         }
-        patch({
-          leaderNote: data.leaderNote ?? "",
-          closing: pickClosingVariation(draft!.closing),
-        });
+        const leaderNote = data.leaderNote ?? "";
+        patch({ leaderNote });
         const via =
           data.provider === "gemini"
             ? `Gemini${data.model ? ` (${data.model})` : ""}`
             : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
-        setHint(`所感下書きを出した（${via}）。締めも別案に差し替えた。脚色して`);
+        setHint(`所感下書きを出した（${via}）。締めを本文に合わせて提案中…`);
+
+        const closingRes = await fetch("/api/review/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "closing",
+            leaderNote,
+            summary: draft!.summary,
+            sourcePost: draft!.sourcePost,
+            themeLabel,
+            exclude: draft!.closing,
+          }),
+        });
+        const closingData = (await closingRes.json()) as {
+          closing?: string;
+          candidates?: string[];
+          provider?: string;
+          error?: string;
+        };
+        if (closingRes.ok && closingData.closing) {
+          patch({ closing: closingData.closing });
+          setClosingCandidates(closingData.candidates ?? [closingData.closing]);
+          setHint(
+            `所感と、本文に対応した締め案を出した（${via}）。脚色して選んで`,
+          );
+        } else {
+          setHint(
+            `所感下書きを出した（${via}）。締め案の取得に失敗したので、下のボタンで再提案して`,
+          );
+        }
       } catch {
         setHint("所感リクエストに失敗した。ネットワークを確認して");
+      } finally {
+        setGenerating(false);
+      }
+    })();
+  }
+
+  function runClosingDraft() {
+    void (async () => {
+      if (!draft?.leaderNote.trim()) {
+        setHint("先に所感本文を書いてから締めを提案する");
+        return;
+      }
+      setGenerating(true);
+      setHint("締めの呼びかけを、所感に合わせて提案中…");
+      try {
+        const res = await fetch("/api/review/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "closing",
+            leaderNote: draft.leaderNote,
+            summary: draft.summary,
+            sourcePost: draft.sourcePost,
+            themeLabel,
+            exclude: draft.closing,
+          }),
+        });
+        const data = (await res.json()) as {
+          closing?: string;
+          candidates?: string[];
+          provider?: string;
+          model?: string;
+          fallbackReason?: string;
+          error?: string;
+        };
+        if (!res.ok) {
+          setHint(data.error ?? "締め案の生成に失敗した");
+          return;
+        }
+        if (data.closing) {
+          patch({ closing: data.closing });
+          setClosingCandidates(data.candidates ?? [data.closing]);
+        }
+        const via =
+          data.provider === "gemini"
+            ? `Gemini${data.model ? ` (${data.model})` : ""}`
+            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        setHint(`締め案を出した（${via}）。しっくり来なければ別案を選ぶか再提案して`);
+      } catch {
+        setHint("締め案のリクエストに失敗した");
       } finally {
         setGenerating(false);
       }
@@ -902,22 +980,40 @@ export function ReviewWorkbench() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="closing">締めの呼びかけ</Label>
+            <Label htmlFor="closing">締めの呼びかけ（所感に対応）</Label>
+            <p className="text-xs text-muted-foreground">
+              『ちょっとやってみよう』『そういう考え方もあるんだ』と感じてもらう一文。所感の具体に合わせて提案する。
+            </p>
             <Textarea
               id="closing"
               className="min-h-20"
               value={draft.closing}
               onChange={(e) => patch({ closing: e.target.value })}
             />
+            {closingCandidates.length > 1 ? (
+              <ul className="flex flex-col gap-2">
+                {closingCandidates.map((c) => (
+                  <li key={c}>
+                    <Button
+                      type="button"
+                      variant={c === draft.closing ? "secondary" : "outline"}
+                      className="h-auto min-h-11 w-full whitespace-normal px-3 py-2 text-left text-sm"
+                      onClick={() => patch({ closing: c })}
+                    >
+                      {c}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               className="h-11 w-full"
-              onClick={() =>
-                patch({ closing: pickClosingVariation(draft.closing) })
-              }
+              disabled={generating || !draft.leaderNote.trim()}
+              onClick={runClosingDraft}
             >
-              別の呼びかけにする
+              {generating ? "提案中…" : "本文に合わせた呼びかけを提案"}
             </Button>
           </div>
           <Button
