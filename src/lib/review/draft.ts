@@ -84,28 +84,59 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
   };
 }
 
-/** POC stub — replace with Gemini harness later. */
+/** Split post into short shareable points (extractive POC stub). */
+export function extractSummaryPoints(sourcePost: string, max = 3): string[] {
+  const raw = sourcePost.replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+
+  const chunks = raw
+    .split(/\n+|。|！|？/)
+    .map((s) => s.replace(/^[\s・\-–—*]+/, "").trim())
+    .filter((s) => s.length >= 8)
+    .filter((s) => !/^(本日の|今日の|テーマ|行動指針|ありがとうございます)/.test(s));
+
+  const unique: string[] = [];
+  for (const c of chunks) {
+    const clipped = c.length > 72 ? `${c.slice(0, 72)}…` : c;
+    if (unique.some((u) => u === clipped)) continue;
+    unique.push(clipped);
+    if (unique.length >= max) break;
+  }
+  return unique;
+}
+
+/**
+ * POC stub — シンプルな要約＋少し褒める。
+ * 冒頭定型は formatReviewPost 側なのでここでは入れない。
+ * 後で Gemini ハーネスに差し替え。
+ */
 export function stubDraftSummary(input: {
   sourcePost: string;
   themeLabel: string;
   lens: string;
-  opener: string;
+  opener?: string;
 }): string {
-  const body = input.sourcePost.trim() || "（投稿本文なし）";
-  const clipped = body.length > 400 ? `${body.slice(0, 400)}…` : body;
-  const lensLine = input.lens.trim()
-    ? `観点: ${input.lens.trim()}`
-    : "観点: （未記入）";
+  const theme = input.themeLabel.trim() || "（未選択）";
+  const points = extractSummaryPoints(input.sourcePost);
+  const bulletBlock =
+    points.length > 0
+      ? points.map((p) => `・${p}`).join("\n")
+      : "・（投稿から要点を拾いきれなかった。原文を見ながら手で足して）";
+
+  const lensBit = input.lens.trim()
+    ? `観点「${input.lens.trim()}」ともつながる内容で、`
+    : "";
+
+  const praise = `${lensBit}現場の具体が伝わる振り返りです。テーマ「${theme}」への向き合いが共有しやすくまとまっています。`;
+
   return [
-    input.opener.trim() || DEFAULT_OPENER,
+    `【今日のテーマ】${theme}`,
     "",
-    "【要約共有（下書き・要手直し）】",
-    `テーマ: ${input.themeLabel || "（未選択）"}`,
-    lensLine,
+    "【共有用の要約】",
+    bulletBlock,
     "",
-    clipped,
-    "",
-    "（POC: ここは後で Gemini 生成に差し替え）",
+    "【ひとこと】",
+    praise,
   ].join("\n");
 }
 
@@ -139,18 +170,15 @@ export function stubLeaderNote(input: {
   themeLabel: string;
   keywords: string;
 }): string {
+  const theme = input.themeLabel.trim() || "（未選択）";
+  const kw = input.keywords.trim();
   return [
-    "【リーダー所感（下書き）】",
-    `今日のテーマ「${input.themeLabel || "（未選択）"}」を受けて、`,
-    "メンバーが明日の行動に移せる一文を置きたい。",
-    "",
-    input.keywords.trim()
-      ? `キーワード「${input.keywords.trim()}」から得た視点を、自分の現場に引きつけると何が見えるか。`
-      : "検索キーワードを踏まえた問いを、ここに書く。",
+    `今日の振り返りは、テーマ「${theme}」を自分ごとにする好例だと感じました。`,
+    kw
+      ? `「${kw}」を手がかりに、明日の自分の一言を一つだけ決めてみるとよさそうです。`
+      : "明日の現場で試す一言を、一つだけ決めてみるとよさそうです。",
     "",
     "問い: いまの自分の一言は、誰の何を楽にするか？",
-    "",
-    "（POC: ここも後で Gemini 下書きに差し替え可）",
   ].join("\n");
 }
 
