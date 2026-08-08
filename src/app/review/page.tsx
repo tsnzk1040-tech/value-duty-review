@@ -21,7 +21,7 @@ export default function ReviewPage() {
         <li>通読→コピー</li>
       </ol>
 
-      <Button variant="outline" render={<Link href="/" />}>
+      <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
         ホームへ
       </Button>
     </div>

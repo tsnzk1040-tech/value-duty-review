@@ -1,20 +1,20 @@
 import Link from "next/link";
 
-import { RotationWorkbench } from "@/components/rotation/rotation-workbench";
+import { SettingsForm } from "@/components/settings/settings-form";
 import { Button } from "@/components/ui/button";
 
-export default function RotationPage() {
+export default function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-8">
       <header className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">ローテ POC</p>
-        <h1 className="text-2xl font-semibold tracking-tight">公平アサイン</h1>
+        <p className="text-sm text-muted-foreground">設定</p>
+        <h1 className="text-2xl font-semibold tracking-tight">マスタ／認証</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          スキル規則どおりに1サイクルを出し、手直ししてノート用にコピーする。採否はトシオ。
+          localStorage の JSON が正本。端末またぎはしない。理念全文はリポに置かない。
         </p>
       </header>
 
-      <RotationWorkbench />
+      <SettingsForm />
 
       <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
         ホームへ

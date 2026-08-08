@@ -11,7 +11,7 @@ export default function Home() {
           自分用レビュー／ローテ
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          通勤向け。毎日のレビューは段階UI、ローテは公平ルール付きスキルで回す。
+          通勤向け。マスタは端末内 JSON。ローテは公平スキル、レビューは段階UI（準備中）。
         </p>
       </header>
 
@@ -19,6 +19,7 @@ export default function Home() {
         <Button
           size="lg"
           className="h-12 w-full justify-center text-base"
+          nativeButton={false}
           render={<Link href="/review" />}
         >
           今日のレビュー
@@ -27,14 +28,24 @@ export default function Home() {
           size="lg"
           variant="outline"
           className="h-12 w-full justify-center text-base"
+          nativeButton={false}
           render={<Link href="/rotation" />}
         >
           ローテ
         </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="h-12 w-full justify-center text-base"
+          nativeButton={false}
+          render={<Link href="/settings" />}
+        >
+          設定
+        </Button>
       </nav>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        POC 前の骨格。設計正本は personal-visual-explainers の DECISIONS.md。
+        設計正本は personal-visual-explainers の DECISIONS.md。
       </p>
     </div>
   );

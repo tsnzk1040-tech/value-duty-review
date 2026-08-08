@@ -38,7 +38,20 @@ npm run build
 npm run lint
 ```
 
-## POC 証拠（〜8/15）
+## POC 進捗
 
-1. 段階UIを通し、投稿用テキスト＋参考リンク付きがコピーできる  
-2. 公平ルール付きで 1 サイクル分アサイン → ノート用コピーできる  
+| 証拠 | 状態 |
+|------|------|
+| ローテ公平スキル → 1サイクル → 手直し → ノート用コピー | **済み**（`/rotation`・設定マスタ連動） |
+| 設定 JSON（localStorage）＋認証ゲート | **済み**（`/settings`・`/login`） |
+| 段階レビュー＋参考リンク | 未着手 |
+
+### データ／認証
+
+- マスタ正本: **localStorage**（JSON）。端末またぎなし
+- バックアップ: 設定画面で JSON コピー／取り込み
+- 認証: 設定でパスワード有効化（ハッシュ保存）。タブ単位の session 解除
+- 理念全文はリポに置かない
+
+ローテスキル正本: `.claude/skills/rotation-fair-assign/SKILL.md`  
+実装: `src/lib/rotation/fair-assign.ts`
