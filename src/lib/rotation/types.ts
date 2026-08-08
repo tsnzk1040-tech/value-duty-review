@@ -23,6 +23,8 @@ export type RotationDay = {
   date: string; // YYYY-MM-DD
   memberId: MemberId;
   valueItemId: ValueItemId;
+  /** その人の前回当番日からの営業日数（履歴があるとき。生成結果の表示用） */
+  gapFromPreviousBusinessDays?: number;
 };
 
 export type RotationCycle = {

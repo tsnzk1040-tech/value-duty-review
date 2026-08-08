@@ -23,10 +23,8 @@ function calendarOpts(calendar?: BusinessDayOptions): BusinessDayOptions {
 }
 
 /**
- * Auto start = later of:
- * - 今日のつぎ営業日
- * - 前回ローテ最終日のつぎ営業日
- * so daily operation never overlaps the previous cycle and stays current.
+ * Auto start = いま決まっている（前回）ローテ最終日のつぎ営業日。
+ * 「今日」基準にはしない（シャッフルしても同じスタートになる）。
  */
 export function autoCycleStartYmd(
   historyCycles: RotationCycle[],
@@ -34,12 +32,10 @@ export function autoCycleStartYmd(
   now: Date = new Date(),
 ): string {
   const opts = calendarOpts(calendar);
-  const fromToday = defaultCycleStartYmd(now);
   const prev = latestPreviousCycle(historyCycles);
   const last = prev?.days[prev.days.length - 1]?.date;
-  if (!last) return fromToday;
-  const fromPrev = nextBusinessDayAfter(last, opts);
-  return fromPrev > fromToday ? fromPrev : fromToday;
+  if (!last) return defaultCycleStartYmd(now);
+  return nextBusinessDayAfter(last, opts);
 }
 
 export function resolveCycleStart(

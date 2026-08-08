@@ -250,7 +250,14 @@ export function RotationWorkbench() {
                   key={day.date}
                   className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
                 >
-                  <p className="text-sm font-medium tabular-nums">{day.date}</p>
+                  <p className="text-sm font-medium tabular-nums">
+                    {day.date}
+                    {day.gapFromPreviousBusinessDays != null ? (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        前回から{day.gapFromPreviousBusinessDays}営業日
+                      </span>
+                    ) : null}
+                  </p>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`member-${day.date}`}>当番</Label>
                     <Select

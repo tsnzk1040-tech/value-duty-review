@@ -3,7 +3,7 @@ import {
   listBusinessDaysWithMeta,
   type BusinessDayOptions,
 } from "./business-days";
-import { hasPreviousRotation } from "./previous-cycle";
+import { hasPreviousRotation, latestPreviousCycle } from "./previous-cycle";
 import { resolveCycleStart } from "./cycle-start";
 import { resolveThemeStart } from "./theme-start";
 import type {
@@ -83,7 +83,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   );
   if (cycleResolved.source === "auto") {
     warnings.push(
-      `開始日（自動）: ${cycleResolved.ymd}（今日のつぎ営業日と前回最終のつぎ営業日の遅い方）`,
+      `開始日（自動）: ${cycleResolved.ymd}（いま決まっているローテ最終のつぎ営業日）`,
     );
   } else {
     warnings.push(`開始日（手動）: ${cycleResolved.ymd}`);
@@ -154,6 +154,24 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   };
 
   const historyDays: RotationDay[] = input.historyCycles.flatMap((c) => c.days);
+  const historyLastAssignDate = new Map<MemberId, string>();
+  for (const day of historyDays) {
+    historyLastAssignDate.set(day.memberId, day.date);
+  }
+
+  const prevCycle = latestPreviousCycle(input.historyCycles);
+  const prevCycleLast = prevCycle?.days[prevCycle.days.length - 1]?.date;
+  if (prevCycleLast) {
+    const cycleGap = businessDaysBetween(
+      prevCycleLast,
+      cycleResolved.ymd,
+      calendar,
+    );
+    warnings.push(
+      `前回ローテとの間隔: 最終 ${prevCycleLast} → 開始 ${cycleResolved.ymd}（${cycleGap}営業日）`,
+    );
+  }
+
   const built: RotationDay[] = [];
 
   const memberCount = new Map<MemberId, number>();
@@ -261,10 +279,16 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
           rand,
         );
 
+    const prevHistoryDate = historyLastAssignDate.get(member.id);
+    const gapFromPreviousBusinessDays = prevHistoryDate
+      ? businessDaysBetween(prevHistoryDate, date, calendar)
+      : undefined;
+
     const day: RotationDay = {
       date,
       memberId: member.id,
       valueItemId: valueItem.id,
+      gapFromPreviousBusinessDays,
     };
     built.push(day);
 
@@ -325,6 +349,22 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   if (sameValueHits > 0) {
     warnings.push(
       `前回と同じ Value 帯の当番が ${sameValueHits} 件（手直し可）`,
+    );
+  }
+
+  const gapParts = built
+    .map((day) => {
+      const name =
+        active.find((m) => m.id === day.memberId)?.displayName ?? day.memberId;
+      if (day.gapFromPreviousBusinessDays == null) {
+        return `${name}（前回なし）`;
+      }
+      return `${name} ${day.gapFromPreviousBusinessDays}営業日`;
+    })
+    .filter(Boolean);
+  if (gapParts.length > 0) {
+    warnings.push(
+      `当番ごとの前回間隔（目安 ${input.cooldownBusinessDays}営業日）: ${gapParts.join("、")}`,
     );
   }
 

@@ -353,13 +353,13 @@ export function SettingsForm() {
               <SelectValue>
                 {!settings.rotation.cycleStart ||
                 settings.rotation.cycleStart === "__auto__"
-                  ? "自動（今日のつぎ営業日 ∩ 前回最終のつぎ）"
+                  ? "自動（いま決まっているローテ最終のつぎ営業日）"
                   : "手動指定"}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__auto__">
-                自動（今日のつぎ営業日と前回最終のつぎの遅い方）
+                自動（いま決まっているローテ最終のつぎ営業日）
               </SelectItem>
               <SelectItem value="__manual__">手動指定</SelectItem>
             </SelectContent>
