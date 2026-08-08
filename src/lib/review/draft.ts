@@ -106,9 +106,8 @@ export function extractSummaryPoints(sourcePost: string, max = 3): string[] {
 }
 
 /**
- * POC stub — シンプルな要約＋少し褒める。
- * 冒頭定型は formatReviewPost 側なのでここでは入れない。
- * 後で Gemini ハーネスに差し替え。
+ * POC stub — 方針は `.claude/skills/drafting-daily-reviews`（output-taste）。
+ * 冒頭定型は formatReviewPost 側。後で Gemini ハーネスに差し替え。
  */
 export function stubDraftSummary(input: {
   sourcePost: string;
