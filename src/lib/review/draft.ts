@@ -1,16 +1,17 @@
-import { extractSummaryPoints } from "@/lib/review/draft-extract";
+import { generateLeaderStub } from "@/lib/review/providers/leader";
 import { generateSummaryStub } from "@/lib/review/providers/summary";
 import { formatThanks } from "@/lib/review/thanks";
 
 export { extractSummaryPoints } from "@/lib/review/draft-extract";
 export { formatThanks } from "@/lib/review/thanks";
+export { stubSearchLinks } from "@/lib/review/search-stub";
 export {
   summaryPrefix,
   themeOrdinal,
   valueHeadingForLabel,
 } from "@/lib/review/theme-meta";
 
-export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v2";
+export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v4";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
@@ -25,6 +26,7 @@ export type LinkCandidate = {
   title: string;
   url: string;
   selected: boolean;
+  snippet?: string;
 };
 
 export type ReviewDraft = {
@@ -34,14 +36,22 @@ export type ReviewDraft = {
   /** 呼び名（お礼用） */
   presenterName: string;
   themeId: string;
+  /** 要約前の薄い観点（任意） */
   lens: string;
   /** 1 お礼 */
   opener: string;
   /** 2 要約共有 */
   summary: string;
+  /** 検索ワード候補（約3） */
+  keywordSuggestions: string[];
+  /** 実際に使う検索ワード（候補選択 or 手入力） */
   keywords: string;
   linkCandidates: LinkCandidate[];
-  /** 3 所感・着想 */
+  /** 採択後・所感向けフォーカス指示（ハーネス） */
+  researchFocus: string;
+  /** 調べた要点メモ */
+  researchBrief: string;
+  /** 4 所感・着想 */
   leaderNote: string;
   /** 5 締め */
   closing: string;
@@ -69,13 +79,13 @@ export const REVIEW_STEPS: {
     step: 3,
     title: "調べる",
     process: "⑤⑥",
-    blurb: "キーワード→参考リンク候補→採否（任意）",
+    blurb: "Googleで調べ→参照を貼り返す→フォーカス→要点（所感の前）",
   },
   {
     step: 4,
     title: "所感",
     process: "⑦⑧⑨",
-    blurb: "所感・着想＋締め（リンクは採択分）",
+    blurb: "貼り返した参照を見て所感下書き→自分のエッセンスに脚色＋締め",
   },
   {
     step: 5,
@@ -94,8 +104,11 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     lens: "",
     opener: DEFAULT_OPENER,
     summary: "",
+    keywordSuggestions: [],
     keywords: "",
     linkCandidates: [],
+    researchFocus: "",
+    researchBrief: "",
     leaderNote: "",
     closing: DEFAULT_CLOSING,
   };
@@ -112,56 +125,43 @@ export function stubDraftSummary(input: {
   return generateSummaryStub(input).summary;
 }
 
-/** POC stub search — replace with in-app Gemini grounding later. */
-export function stubSearchLinks(keywords: string): LinkCandidate[] {
-  const q = keywords.trim() || "行動指針";
-  const enc = encodeURIComponent(q);
-  return [
-    {
-      id: "stub-1",
-      title: `${q}とは`,
-      url: `https://www.google.com/search?q=${enc}`,
-      selected: false,
-    },
-    {
-      id: "stub-2",
-      title: `${q} 事例`,
-      url: `https://www.google.com/search?q=${enc}+事例`,
-      selected: false,
-    },
-    {
-      id: "stub-3",
-      title: `${q} とは わかりやすく`,
-      url: `https://www.google.com/search?q=${enc}+わかりやすく`,
-      selected: false,
-    },
-  ];
-}
-
 export function stubLeaderNote(input: {
   themeLabel: string;
   keywords: string;
   lens: string;
   sourcePost: string;
+  summary?: string;
+  selectedLinkTitles?: string[];
+  researchFocus?: string;
+  researchBrief?: string;
 }): string {
-  const points = extractSummaryPoints(input.sourcePost, 2);
-  const hook =
-    input.lens.trim() ||
-    input.keywords.trim() ||
-    (points[0] ? points[0].slice(0, 40) : "");
+  return generateLeaderStub({
+    themeLabel: input.themeLabel,
+    keywords: input.keywords,
+    lens: input.lens,
+    sourcePost: input.sourcePost,
+    summary: input.summary ?? "",
+    selectedLinkTitles: input.selectedLinkTitles ?? [],
+    researchFocus: input.researchFocus ?? "",
+    researchBrief: input.researchBrief ?? "",
+  }).leaderNote;
+}
 
-  return [
-    hook
-      ? `「${hook}」を自分の仕事に引きつけて実践した点が、チームの今日の一歩につながると感じます。`
-      : `今日の振り返り実践が、チームの理念浸透の一歩になっていると感じます。`,
-    "明日も一言だけ決めて動けると、リレーが続きそうです。",
-  ].join("\n");
+export function selectedLinkCount(draft: ReviewDraft): number {
+  return draft.linkCandidates.length;
+}
+
+export function canEnterLeaderStep(draft: ReviewDraft): boolean {
+  return (
+    selectedLinkCount(draft) > 0 &&
+    Boolean(draft.researchFocus.trim()) &&
+    Boolean(draft.researchBrief.trim())
+  );
 }
 
 /** 構成順: お礼 → 要約 → 所感 → 任意♯リンク → 締め */
 export function formatReviewPost(draft: ReviewDraft): string {
   const links = draft.linkCandidates
-    .filter((l) => l.selected)
     .map((l) => `♯${l.title}\n${l.url}`)
     .join("\n\n");
 
@@ -190,6 +190,9 @@ export function loadReviewDraft(): ReviewDraft | null {
       ...createEmptyDraft(parsed.themeId ?? ""),
       ...parsed,
       presenterName: parsed.presenterName ?? "",
+      researchFocus: parsed.researchFocus ?? "",
+      researchBrief: parsed.researchBrief ?? "",
+      keywordSuggestions: parsed.keywordSuggestions ?? [],
       step: parsed.step ?? 1,
     };
   } catch {

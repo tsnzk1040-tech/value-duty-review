@@ -46,6 +46,7 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 
 ## アプリとの関係
 
-- 要約本線は **`POST /api/review/draft`（Gemini）**。stub は退避のみ
+- 要約本線は **`POST /api/review/draft` `kind=summary`（Gemini）**
+- 所感本線は **同 API `kind=leader`（Gemini）**。stub は退避のみ
 - 構成の正は structure。ローテは別スキル `rotation-fair-assign`
 - **要約方針は本スキル＋`prompts.ts` でロック**（触るときは structure／taste と一緒に）

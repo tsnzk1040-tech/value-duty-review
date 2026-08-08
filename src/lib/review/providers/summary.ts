@@ -4,6 +4,7 @@ import {
   buildSummaryInstructions,
   type SummaryGenerateInput,
 } from "@/lib/review/prompts";
+import { callGeminiRaw } from "@/lib/review/providers/gemini";
 import { summaryPrefix, summarySuffix } from "@/lib/review/theme-meta";
 
 export type GenerateProviderId = "gemini" | "stub";
@@ -30,48 +31,6 @@ export function generateSummaryStub(
     };
   }
   return { summary: assembled, provider: "stub" };
-}
-
-async function callGeminiRaw(
-  prompt: string,
-  model: string,
-  apiKey: string,
-): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.45,
-        maxOutputTokens: 2048,
-        // 2.5 Flash: thinking が出力枠を食い尽くさないようオフ
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`Gemini HTTP ${res.status}: ${errText.slice(0, 200)}`);
-  }
-  const data = (await res.json()) as {
-    candidates?: {
-      content?: { parts?: { text?: string; thought?: boolean }[] };
-      finishReason?: string;
-    }[];
-  };
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
-  const raw = parts
-    .filter((p) => !p.thought && p.text)
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
-  if (!raw) {
-    const finish = data.candidates?.[0]?.finishReason ?? "unknown";
-    throw new Error(`Gemini returned empty text (finish=${finish})`);
-  }
-  return raw;
 }
 
 export async function generateSummaryGemini(

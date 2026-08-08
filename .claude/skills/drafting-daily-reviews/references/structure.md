@@ -51,9 +51,24 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - メンバー投稿末尾の「次回テーマ／担当」（相手の文の一部。要約に引きずらない）
 - 実装・POC・スキル名などのメタ発言
 
+## 調べる関門（所感の前）
+
+所感の最終脚色に注力するため、調べるは **Googleで調べてOKな参照をアプリに貼り返す** 工程。貼り返した内容を見てから所感下書きへ。
+
+1. **検索ワード候補〜3つ**（Gemini）→ 選ぶか、希望ワードを手入力
+2. **Google AIモードで調べる**（`udm=50` を別タブで開く。公式APIではない）
+3. 見つけた参照を **URLで貼り返す**（♯タイトル＝♯＋検索ワード。貼り返しゼロなら所感へ進めない）
+4. **所感向けフォーカス指示**（自分で考えて書く・ハーネス）※要約前の lens とは別
+5. **要点メモをボタンで生成**（貼り返し×フォーカス）→ 編集可
+6. 揃ってから所感下書き（調べ下地＋所感目的）
+
 ## アプリ組み立てとの関係
 
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
-- 要約本線: `POST /api/review/draft` → `generateReviewSummaryDraft`（Gemini、失敗時 stub）
+- 要約: `POST /api/review/draft` `kind=summary`
+- 検索ワード候補: 同 API `kind=keyword-suggestions`
+- 要点: 同 API `kind=research-brief`
+- 所感: 同 API `kind=leader`（貼り返し・フォーカス・要点が必須）
+- 参照リンク: Googleで調べてアプリにURL貼り返し（♯＝検索ワード）
 - 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め）
-- プロンプト正本の実行コピー: `src/lib/review/prompts.ts`（本ファイルの要約ルールを反映）
+- プロンプト: `src/lib/review/prompts.ts`

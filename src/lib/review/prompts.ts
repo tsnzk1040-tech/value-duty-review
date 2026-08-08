@@ -193,3 +193,116 @@ export function assembleSummary(
   if (isWeakSummaryBody(mid, themeLabel)) return null;
   return `${summaryPrefix(themeLabel)}${mid}${summarySuffix()}`;
 }
+
+export type LeaderGenerateInput = {
+  sourcePost: string;
+  themeLabel: string;
+  lens: string;
+  keywords: string;
+  /** 直したあとの要約（接続用） */
+  summary: string;
+  /** 採択リンクの短いタイトル */
+  selectedLinkTitles: string[];
+  /** 採択後の所感向けフォーカス指示（ハーネス） */
+  researchFocus: string;
+  /** 調べた要点メモ */
+  researchBrief: string;
+};
+
+/** 所感・着想の本文だけ。締めはアプリ側の別欄。 */
+export function buildLeaderInstructions(input: LeaderGenerateInput): string {
+  const lens = input.lens.trim()
+    ? `観点メモ（要約前・任意）: ${input.lens.trim()}`
+    : "観点メモ（要約前）: なし";
+  const keywords = input.keywords.trim()
+    ? `検索キーワード: ${input.keywords.trim()}`
+    : "検索キーワード: なし";
+  const focus = input.researchFocus.trim()
+    ? `所感向けフォーカス指示: ${input.researchFocus.trim()}`
+    : "所感向けフォーカス指示: （要入力）";
+  const links =
+    input.selectedLinkTitles.length > 0
+      ? `採択した参考（タイトルのみ・URLは書かない）: ${input.selectedLinkTitles.join(" / ")}`
+      : "採択リンク: なし（不合格）";
+  const heading = valueHeadingForLabel(input.themeLabel);
+
+  return [
+    "あなたは職場のグループチャット向けに、リーダーが返す「所感・着想」の下書きを書く助手です。",
+    "トシオが最終脚色する前提。調べた要点とフォーカス指示を下地に、言いたい事に踏み込むたたき台を出す。",
+    "要約パートでは実践の事実だけを見せた。所感では実感・引きつけ・次の一歩を書く。",
+    "",
+    "【トーン】",
+    "- 同僚向けのやわらかいです・ます。減点・皮肉・上から目線は禁止。",
+    "- 「だね」「だよ」「ですね」「！！」は使わない。",
+    "- 大げさな賛辞より、投稿の具体と調べた材料に触れて前向きに引きつける。",
+    "",
+    "【分量・中身】",
+    "- 所感本文のみ（2〜4文程度。だいたい150〜280字）。お礼・Value要約定型・締めの呼びかけは書かない。",
+    "- 必ず含める: ①投稿／要約の具体 ②調べた要点またはフォーカス指示への応答 ③チームへの引きつけ（今日の一歩）④薄い次の一手",
+    "- 問いを置くなら1つまで。必須ではない。",
+    "- 採択リンクのタイトルに軽く触れてよい（URL・♯記法は書かない。リンク掲出は別ブロック）。",
+    "",
+    "【絶対に書かない】",
+    "  - お礼定型（「〜さん、振り返りコメント共有…」）",
+    "  - Value要約定型（「Value…のN番目…想いを共有頂きました」）",
+    "  - 締め専用の定型だけ（「皆さんと一緒にやっていきましょう」単体）— 締め欄は別",
+    "  - Value帯名の長々した再掲、行動指針全文、次回テーマ／担当",
+    "  - 「ですね」、実装・POC・スキル名などのメタ",
+    "",
+    "【良い例（中身は仮）】",
+    "知識だけで止まらず周囲に聞いて一次回答まで持っていった点が、間接部門でもそのまま使える一歩だと感じます。調べた「聞き方の型」も参考に、明日は自分の案件でも誰に聞くかを先に決めて動けると、リレーが続きそうです。",
+    "",
+    "【悪い例】",
+    "素晴らしい振り返りですね。",
+    "指針を意識できていて良いと思います。",
+    "皆さんと一緒にやっていきましょう。",
+    "",
+    "【入力】",
+    `今日の枠の識別用（所感にコード全文を書かない）: ${input.themeLabel}`,
+    `Value帯名（長々再掲しない）: ${heading}`,
+    lens,
+    keywords,
+    focus,
+    links,
+    "調べた要点メモ:",
+    input.researchBrief.trim() || "（なし）",
+    "要約（接続用）:",
+    input.summary.trim() || "（未編集）",
+    "投稿本文:",
+    input.sourcePost.trim() || "（なし）",
+  ].join("\n");
+}
+
+export function polishLeaderNote(raw: string): string {
+  let out = raw.replace(/\r\n/g, "\n").trim();
+  out = out.replace(/^```(?:\w+)?\n?/, "").replace(/\n?```$/, "").trim();
+  out = out.replace(/^["「]|["」]$/g, "").trim();
+  out = out.replace(/想いを共有頂きました。?/g, "").trim();
+  out = out.replace(/^Value[０-９0-9]\s*[　 ].*?について、?/gm, "");
+  out = out.replace(/ていますね[。．]?/g, "ていて。");
+  out = out.replace(/していますね[。．]?/g, "していて。");
+  out = out.replace(/ますね[。．]?/g, "ます。");
+  out = out.replace(/ですね[。．]?/g, "。");
+  out = out.replace(/ですよ[。．]?/g, "。");
+  out = out.replace(/[。．]{2,}/g, "。");
+  out = out.replace(
+    /^[^\n]*(さん、)?振り返りコメント共有頂きありがとうございます[。．]?\s*/m,
+    "",
+  );
+  out = out.replace(/\n*皆さんと一緒にやっていきましょう[。．]?\s*$/u, "");
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export function isWeakLeaderNote(body: string): boolean {
+  if (body.length < 60) return true;
+  if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
+  if (/ですね|ますね/.test(body)) return true;
+  if (/^皆さんと一緒にやっていきましょう/.test(body.trim())) return true;
+  return false;
+}
+
+export function assembleLeaderNote(raw: string): string | null {
+  const body = polishLeaderNote(raw);
+  if (isWeakLeaderNote(body)) return null;
+  return body;
+}
