@@ -42,6 +42,7 @@ export function ReviewWorkbench() {
   const [manualUrl, setManualUrl] = useState("");
   const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
   const [closingCandidates, setClosingCandidates] = useState<string[]>([]);
+  const [manualFocus, setManualFocus] = useState("");
 
   useEffect(() => {
     if (!ready) return;
@@ -216,7 +217,7 @@ export function ReviewWorkbench() {
     }
     window.open(googleAiModeSearchUrl(q), "_blank", "noopener,noreferrer");
     setHint(
-      "Googleを開いた。OKな参照をアプリに貼り返してから、所感の下地を揃えよう",
+      "Googleを開いた。OKなら URL と所感の芯コメントをセットで貼り返そう",
     );
   }
 
@@ -229,6 +230,11 @@ export function ReviewWorkbench() {
     let url = manualUrl.trim();
     if (!url) {
       setHint("URLを貼ってから追加して");
+      return;
+    }
+    const focus = manualFocus.trim();
+    if (!focus) {
+      setHint("参照と一緒に、所感の芯になるコメントも貼って");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
@@ -248,12 +254,16 @@ export function ReviewWorkbench() {
     patch({
       linkCandidates: [
         ...draft!.linkCandidates,
-        { id, title, url, selected: true, snippet: "" },
+        { id, title, url, selected: true, snippet: focus },
       ],
+      researchFocus: focus,
       researchBrief: "",
     });
     setManualUrl("");
-    setHint(`♯${title} で参照を貼り返した。続けて追加するか、フォーカスへ`);
+    setManualFocus("");
+    setHint(
+      `♯${title} とフォーカスを一緒に貼り返した。続けて追加するか、要点メモへ`,
+    );
   }
 
   function removeLink(id: string) {
@@ -821,7 +831,7 @@ export function ReviewWorkbench() {
           </Button>
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">
-              検索でOKだった参照を貼り返す。♯タイトルは「♯＋検索ワード」固定。
+              OKな参照は URL と、所感の芯になるコメントをセットで貼り返す。♯は検索ワード。
             </p>
             {draft.keywords.trim() ? (
               <p className="text-sm font-medium">♯{draft.keywords.trim()}</p>
@@ -839,6 +849,16 @@ export function ReviewWorkbench() {
                 placeholder="https://…"
               />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="manualFocus">所感向けコメント（フォーカス）</Label>
+              <Textarea
+                id="manualFocus"
+                className="min-h-24"
+                value={manualFocus}
+                onChange={(e) => setManualFocus(e.target.value)}
+                placeholder="例: 思考を深化させるアウトプットの3ステップ"
+              />
+            </div>
             <Button
               type="button"
               variant="secondary"
@@ -846,7 +866,7 @@ export function ReviewWorkbench() {
               onClick={addManualLink}
               disabled={!draft.keywords.trim()}
             >
-              参照を貼り返す
+              URLとコメントを貼り返す
             </Button>
           </div>
           {draft.linkCandidates.length > 0 ? (
@@ -868,6 +888,9 @@ export function ReviewWorkbench() {
                       外す
                     </Button>
                   </div>
+                  {link.snippet?.trim() ? (
+                    <p className="text-sm text-muted-foreground">{link.snippet}</p>
+                  ) : null}
                   <a
                     href={link.url}
                     target="_blank"
@@ -886,20 +909,23 @@ export function ReviewWorkbench() {
             </p>
           ) : (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="researchFocus">
-                  所感向けフォーカス指示（自分で考えて書く）
-                </Label>
-                <Textarea
-                  id="researchFocus"
-                  className="min-h-24"
-                  placeholder="例: 間接部門でも使える「誰に聞くか」の一手に寄せたい"
-                  value={draft.researchFocus}
-                  onChange={(e) =>
-                    patch({ researchFocus: e.target.value, researchBrief: "" })
-                  }
-                />
-              </div>
+              {draft.researchFocus.trim() ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="researchFocus">いまのフォーカス（直せる）</Label>
+                  <Textarea
+                    id="researchFocus"
+                    className="min-h-20"
+                    value={draft.researchFocus}
+                    onChange={(e) =>
+                      patch({ researchFocus: e.target.value, researchBrief: "" })
+                    }
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  フォーカスが空。上で URL とコメントをセットで貼り返して。
+                </p>
+              )}
               <Button
                 className="h-11 w-full"
                 variant="secondary"
@@ -934,7 +960,7 @@ export function ReviewWorkbench() {
                 if (selectedLinkCount(draft) === 0) {
                   setHint("参照を貼り返すまで繰り返そう");
                 } else if (!draft.researchFocus.trim()) {
-                  setHint("フォーカス指示を書いて");
+                  setHint("上で URL と所感コメントをセットで貼り返して");
                 } else if (!draft.researchBrief.trim()) {
                   setHint("要点メモを作ってから所感下書きへ");
                 }
