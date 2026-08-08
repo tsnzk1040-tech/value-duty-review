@@ -12,7 +12,7 @@ description: テーマ巡回が本質の日別ローテ。土日祝回避・当�
 
 ## 重要要件（トシオ）
 
-0. **前回のローテ必須** — 無いと生成しない。貼り付け登録、またはノート用コピーで今回分が次の「前回」になる
+0. **前回のローテ必須** — 無いと生成しない。既定シード、またはノート用コピーで今回分が次の「前回」になる
 1. **土日祝を避ける**（日本の祝日は生成年を見て自動）
 2. **あまり近しい日付に同じ人が来ない**（間隔目安＝クールダウン）
 3. **前回と同じ Value 帯にならない**（ラベル先頭の Value番号：1〜6）
@@ -50,5 +50,5 @@ description: テーマ巡回が本質の日別ローテ。土日祝回避・当�
 - `src/lib/rotation/cycle-start.ts`（開始日自動）
 - `src/lib/rotation/theme-start.ts`
 - `src/lib/rotation/value-group.ts`
-- `src/lib/rotation/previous-cycle.ts`（前回必須・貼付パース・履歴追記）
+- `src/lib/rotation/previous-cycle.ts`（前回必須・貼付パース互換・履歴追記）
 - 枠数は `active.length`（設定UIなし。`withSyncedThemeSlots` は互換用）

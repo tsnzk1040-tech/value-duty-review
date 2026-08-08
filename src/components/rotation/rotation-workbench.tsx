@@ -20,7 +20,6 @@ import {
   cycleFromDays,
   hasPreviousRotation,
   latestPreviousCycle,
-  parseRotationPaste,
 } from "@/lib/rotation/previous-cycle";
 import type { RotationDay } from "@/lib/rotation/types";
 
@@ -30,8 +29,6 @@ export function RotationWorkbench() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [seed, setSeed] = useState(20260808);
   const [copyHint, setCopyHint] = useState<string | null>(null);
-  const [previousPaste, setPreviousPaste] = useState("");
-  const [previousHint, setPreviousHint] = useState<string | null>(null);
 
   const hasPrevious = hasPreviousRotation(settings.rotation.historyCycles);
   const previous = latestPreviousCycle(settings.rotation.historyCycles);
@@ -41,7 +38,7 @@ export function RotationWorkbench() {
     if (!hasPreviousRotation(settings.rotation.historyCycles)) {
       setDays([]);
       setWarnings([
-        "前回のローテが必須です。下に前回分を貼って登録してから生成する。",
+        "前回のローテが必須です。設定の履歴か、ノート用コピーで前回を残してから生成する。",
       ]);
       return;
     }
@@ -71,7 +68,7 @@ export function RotationWorkbench() {
     if (!hasPreviousRotation(settings.rotation.historyCycles)) {
       setDays([]);
       setWarnings([
-        "前回のローテが必須です。下に前回分を貼って登録してから生成する。",
+        "前回のローテが必須です。設定の履歴か、ノート用コピーで前回を残してから生成する。",
       ]);
       return;
     }
@@ -96,32 +93,6 @@ export function RotationWorkbench() {
     const nextSeed = (seed * 1664525 + 1013904223) >>> 0;
     runAssign(nextSeed);
     setCopyHint(null);
-  }
-
-  function registerPrevious() {
-    const parsed = parseRotationPaste(
-      previousPaste,
-      settings.members,
-      settings.valueItems,
-    );
-    if (parsed.days.length === 0) {
-      setPreviousHint(parsed.errors.join(" / ") || "登録できる行がない");
-      return;
-    }
-    const cycle = cycleFromDays(parsed.days, "前回ローテ");
-    updateSettings((prev) => ({
-      ...prev,
-      rotation: {
-        ...prev.rotation,
-        historyCycles: appendHistoryCycle(prev.rotation.historyCycles, cycle),
-      },
-    }));
-    setPreviousPaste("");
-    setPreviousHint(
-      `前回ローテを登録した（${parsed.days.length}日${
-        parsed.errors.length ? `・警告 ${parsed.errors.length}` : ""
-      }）`,
-    );
   }
 
   function patchMember(index: number, memberId: string) {
@@ -185,7 +156,7 @@ export function RotationWorkbench() {
           </p>
         ) : (
           <p className="text-sm text-amber-800 dark:text-amber-200">
-            前回ローテ未登録のため生成できない。下に貼って登録する。
+            前回ローテが無いため生成できない。ノート用コピーで前回を残すか、設定の履歴を確認する。
           </p>
         )}
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -231,25 +202,6 @@ export function RotationWorkbench() {
           />
         </section>
       ) : null}
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">前回ローテ（必須）</h2>
-        <p className="text-xs text-muted-foreground">
-          形式: 1行が「YYYY-MM-DD + 当番名 + テーマ」（空白2つ区切り。任意で前回間隔）。ノート用テキストの日別行をそのまま貼れる。
-        </p>
-        <Textarea
-          value={previousPaste}
-          onChange={(e) => setPreviousPaste(e.target.value)}
-          placeholder={"2026-08-27  常塚（新ローテ）  1-②  20営業日\n..."}
-          className="min-h-28 font-mono text-xs"
-        />
-        <Button variant="outline" onClick={registerPrevious}>
-          前回として登録
-        </Button>
-        {previousHint ? (
-          <p className="text-sm text-muted-foreground">{previousHint}</p>
-        ) : null}
-      </section>
 
       {hasPrevious ? (
         <section className="flex flex-col gap-3" aria-label="日別アサイン">
