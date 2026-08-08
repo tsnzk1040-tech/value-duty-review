@@ -47,7 +47,7 @@ export async function generateSummaryGemini(
     throw new Error("GEMINI_API_KEY is not set");
   }
   const model =
-    process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+    process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const res = await fetch(url, {
