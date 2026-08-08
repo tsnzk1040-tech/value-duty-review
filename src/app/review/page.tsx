@@ -7,8 +7,8 @@ export default function ReviewPage() {
         <p className="text-sm text-muted-foreground">毎日レビュー POC</p>
         <h1 className="text-2xl font-semibold tracking-tight">段階UI</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          下書き → 直す → 調べる → 所感 → 通読・コピー。生成・検索は POC
-          スタブ（後で Gemini／アプリ内検索に差し替え）。
+          お礼 → 要約（API／Gemini） → 調べる（任意リンク） → 所感 → 通読・コピー。構成は
+          drafting-daily-reviews に同期。
         </p>
       </header>
 

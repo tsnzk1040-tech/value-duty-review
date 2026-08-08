@@ -19,9 +19,9 @@ import {
   REVIEW_STEPS,
   createEmptyDraft,
   formatReviewPost,
+  formatThanks,
   loadReviewDraft,
   saveReviewDraft,
-  stubDraftSummary,
   stubLeaderNote,
   stubSearchLinks,
   type ReviewDraft,
@@ -32,6 +32,7 @@ export function ReviewWorkbench() {
   const { settings, ready } = useSettings();
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -42,6 +43,7 @@ export function ReviewWorkbench() {
         ...createEmptyDraft(fallbackTheme),
         ...saved,
         themeId: saved.themeId || fallbackTheme,
+        presenterName: saved.presenterName ?? "",
       });
     } else {
       setDraft(createEmptyDraft(fallbackTheme));
@@ -66,6 +68,11 @@ export function ReviewWorkbench() {
     [draft],
   );
 
+  const activeMembers = useMemo(
+    () => settings.members.filter((m) => m.active),
+    [settings.members],
+  );
+
   if (!ready || !draft) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
   }
@@ -82,29 +89,66 @@ export function ReviewWorkbench() {
   }
 
   function runDraftGenerate() {
-    const summary = stubDraftSummary({
-      sourcePost: draft!.sourcePost,
-      themeLabel,
-      lens: draft!.lens,
-      opener: draft!.opener,
-    });
-    patch({ summary, step: 2 });
-    setHint("下書きを出した。自分の言葉に直して");
+    void (async () => {
+      setGenerating(true);
+      setHint("要約を生成中…");
+      try {
+        const res = await fetch("/api/review/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "summary",
+            sourcePost: draft!.sourcePost,
+            themeLabel,
+            lens: draft!.lens,
+            presenterName: draft!.presenterName,
+          }),
+        });
+        const data = (await res.json()) as {
+          opener?: string;
+          summary?: string;
+          provider?: string;
+          model?: string;
+          fallbackReason?: string;
+          error?: string;
+        };
+        if (!res.ok) {
+          setHint(data.error ?? "生成に失敗した");
+          return;
+        }
+        patch({
+          opener: data.opener ?? formatThanks(draft!.presenterName),
+          summary: data.summary ?? "",
+          step: 2,
+        });
+        const via =
+          data.provider === "gemini"
+            ? `Gemini${data.model ? ` (${data.model})` : ""}`
+            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        setHint(`お礼＋要約を出した（${via}）。自分の言葉に直して`);
+      } catch {
+        setHint("生成リクエストに失敗した。ネットワークを確認して");
+      } finally {
+        setGenerating(false);
+      }
+    })();
   }
 
   function runSearch() {
     const linkCandidates = stubSearchLinks(draft!.keywords);
     patch({ linkCandidates });
-    setHint("参考リンク候補（POCスタブ）を出した。共有したいものだけ選ぶ");
+    setHint("参考リンク候補（POCスタブ）を出した。共有したいものだけ選ぶ（無しでも可）");
   }
 
   function runLeaderDraft() {
     const leaderNote = stubLeaderNote({
       themeLabel,
       keywords: draft!.keywords,
+      lens: draft!.lens,
+      sourcePost: draft!.sourcePost,
     });
     patch({ leaderNote, step: 4 });
-    setHint("所感下書きを出した。問いと締めを整えて");
+    setHint("所感下書きを出した。締めを整えて");
   }
 
   async function copyFinal() {
@@ -115,6 +159,9 @@ export function ReviewWorkbench() {
       setHint("コピーに失敗した。下のテキストを手動選択して");
     }
   }
+
+  const canGenerate =
+    Boolean(draft.sourcePost.trim()) && Boolean(draft.presenterName.trim());
 
   return (
     <div className="flex flex-col gap-6">
@@ -178,6 +225,35 @@ export function ReviewWorkbench() {
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="presenter">発表者（呼び名）</Label>
+            <Select
+              value={
+                activeMembers.some((m) => m.displayName === draft.presenterName)
+                  ? draft.presenterName
+                  : undefined
+              }
+              onValueChange={(value) => {
+                if (value) patch({ presenterName: value });
+              }}
+            >
+              <SelectTrigger id="presenter" className="w-full">
+                <SelectValue placeholder="メンバーから選ぶ" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.displayName}>
+                    {m.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={draft.presenterName}
+              onChange={(e) => patch({ presenterName: e.target.value })}
+              placeholder="または手入力（例: 隆さん）"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="post">① 投稿本文（ペースト）</Label>
             <Textarea
               id="post"
@@ -196,21 +272,12 @@ export function ReviewWorkbench() {
               placeholder="今日見てほしい一点"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="opener">冒頭定型</Label>
-            <Textarea
-              id="opener"
-              className="min-h-20"
-              value={draft.opener}
-              onChange={(e) => patch({ opener: e.target.value })}
-            />
-          </div>
           <Button
             className="h-11 w-full"
             onClick={runDraftGenerate}
-            disabled={!draft.sourcePost.trim()}
+            disabled={!canGenerate || generating}
           >
-            下書きを出す（POCスタブ）
+            {generating ? "生成中…" : "下書きを出す（AI要約）"}
           </Button>
         </section>
       ) : null}
@@ -218,10 +285,19 @@ export function ReviewWorkbench() {
       {draft.step === 2 ? (
         <section className="flex flex-col gap-4" aria-label="直す">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="summary">要約共有部（自分の言葉へ）</Label>
+            <Label htmlFor="opener">お礼</Label>
+            <Textarea
+              id="opener"
+              className="min-h-16"
+              value={draft.opener}
+              onChange={(e) => patch({ opener: e.target.value })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="summary">要約共有（自分の言葉へ）</Label>
             <Textarea
               id="summary"
-              className="min-h-56"
+              className="min-h-40"
               value={draft.summary}
               onChange={(e) => patch({ summary: e.target.value })}
             />
@@ -286,7 +362,7 @@ export function ReviewWorkbench() {
                       }
                     />
                     <span className="flex flex-col gap-1">
-                      <span className="font-medium">#{link.title}</span>
+                      <span className="font-medium">♯{link.title}</span>
                       <span className="break-all text-xs text-muted-foreground">
                         {link.url}
                       </span>
@@ -297,10 +373,10 @@ export function ReviewWorkbench() {
             </ul>
           ) : null}
           <p className="text-xs text-muted-foreground">
-            採否はトシオ。共感・共有したいかで選ぶ（⑥）。本番はアプリ内検索APIに差し替え。
+            リンクは任意。採否はトシオ。本番はアプリ内検索APIに差し替え。
           </p>
           <Button className="h-11 w-full" onClick={runLeaderDraft}>
-            採択できた → 所感へ
+            所感へ（リンク無しでも可）
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(2)}>
             戻る
@@ -311,7 +387,7 @@ export function ReviewWorkbench() {
       {draft.step === 4 ? (
         <section className="flex flex-col gap-4" aria-label="所感">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="leader">リーダー所感・提案・問い</Label>
+            <Label htmlFor="leader">所感・着想</Label>
             <Textarea
               id="leader"
               className="min-h-48"
@@ -320,7 +396,7 @@ export function ReviewWorkbench() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="closing">締めの一言</Label>
+            <Label htmlFor="closing">締めの呼びかけ</Label>
             <Textarea
               id="closing"
               className="min-h-20"
@@ -344,7 +420,7 @@ export function ReviewWorkbench() {
       {draft.step === 5 ? (
         <section className="flex flex-col gap-4" aria-label="通読コピー">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="final">投稿用プレビュー</Label>
+            <Label htmlFor="final">投稿用プレビュー（構成どおり）</Label>
             <Textarea
               id="final"
               readOnly

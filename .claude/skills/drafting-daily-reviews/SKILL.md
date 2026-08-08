@@ -15,7 +15,8 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 | **構成ルール（SSoT）** | [references/structure.md](references/structure.md) |
 | 出力の味（SSoT） | [references/output-taste.md](references/output-taste.md) |
 | 実プロセス・段階UI | 卒業制作 `DECISIONS.md` §2a（personal-visual-explainers） |
-| 組み立て・スタブ実装 | `src/lib/review/draft.ts`（追従中。構成の正は structure） |
+| 組み立て・スタブ実装 | `src/lib/review/draft.ts` / `generate.ts` / `POST /api/review/draft` |
+| プロンプト | `src/lib/review/prompts.ts` |
 | 評価の見方 | [references/eval-scenarios.md](references/eval-scenarios.md) |
 
 ## 入力（優先順）
@@ -45,6 +46,5 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 
 ## アプリとの関係
 
-- UI スタブ（`stubDraftSummary` 等）は同方針の近似。**構成の正は structure**
-- Gemini 差し替え時は本スキル一式をハーネスにする
-- ローテは別スキル `rotation-fair-assign`
+- 要約本線は **`POST /api/review/draft`（Gemini）**。stub は退避のみ
+- 構成の正は structure。ローテは別スキル `rotation-fair-assign`
