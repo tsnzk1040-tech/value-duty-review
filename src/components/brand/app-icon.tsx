@@ -21,7 +21,7 @@ export function AppIcon({ className, markClassName }: AppIconProps) {
   );
 }
 
-/** SVG マーク単体（icon.tsx 生成とも形を揃える） */
+/** SVG マーク単体（app-icon-svg と同パス）。 */
 export function AppIconMark({ className }: { className?: string }) {
   return (
     <svg
@@ -31,7 +31,6 @@ export function AppIconMark({ className }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
     >
-      {/* 外輪 */}
       <circle
         cx="16"
         cy="16"
@@ -40,7 +39,6 @@ export function AppIconMark({ className }: { className?: string }) {
         strokeWidth="2.25"
         strokeOpacity="0.35"
       />
-      {/* リレー弧（上→右） */}
       <path
         d="M10 14.5c1.2-3.2 4.2-5.2 7.6-5.2 3.8 0 6.9 2.4 7.9 5.6"
         stroke="currentColor"
@@ -54,7 +52,6 @@ export function AppIconMark({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* リレー弧（下→左） */}
       <path
         d="M22 17.5c-1.2 3.2-4.2 5.2-7.6 5.2-3.8 0-6.9-2.4-7.9-5.6"
         stroke="currentColor"
