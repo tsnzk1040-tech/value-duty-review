@@ -208,7 +208,7 @@ export function SettingsForm() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">Value枝（テーマ）</h2>
         <p className="text-xs text-muted-foreground">
-          ラベルのみ。理念の全文はここに貼らない（必要ならメモ欄か端末内だけ）。
+          短いラベルのみ（例: 1-① …）。理念の全文はここに貼らない（必要なら端末内だけ）。
         </p>
         <ul className="flex flex-col gap-2">
           {settings.valueItems.map((v, index) => (
