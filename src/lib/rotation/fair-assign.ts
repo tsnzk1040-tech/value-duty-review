@@ -352,21 +352,5 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
     );
   }
 
-  const gapParts = built
-    .map((day) => {
-      const name =
-        active.find((m) => m.id === day.memberId)?.displayName ?? day.memberId;
-      if (day.gapFromPreviousBusinessDays == null) {
-        return `${name}（前回なし）`;
-      }
-      return `${name} ${day.gapFromPreviousBusinessDays}営業日`;
-    })
-    .filter(Boolean);
-  if (gapParts.length > 0) {
-    warnings.push(
-      `当番ごとの前回間隔（目安 ${input.cooldownBusinessDays}営業日）: ${gapParts.join("、")}`,
-    );
-  }
-
   return { days: built, warnings, themeStart: themeStartMeta };
 }

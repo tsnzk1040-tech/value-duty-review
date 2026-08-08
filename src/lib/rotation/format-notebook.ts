@@ -24,6 +24,9 @@ export function formatGapForNotebook(
   return `${gapFromPreviousBusinessDays}営業日`;
 }
 
+/** Field separator for paste rows (spaces, not tabs — tab stops make short names look wider). */
+const NOTEBOOK_COL_SEP = "  ";
+
 export function formatNotebookCopy(
   days: RotationDay[],
   members: Member[],
@@ -38,13 +41,13 @@ export function formatNotebookCopy(
     ...ROTATION_INSTRUCTION_BLOCK.split("\n"),
     "",
     "新ローテーション",
-    "日付\t当番\tテーマ\t前回間隔",
+    ["日付", "当番", "テーマ", "前回間隔"].join(NOTEBOOK_COL_SEP),
     ...days.map((d) => {
       const who = memberName.get(d.memberId) ?? d.memberId;
       const full = valueLabel.get(d.valueItemId) ?? d.valueItemId;
       const theme = formatThemeForNotebook(full);
       const gap = formatGapForNotebook(d.gapFromPreviousBusinessDays);
-      return `${d.date}\t${who}\t${theme}\t${gap}`;
+      return [d.date, who, theme, gap].join(NOTEBOOK_COL_SEP);
     }),
   ];
   return lines.join("\n");

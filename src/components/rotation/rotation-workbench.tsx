@@ -217,15 +217,30 @@ export function RotationWorkbench() {
         ) : null}
       </section>
 
+      {days.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <Label htmlFor="notebook-preview">ノート用プレビュー（コピー用）</Label>
+          <p className="text-xs text-muted-foreground">
+            各行末尾の「N営業日」が前回当番日からの間隔。上の「ノート用にコピー」で同じ内容を控える。
+          </p>
+          <Textarea
+            id="notebook-preview"
+            readOnly
+            value={notebookText}
+            className="min-h-48 font-mono text-xs"
+          />
+        </section>
+      ) : null}
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">前回ローテ（必須）</h2>
         <p className="text-xs text-muted-foreground">
-          形式: 1行が「YYYY-MM-DD + Tab + 当番名 + Tab + テーマ」（任意で Tab + 前回間隔）。ノート用テキストの日別行をそのまま貼れる。
+          形式: 1行が「YYYY-MM-DD + 当番名 + テーマ」（空白2つ区切り。任意で前回間隔）。ノート用テキストの日別行をそのまま貼れる。
         </p>
         <Textarea
           value={previousPaste}
           onChange={(e) => setPreviousPaste(e.target.value)}
-          placeholder={"2026-08-27\t常塚（新ローテ）\t1-②\t20営業日\n..."}
+          placeholder={"2026-08-27  常塚（新ローテ）  1-②  20営業日\n..."}
           className="min-h-28 font-mono text-xs"
         />
         <Button variant="outline" onClick={registerPrevious}>
@@ -292,18 +307,6 @@ export function RotationWorkbench() {
               );
             })}
           </ul>
-        </section>
-      ) : null}
-
-      {days.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <Label htmlFor="notebook-preview">ノート用プレビュー</Label>
-          <Textarea
-            id="notebook-preview"
-            readOnly
-            value={notebookText}
-            className="min-h-48 font-mono text-xs"
-          />
         </section>
       ) : null}
     </div>

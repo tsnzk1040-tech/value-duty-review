@@ -68,7 +68,7 @@ export type ParseRotationResult = {
 const GAP_CELL_RE = /^(前回から)?\d+営業日$/;
 
 /**
- * Parse notebook-like lines: `YYYY-MM-DD\t当番名\tテーマ`（任意で `\t前回間隔`）。
+ * Parse notebook-like lines: `YYYY-MM-DD  当番名  テーマ`（Tab も可。任意で前回間隔）。
  */
 export function parseRotationPaste(
   text: string,
@@ -87,9 +87,8 @@ export function parseRotationPaste(
 
     const parts = raw.includes("\t")
       ? raw.split("\t").map((s) => s.trim())
-      : raw.split(/\s{2,}|\s+\t\s*/).map((s) => s.trim());
+      : raw.split(/\s{2,}/).map((s) => s.trim());
 
-    // Allow "date name theme" with single spaces after date
     let date = "";
     let who = "";
     let theme = "";
@@ -103,9 +102,7 @@ export function parseRotationPaste(
         theme = rest.join(" ");
       }
     } else {
-      const m = raw.match(
-        /^(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(.+)$/,
-      );
+      const m = raw.match(/^(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(.+)$/);
       if (!m) {
         errors.push(`${i + 1}行目を読めなかった: ${raw}`);
         continue;
@@ -130,7 +127,7 @@ export function parseRotationPaste(
 
   if (days.length === 0 && errors.length === 0) {
     errors.push(
-      "日別行が見つからない。形式は「YYYY-MM-DD + Tab + 当番 + Tab + テーマ」（任意で前回間隔）",
+      "日別行が見つからない。形式は「YYYY-MM-DD  当番  テーマ」（任意で前回間隔）",
     );
   }
 
