@@ -11,7 +11,7 @@ export default function Home() {
           自分用レビュー／ローテ
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          通勤向け。マスタは端末内 JSON。ローテは公平スキル、レビューは段階UI（準備中）。
+          通勤向け。マスタは端末内 JSON。ローテは公平スキル、レビューは段階UI。
         </p>
       </header>
 
