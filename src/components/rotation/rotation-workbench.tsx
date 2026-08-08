@@ -169,12 +169,14 @@ export function RotationWorkbench() {
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
-          本質はテーマ巡回。生成には前回ローテ必須。土日祝回避・当番間隔・Value帯・最終は常塚。
-          メンバー{settings.members.filter((m) => m.active).length}・テーマ
-          {settings.valueItems.length}・開始日 {settings.rotation.cycleStart}・枠
-          {settings.rotation.businessDayCount}・間隔目安
+          毎日回す前提: 開始日・開始テーマは自動（違うときだけ手動）。前回ローテ必須。枠＝人数。最終は常塚。
+          メンバー{settings.members.filter((m) => m.active).length}・行動指針
+          {settings.valueItems.length}・間隔目安
           {settings.rotation.cooldownBusinessDays}・祝日自動
           {settings.calendar.skipJapaneseHolidays !== false ? "ON" : "OFF"}
+          {settings.rotation.cycleStart
+            ? `・開始日手動 ${settings.rotation.cycleStart}`
+            : "・開始日自動"}
         </p>
         {previous ? (
           <p className="text-xs text-muted-foreground">

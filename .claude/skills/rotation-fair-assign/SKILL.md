@@ -37,13 +37,15 @@ description: テーマ巡回が本質の日別ローテ。土日祝回避・当�
 
 ## PoC デフォルト日付
 
-- メンバー増減・アクティブ切替 → `withSyncedThemeSlots` でテーマ枠を人数に自動同期（手入力なし）
+- 開始日 **自動**: `resolveCycleStart`＝今日のつぎ営業日と前回最終のつぎ営業日の **遅い方**
+- 枠数は設定に出さない（＝アクティブ人数）
+- 実表の 2026-07-29 は履歴サンプル用のみ
 
 ## 実装
 
 - `src/lib/rotation/fair-assign.ts`
+- `src/lib/rotation/cycle-start.ts`（開始日自動）
 - `src/lib/rotation/theme-start.ts`
 - `src/lib/rotation/value-group.ts`
 - `src/lib/rotation/previous-cycle.ts`（前回必須・貼付パース・履歴追記）
-- 設定: `rotation.businessDayCount`＝テーマ枠（＝アクティブ人数。`withSyncedThemeSlots` で増減自動同期）
-- PoC開始日: `defaultCycleStartYmd()`＝今日（JST）のつぎ営業日
+- 枠数は `active.length`（設定UIなし。`withSyncedThemeSlots` は互換用）

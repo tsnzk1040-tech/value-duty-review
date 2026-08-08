@@ -9,7 +9,6 @@ import {
   POC_VALUE_ITEMS,
   POC_VISION,
 } from "@/lib/rotation/seed";
-import { defaultCycleStartYmd } from "@/lib/rotation/business-days";
 
 import type { AppSettings } from "./types";
 import { SETTINGS_VERSION } from "./types";
@@ -29,7 +28,7 @@ export function createDefaultSettings(): AppSettings {
       holidays: [],
     },
     rotation: {
-      cycleStart: defaultCycleStartYmd(),
+      cycleStart: "",
       businessDayCount: POC_BUSINESS_DAY_COUNT,
       cooldownBusinessDays: POC_COOLDOWN_BUSINESS_DAYS,
       lastAssigneeMemberId: POC_LAST_ASSIGNEE_MEMBER_ID,

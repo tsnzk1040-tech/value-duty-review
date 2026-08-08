@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { createSalt, hashPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
+import { defaultCycleStartYmd } from "@/lib/rotation/business-days";
 import type { Member, ValueItem } from "@/lib/rotation/types";
 
 function newId(prefix: string): string {
@@ -61,7 +62,7 @@ export function SettingsForm() {
   function addValueItem() {
     const item: ValueItem = {
       id: newId("v"),
-      label: "新しいテーマ",
+      label: "新しい行動指針",
     };
     updateSettings((prev) => ({
       ...prev,
@@ -237,9 +238,9 @@ export function SettingsForm() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Value枝（テーマ）</h2>
+        <h2 className="text-sm font-medium">行動指針</h2>
         <p className="text-xs text-muted-foreground">
-          毎日のテーマは ×-① などの行動指針（一言一句そのまま）。Value見出し自体はテーマにしない。
+          毎日のテーマは ×-① などの行動指針（一言一句そのまま）。Value見出し自体は日次テーマにしない。
         </p>
         <ul className="flex flex-col gap-2">
           {settings.valueItems.map((v, index) => (
@@ -254,7 +255,7 @@ export function SettingsForm() {
                     ),
                   }))
                 }
-                aria-label="テーマ名"
+                aria-label="行動指針"
               />
               <Button
                 variant="ghost"
@@ -272,7 +273,7 @@ export function SettingsForm() {
           ))}
         </ul>
         <Button variant="outline" onClick={addValueItem}>
-          テーマを追加
+          行動指針を追加
         </Button>
       </section>
 
@@ -325,35 +326,58 @@ export function SettingsForm() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">ローテ数値</h2>
+        <h2 className="text-sm font-medium">ローテ運用</h2>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cycle-start">サイクル開始日</Label>
-          <Input
-            id="cycle-start"
-            type="date"
-            value={settings.rotation.cycleStart}
-            onChange={(e) =>
+          <Select
+            value={
+              !settings.rotation.cycleStart ||
+              settings.rotation.cycleStart === "__auto__"
+                ? "__auto__"
+                : "__manual__"
+            }
+            onValueChange={(value) =>
               updateSettings((prev) => ({
                 ...prev,
-                rotation: { ...prev.rotation, cycleStart: e.target.value },
+                rotation: {
+                  ...prev.rotation,
+                  cycleStart:
+                    !value || value === "__auto__"
+                      ? ""
+                      : prev.rotation.cycleStart || defaultCycleStartYmd(),
+                },
               }))
             }
-          />
+          >
+            <SelectTrigger id="cycle-start" className="w-full">
+              <SelectValue>
+                {!settings.rotation.cycleStart ||
+                settings.rotation.cycleStart === "__auto__"
+                  ? "自動（今日のつぎ営業日 ∩ 前回最終のつぎ）"
+                  : "手動指定"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">
+                自動（今日のつぎ営業日と前回最終のつぎの遅い方）
+              </SelectItem>
+              <SelectItem value="__manual__">手動指定</SelectItem>
+            </SelectContent>
+          </Select>
+          {settings.rotation.cycleStart ? (
+            <Input
+              type="date"
+              value={settings.rotation.cycleStart}
+              onChange={(e) =>
+                updateSettings((prev) => ({
+                  ...prev,
+                  rotation: { ...prev.rotation, cycleStart: e.target.value },
+                }))
+              }
+            />
+          ) : null}
           <p className="text-xs text-muted-foreground">
-            デフォルトは「今日のつぎ営業日」（JST・土日祝スキップ）。実表の7/29固定ではない。
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>テーマ枠数（自動）</Label>
-          <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm tabular-nums">
-            {settings.rotation.businessDayCount}
-            <span className="ml-2 text-muted-foreground">
-              ＝アクティブ{" "}
-              {settings.members.filter((m) => m.active).length} 人
-            </span>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            メンバー追加・削除・アクティブ切替に自動同期（休み番なし）。手入力はしない。
+            毎日回すなら自動のまま。違うときだけ手動。枠数はアクティブ人数に自動同期（設定項目に出さない）。
           </p>
         </div>
         <div className="flex flex-col gap-1.5">

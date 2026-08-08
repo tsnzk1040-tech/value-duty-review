@@ -4,6 +4,7 @@ import {
   type BusinessDayOptions,
 } from "./business-days";
 import { hasPreviousRotation } from "./previous-cycle";
+import { resolveCycleStart } from "./cycle-start";
 import { resolveThemeStart } from "./theme-start";
 import type {
   FairAssignInput,
@@ -57,7 +58,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
     return { days: [], warnings: ["アクティブなメンバーがいません"] };
   }
   if (input.valueItems.length === 0) {
-    return { days: [], warnings: ["Value枝がありません"] };
+    return { days: [], warnings: ["行動指針がありません"] };
   }
   if (!hasPreviousRotation(input.historyCycles)) {
     return {
@@ -75,6 +76,19 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   };
   const rand = mulberry32(input.seed);
 
+  const cycleResolved = resolveCycleStart(
+    input.cycleStart,
+    input.historyCycles,
+    calendar,
+  );
+  if (cycleResolved.source === "auto") {
+    warnings.push(
+      `開始日（自動）: ${cycleResolved.ymd}（今日のつぎ営業日と前回最終のつぎ営業日の遅い方）`,
+    );
+  } else {
+    warnings.push(`開始日（手動）: ${cycleResolved.ymd}`);
+  }
+
   const themeResolved = resolveThemeStart(
     input.themeStartValueItemId,
     input.historyCycles,
@@ -82,19 +96,8 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   );
   const themeStartIndex = themeResolved.index;
 
-  // Enough slots so every active member can appear once (no sit-outs).
-  // Themes still drive the sequence and wrap the catalog as needed.
-  const themeSlotCount = Math.max(
-    input.businessDayCount > 0
-      ? input.businessDayCount
-      : input.valueItems.length,
-    active.length,
-  );
-  if (input.businessDayCount > 0 && input.businessDayCount < active.length) {
-    warnings.push(
-      `テーマ枠設定 ${input.businessDayCount} はメンバー ${active.length} 人に足りないため ${themeSlotCount} 枠に引き上げ（休み番なし）`,
-    );
-  }
+  // Slots always follow active headcount (no sit-outs). Catalog wraps.
+  const themeSlotCount = active.length;
 
   const themeSequence = Array.from({ length: themeSlotCount }, (_, di) => {
     return input.valueItems[
@@ -103,7 +106,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   });
 
   const { days: dates, skippedJapaneseHolidays } = listBusinessDaysWithMeta(
-    input.cycleStart,
+    cycleResolved.ymd,
     themeSlotCount,
     calendar,
   );

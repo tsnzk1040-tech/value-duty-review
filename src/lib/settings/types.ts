@@ -3,7 +3,7 @@ import type { Member, RotationCycle, ValueItem } from "@/lib/rotation/types";
 export const SETTINGS_STORAGE_KEY = "vdr.settings.v1";
 export const AUTH_SESSION_KEY = "vdr.auth.session.v1";
 /** Bump when default masters change so old localStorage is refreshed. */
-export const SETTINGS_VERSION = 12 as const;
+export const SETTINGS_VERSION = 13 as const;
 
 export type CalendarRules = {
   /** Skip Sat/Sun (default true) */
@@ -25,22 +25,24 @@ export type AuthSettings = {
 };
 
 export type RotationSettings = {
+  /**
+   * Cycle start date. Empty = auto (later of 今日のつぎ営業日 and 前回最終のつぎ営業日).
+   * Set YYYY-MM-DD only when different from auto.
+   */
   cycleStart: string;
-   /**
-   * Theme slots in this cycle (dates on non-weekend/holiday days).
-   * Default = active member count (no sit-outs). Themes wrap the catalog.
+  /**
+   * Derived theme slots (= active members). Kept in sync; not user-edited.
    */
   businessDayCount: number;
   /** Soft spacing: avoid same person too soon after prior turn */
   cooldownBusinessDays: number;
   /**
    * Minimum rule: cycle must end with this member (ツネヅカ＝トシオ / 常塚（新ローテ）).
-   * Empty string = no forced closer. Enables designing the next cycle after close.
+   * Empty string = no forced closer.
    */
   lastAssigneeMemberId: string;
   /**
    * First theme of the cycle. Empty = auto (next after previous cycle's last theme).
-   * Set a valueItem id only when different from auto.
    */
   themeStartValueItemId: string;
   /** Prior cycles — required before generating the next rotation */
