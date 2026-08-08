@@ -41,6 +41,10 @@ export function ReviewWorkbench() {
   const [generating, setGenerating] = useState(false);
   const [manualUrl, setManualUrl] = useState("");
   const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
+  const [relatedHint, setRelatedHint] = useState<string | null>(null);
+  const [historyConfigured, setHistoryConfigured] = useState<boolean | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -91,6 +95,59 @@ export function ReviewWorkbench() {
     }
     setFinalCheck(checkFinalReviewPost(finalText));
   }, [draft, finalText]);
+
+  useEffect(() => {
+    const themeId = draft?.themeId ?? "";
+    const presenterName = draft?.presenterName?.trim() ?? "";
+    if (!themeId && !presenterName) {
+      setRelatedHint(null);
+      return;
+    }
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const params = new URLSearchParams({ limit: "5" });
+          if (themeId) params.set("themeId", themeId);
+          if (presenterName) params.set("presenterName", presenterName);
+          const res = await fetch(`/api/review/history?${params}`, {
+            signal: ac.signal,
+          });
+          const data = (await res.json()) as {
+            configured?: boolean;
+            items?: {
+              reviewDate: string;
+              presenterName: string;
+              themeLabel: string;
+              summary: string;
+            }[];
+          };
+          setHistoryConfigured(Boolean(data.configured));
+          if (!data.configured) {
+            setRelatedHint(null);
+            return;
+          }
+          const items = data.items ?? [];
+          if (!items.length) {
+            setRelatedHint("履歴: 同テーマ／同担当の過去はまだない");
+            return;
+          }
+          const top = items[0];
+          const label = top.themeLabel || top.presenterName;
+          setRelatedHint(
+            `履歴 ${items.length}件（直近 ${top.reviewDate} · ${label}）。ソフト重複に注意`,
+          );
+        } catch (err) {
+          if ((err as Error).name === "AbortError") return;
+          setRelatedHint(null);
+        }
+      })();
+    }, 400);
+    return () => {
+      ac.abort();
+      window.clearTimeout(timer);
+    };
+  }, [draft?.themeId, draft?.presenterName]);
 
   const activeMembers = useMemo(
     () => settings.members.filter((m) => m.active),
@@ -397,6 +454,8 @@ export function ReviewWorkbench() {
   }
 
   async function copyFinal() {
+    const current = draft;
+    if (!current) return;
     const result = checkFinalReviewPost(finalText);
     setFinalCheck(result);
     if (!result.ok) {
@@ -405,9 +464,57 @@ export function ReviewWorkbench() {
     }
     try {
       await navigator.clipboard.writeText(finalText);
-      setHint("投稿用テキストをコピーした。グループチャットへ貼って");
     } catch {
       setHint("コピーに失敗した。下のテキストを手動選択して");
+      return;
+    }
+
+    setHint("投稿用テキストをコピーした。履歴へ保存中…");
+    try {
+      const res = await fetch("/api/review/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presenterName: current.presenterName,
+          themeId: current.themeId,
+          themeLabel,
+          sourcePost: current.sourcePost,
+          opener: current.opener,
+          summary: current.summary,
+          leaderNote: current.leaderNote,
+          closing: current.closing,
+          links: current.linkCandidates
+            .filter((l) => l.selected && l.url.trim())
+            .map((l) => ({ title: l.title, url: l.url })),
+          fullText: finalText,
+          keywords: current.keywords,
+          researchBrief: current.researchBrief,
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        configured?: boolean;
+        item?: { id: string };
+      };
+      if (res.status === 503 || data.configured === false) {
+        setHistoryConfigured(false);
+        setHint(
+          "コピーした。履歴DB未接続（DATABASE_URL）。グループチャットへ貼って",
+        );
+        return;
+      }
+      if (!res.ok) {
+        setHint(
+          `コピーした。履歴保存は失敗（${data.error ?? res.status}）。投稿は手元のコピーで続行可`,
+        );
+        return;
+      }
+      setHistoryConfigured(true);
+      setHint("コピーした＋履歴に保存した。グループチャットへ貼って");
+    } catch {
+      setHint(
+        "コピーした。履歴保存リクエスト失敗。投稿は手元のコピーで続行可",
+      );
     }
   }
 
@@ -448,6 +555,21 @@ export function ReviewWorkbench() {
       {hint ? (
         <p className="text-sm text-muted-foreground" role="status">
           {hint}
+        </p>
+      ) : null}
+
+      {relatedHint ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {relatedHint}
+          {historyConfigured === false
+            ? " · Neon 未接続"
+            : historyConfigured
+              ? ""
+              : ""}
+        </p>
+      ) : historyConfigured === false ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          履歴DB（Neon）未接続。コピーはできる。接続後に2周分を貯められる
         </p>
       ) : null}
 

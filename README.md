@@ -11,6 +11,8 @@ ADS 卒業制作用の **トシオ専用モバイル Web**。
 
 このリポは **実装**。方針が変わったら先に DECISIONS を更新する。
 
+改修アイデアの退避は [`ideas-parking.md`](ideas-parking.md)（「パークして」で追記）。
+
 ## スタック
 
 - Next.js App Router（16）
@@ -49,7 +51,8 @@ npm run lint
 ### データ／認証
 
 - マスタ正本: **localStorage**（JSON）。端末またぎなし
-- バックアップ: 設定画面で JSON コピー／取り込み
+- **レビュー履歴正本: Neon**（`reviews` 最小。Parking `P-20260808-G`）。`DATABASE_URL` 必須。スキーマは `db/schema.sql`（初回APIでも CREATE IF NOT EXISTS）
+- バックアップ: 設定画面で JSON コピー／取り込み（マスタ）。履歴は DB
 - 認証: 設定でパスワード有効化（ハッシュ保存）。タブ単位の session 解除
 - 理念全文はリポに置かない
 

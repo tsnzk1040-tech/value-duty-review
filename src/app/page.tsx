@@ -49,10 +49,6 @@ export default function Home() {
           設定
         </Button>
       </nav>
-
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        設計正本は personal-visual-explainers の DECISIONS.md。ホーム画面追加でアプリ風に使える。
-      </p>
     </div>
   );
 }
