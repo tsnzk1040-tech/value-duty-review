@@ -70,5 +70,6 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - 要点: 同 API `kind=research-brief`
 - 所感: 同 API `kind=leader`（貼り返し・フォーカス・要点が必須）
 - 参照リンク: Googleで調べてアプリにURL貼り返し（♯＝検索ワード）
-- 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め）
+- 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め）。定型の二重は組み立て時に機械修正
+- **投稿前**: 通読ステップの最終チェック（`src/lib/review/final-check.ts`）／Cursor は [final-check.md](final-check.md)
 - プロンプト: `src/lib/review/prompts.ts`

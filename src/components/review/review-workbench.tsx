@@ -28,6 +28,11 @@ import {
   type ReviewDraft,
   type ReviewStep,
 } from "@/lib/review/draft";
+import {
+  checkFinalReviewPost,
+  repairDuplicatedGuidelinePhrase,
+  type FinalCheckResult,
+} from "@/lib/review/final-check";
 
 export function ReviewWorkbench() {
   const { settings, ready } = useSettings();
@@ -35,6 +40,7 @@ export function ReviewWorkbench() {
   const [hint, setHint] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [manualUrl, setManualUrl] = useState("");
+  const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -69,6 +75,22 @@ export function ReviewWorkbench() {
     () => (draft ? formatReviewPost(draft) : ""),
     [draft],
   );
+
+  useEffect(() => {
+    if (!draft || draft.step !== 5) {
+      setFinalCheck(null);
+      return;
+    }
+    const cleanedSummary = repairDuplicatedGuidelinePhrase(draft.summary);
+    if (cleanedSummary !== draft.summary) {
+      setDraft((prev) =>
+        prev ? { ...prev, summary: cleanedSummary } : prev,
+      );
+      setHint("要約の定型二重を自動で直した。通読して確認して");
+      return;
+    }
+    setFinalCheck(checkFinalReviewPost(finalText));
+  }, [draft, finalText]);
 
   const activeMembers = useMemo(
     () => settings.members.filter((m) => m.active),
@@ -345,7 +367,42 @@ export function ReviewWorkbench() {
     })();
   }
 
+  function runFinalCheck() {
+    const result = checkFinalReviewPost(finalText);
+    setFinalCheck(result);
+    if (result.ok) {
+      setHint(
+        result.issues.length
+          ? "最終チェック: 重大な問題なし（警告あり）。通読してからコピーして"
+          : "最終チェック: OK。通読してからコピーして",
+      );
+    } else {
+      setHint("最終チェック: 直す箇所あり。下の指摘を見てからコピーして");
+    }
+  }
+
+  function repairFinalDuplication() {
+    const current = draft;
+    if (!current) return;
+    const nextSummary = repairDuplicatedGuidelinePhrase(current.summary);
+    const patched = { ...current, summary: nextSummary };
+    patch({ summary: nextSummary });
+    const after = checkFinalReviewPost(formatReviewPost(patched));
+    setFinalCheck(after);
+    setHint(
+      after.ok
+        ? "定型の二重を直した。もう一度通読して"
+        : "自動修正しきれなかった。要約欄を手で直して",
+    );
+  }
+
   async function copyFinal() {
+    const result = checkFinalReviewPost(finalText);
+    setFinalCheck(result);
+    if (!result.ok) {
+      setHint("コピー前チェックで問題あり。指摘を直してからもう一度");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(finalText);
       setHint("投稿用テキストをコピーした。グループチャットへ貼って");
@@ -822,7 +879,55 @@ export function ReviewWorkbench() {
               value={finalText}
             />
           </div>
-          <Button className="h-11 w-full" onClick={copyFinal}>
+          {finalCheck ? (
+            <div
+              className={
+                finalCheck.ok
+                  ? "rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+                  : "rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm"
+              }
+              role="status"
+            >
+              <p className="font-medium">
+                最終チェック: {finalCheck.ok ? "OK" : "要修正"}
+              </p>
+              {finalCheck.issues.length ? (
+                <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                  {finalCheck.issues.map((i) => (
+                    <li key={i.id}>
+                      [{i.severity === "error" ? "必須" : "注意"}] {i.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  定型の二重・ですね語尾など、機械チェック上の問題なし
+                </p>
+              )}
+            </div>
+          ) : null}
+          <Button variant="outline" className="h-11 w-full" onClick={runFinalCheck}>
+            最終チェックを再実行
+          </Button>
+          {finalCheck &&
+          !finalCheck.ok &&
+          finalCheck.issues.some(
+            (i) =>
+              i.id === "dup-guideline-about" || i.id === "dup-prefix-phrase",
+          ) ? (
+            <Button
+              variant="secondary"
+              className="h-11 w-full"
+              onClick={repairFinalDuplication}
+            >
+              定型の二重を自動で直す
+            </Button>
+          ) : null}
+          <Button
+            className="h-11 w-full"
+            onClick={copyFinal}
+            disabled={Boolean(finalCheck && !finalCheck.ok)}
+          >
             投稿用にコピー
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(4)}>
@@ -834,6 +939,7 @@ export function ReviewWorkbench() {
             onClick={() => {
               const next = createEmptyDraft(draft.themeId);
               setDraft(next);
+              setFinalCheck(null);
               setHint("下書きをクリアした。次のレビューから");
             }}
           >

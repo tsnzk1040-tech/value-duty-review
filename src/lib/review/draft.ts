@@ -1,5 +1,6 @@
 import { generateLeaderStub } from "@/lib/review/providers/leader";
 import { generateSummaryStub } from "@/lib/review/providers/summary";
+import { repairDuplicatedGuidelinePhrase } from "@/lib/review/final-check";
 import { formatThanks } from "@/lib/review/thanks";
 
 export { extractSummaryPoints } from "@/lib/review/draft-extract";
@@ -165,19 +166,21 @@ export function formatReviewPost(draft: ReviewDraft): string {
     .map((l) => `♯${l.title}\n${l.url}`)
     .join("\n\n");
 
-  return [
-    draft.opener.trim() || formatThanks(draft.presenterName),
-    "",
-    draft.summary.trim(),
-    "",
-    draft.leaderNote.trim(),
-    links ? `\n${links}` : "",
-    "",
-    draft.closing.trim() || DEFAULT_CLOSING,
-  ]
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return repairDuplicatedGuidelinePhrase(
+    [
+      draft.opener.trim() || formatThanks(draft.presenterName),
+      "",
+      draft.summary.trim(),
+      "",
+      draft.leaderNote.trim(),
+      links ? `\n${links}` : "",
+      "",
+      draft.closing.trim() || DEFAULT_CLOSING,
+    ]
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim(),
+  );
 }
 
 export function loadReviewDraft(): ReviewDraft | null {

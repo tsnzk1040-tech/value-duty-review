@@ -18,6 +18,7 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 | 組み立て・スタブ実装 | `src/lib/review/draft.ts` / `generate.ts` / `POST /api/review/draft` |
 | プロンプト | `src/lib/review/prompts.ts` |
 | 評価の見方 | [references/eval-scenarios.md](references/eval-scenarios.md) |
+| **投稿前チェック** | [references/final-check.md](references/final-check.md)（アプリ通読＋Cursorサブエージェント） |
 
 ## 入力（優先順）
 
@@ -34,7 +35,8 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 - [ ] 3. お礼 → 要約共有 → 所感・着想 を書く
 - [ ] 4. リンクは採択分だけ（無ければスキップ）
 - [ ] 5. 締めの呼びかけ
-- [ ] 6. 不合格の典型・「入れないもの」に当たってないか自己チェック
+- [ ] 6. [final-check.md](references/final-check.md) に従い投稿前チェック（定型二重・ですね等）。Cursor上ならサブエージェントに全文を渡して報告させる
+- [ ] 7. 不合格の典型・「入れないもの」に当たってないか自己チェック
 
 ## 生成時のルール（短く）
 

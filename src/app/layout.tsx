@@ -19,6 +19,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "value-duty-review",
   description: "通勤向け・自分専用のレビュー／ローテ Web",
+  applicationName: "value-duty-review",
+  appleWebApp: {
+    capable: true,
+    title: "VDRレビュー",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
