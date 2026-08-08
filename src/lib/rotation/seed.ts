@@ -121,39 +121,13 @@ function themeAt(index: number): string {
 }
 
 /**
- * Prior cycles for fair-assign diversity.
- * Member ids follow the verbatim roster; themes cycle the Value枝 catalog.
+ * Prior cycles for fair-assign.
+ * Latest = トシオ提供の「新ローテーション」（data/local/members-and-rotation.json と同内容）。
+ * 1つ前 = その直前サイクル（仮・間隔計算用）。
  */
 export const POC_HISTORY_CYCLES: RotationCycle[] = [
   {
-    id: "hist-1",
-    label: "前々サイクル（仮）",
-    days: [
-      { date: "2026-06-02", memberId: "m-amakawa", valueItemId: themeAt(0) },
-      { date: "2026-06-03", memberId: "m-makishima", valueItemId: themeAt(1) },
-      { date: "2026-06-04", memberId: "m-kato", valueItemId: themeAt(2) },
-      { date: "2026-06-05", memberId: "m-shinohara", valueItemId: themeAt(3) },
-      { date: "2026-06-06", memberId: "m-sakuma", valueItemId: themeAt(4) },
-      { date: "2026-06-09", memberId: "m-chigira", valueItemId: themeAt(5) },
-      { date: "2026-06-10", memberId: "m-kobayashi-megumi", valueItemId: themeAt(6) },
-      { date: "2026-06-11", memberId: "m-arita", valueItemId: themeAt(7) },
-      { date: "2026-06-12", memberId: "m-tanaka", valueItemId: themeAt(8) },
-      { date: "2026-06-13", memberId: "m-sakurai", valueItemId: themeAt(9) },
-      { date: "2026-06-16", memberId: "m-nakajo", valueItemId: themeAt(10) },
-      { date: "2026-06-17", memberId: "m-susuga", valueItemId: themeAt(11) },
-      { date: "2026-06-18", memberId: "m-furutaka", valueItemId: themeAt(12) },
-      { date: "2026-06-19", memberId: "m-takeya", valueItemId: themeAt(13) },
-      { date: "2026-06-20", memberId: "m-tamada", valueItemId: themeAt(14) },
-      { date: "2026-06-23", memberId: "m-tateishi", valueItemId: themeAt(15) },
-      { date: "2026-06-24", memberId: "m-matsumoto", valueItemId: themeAt(16) },
-      { date: "2026-06-25", memberId: "m-kobayashi-taku", valueItemId: themeAt(17) },
-      { date: "2026-06-26", memberId: "m-tagawa", valueItemId: themeAt(18) },
-      { date: "2026-06-27", memberId: "m-tsunezuka", valueItemId: themeAt(0) },
-      { date: "2026-06-30", memberId: "m-amakawa", valueItemId: themeAt(1) },
-    ],
-  },
-  {
-    id: "hist-2",
+    id: "hist-prev",
     label: "前サイクル（仮）",
     days: [
       { date: "2026-07-01", memberId: "m-makishima", valueItemId: themeAt(2) },
@@ -175,6 +149,33 @@ export const POC_HISTORY_CYCLES: RotationCycle[] = [
       { date: "2026-07-24", memberId: "m-kobayashi-taku", valueItemId: themeAt(18) },
       { date: "2026-07-27", memberId: "m-tagawa", valueItemId: themeAt(0) },
       { date: "2026-07-28", memberId: "m-tsunezuka", valueItemId: themeAt(18) },
+    ],
+  },
+  {
+    id: "cycle-shin-2026-07-29",
+    label: "新ローテーション",
+    days: [
+      { date: "2026-07-29", memberId: "m-amakawa", valueItemId: themeAt(0) },
+      { date: "2026-07-30", memberId: "m-makishima", valueItemId: themeAt(1) },
+      { date: "2026-07-31", memberId: "m-kato", valueItemId: themeAt(2) },
+      { date: "2026-08-03", memberId: "m-shinohara", valueItemId: themeAt(3) },
+      { date: "2026-08-04", memberId: "m-sakuma", valueItemId: themeAt(4) },
+      { date: "2026-08-05", memberId: "m-chigira", valueItemId: themeAt(5) },
+      { date: "2026-08-06", memberId: "m-kobayashi-megumi", valueItemId: themeAt(6) },
+      { date: "2026-08-07", memberId: "m-arita", valueItemId: themeAt(7) },
+      { date: "2026-08-10", memberId: "m-tanaka", valueItemId: themeAt(8) },
+      { date: "2026-08-12", memberId: "m-sakurai", valueItemId: themeAt(9) },
+      { date: "2026-08-13", memberId: "m-nakajo", valueItemId: themeAt(10) },
+      { date: "2026-08-14", memberId: "m-susuga", valueItemId: themeAt(11) },
+      { date: "2026-08-17", memberId: "m-furutaka", valueItemId: themeAt(12) },
+      { date: "2026-08-18", memberId: "m-takeya", valueItemId: themeAt(13) },
+      { date: "2026-08-19", memberId: "m-tamada", valueItemId: themeAt(14) },
+      { date: "2026-08-20", memberId: "m-tateishi", valueItemId: themeAt(15) },
+      { date: "2026-08-21", memberId: "m-matsumoto", valueItemId: themeAt(16) },
+      { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: themeAt(17) },
+      { date: "2026-08-25", memberId: "m-tagawa", valueItemId: themeAt(18) },
+      { date: "2026-08-26", memberId: "m-susuga", valueItemId: themeAt(0) },
+      { date: "2026-08-27", memberId: "m-tsunezuka", valueItemId: themeAt(1) },
     ],
   },
 ];
