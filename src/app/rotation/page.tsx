@@ -11,6 +11,7 @@ export default function RotationPage() {
         <h1 className="text-2xl font-semibold tracking-tight">公平アサイン</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
           スキル規則どおりに1サイクルを出し、手直ししてノート用にコピーする。採否はトシオ。
+          ノート文には WowTalk 振り返り投稿の運用指示が含まれる。
         </p>
       </header>
 
