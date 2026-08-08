@@ -181,6 +181,7 @@ export function ReviewWorkbench() {
             kind: "summary",
             sourcePost: draft!.sourcePost,
             themeLabel,
+            themeId: draft!.themeId,
             lens: draft!.lens,
             presenterName: draft!.presenterName,
           }),
@@ -391,12 +392,14 @@ export function ReviewWorkbench() {
             kind: "leader",
             sourcePost: draft!.sourcePost,
             themeLabel,
+            themeId: draft!.themeId,
             lens: draft!.lens,
             keywords: draft!.keywords,
             summary: draft!.summary,
             selectedLinkTitles,
             researchFocus: draft!.researchFocus,
             researchBrief: draft!.researchBrief,
+            presenterName: draft!.presenterName,
           }),
         });
         const data = (await res.json()) as {

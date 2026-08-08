@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       kind: "summary",
       sourcePost: body.sourcePost,
       themeLabel: body.themeLabel,
+      themeId: body.themeId,
       lens: body.lens,
       presenterName: body.presenterName,
     });
@@ -146,12 +147,14 @@ export async function POST(req: Request) {
       kind: "leader",
       sourcePost: body.sourcePost,
       themeLabel: body.themeLabel,
+      themeId: body.themeId,
       lens: body.lens,
       keywords: body.keywords,
       summary: body.summary,
       selectedLinkTitles: body.selectedLinkTitles,
       researchFocus: body.researchFocus,
       researchBrief: body.researchBrief,
+      presenterName: body.presenterName,
     });
     return NextResponse.json(result);
   }

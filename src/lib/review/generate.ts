@@ -3,6 +3,7 @@ import type {
   LeaderGenerateInput,
   SummaryGenerateInput,
 } from "@/lib/review/prompts";
+import { loadHistoryNotesForDraft } from "@/lib/review/history";
 import {
   generateKeywordSuggestionsGemini,
   generateKeywordSuggestionsStub,
@@ -41,6 +42,7 @@ export type ReviewSummaryGenerateRequest = {
   kind: "summary";
   sourcePost: string;
   themeLabel: string;
+  themeId?: string;
   lens?: string;
   presenterName: string;
 };
@@ -49,12 +51,14 @@ export type ReviewLeaderGenerateRequest = {
   kind: "leader";
   sourcePost: string;
   themeLabel: string;
+  themeId?: string;
   lens?: string;
   keywords?: string;
   summary: string;
   selectedLinkTitles: string[];
   researchFocus: string;
   researchBrief: string;
+  presenterName?: string;
 };
 
 export type ReviewSearchGenerateRequest = {
@@ -159,10 +163,15 @@ export async function generateReviewSummaryDraft(
   input: ReviewSummaryGenerateRequest,
 ): Promise<ReviewSummaryGenerateResponse> {
   const opener = formatThanks(input.presenterName);
+  const historyNotes = await loadHistoryNotesForDraft({
+    themeId: input.themeId,
+    presenterName: input.presenterName,
+  });
   const summaryInput: SummaryGenerateInput = {
     sourcePost: input.sourcePost,
     themeLabel: input.themeLabel,
     lens: input.lens ?? "",
+    historyNotes,
   };
 
   const gate = shouldUseStub();
@@ -342,6 +351,11 @@ export async function generateReviewLeaderDraft(
     };
   }
 
+  const historyNotes = await loadHistoryNotesForDraft({
+    themeId: input.themeId,
+    presenterName: input.presenterName,
+  });
+
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,
     themeLabel: input.themeLabel,
@@ -351,6 +365,7 @@ export async function generateReviewLeaderDraft(
     selectedLinkTitles: input.selectedLinkTitles,
     researchFocus: input.researchFocus,
     researchBrief: input.researchBrief,
+    historyNotes,
   };
 
   const gate = shouldUseStub();

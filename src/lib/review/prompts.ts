@@ -8,6 +8,8 @@ export type SummaryGenerateInput = {
   sourcePost: string;
   themeLabel: string;
   lens: string;
+  /** 同テーマ／同担当の過去レビュー要旨（任意） */
+  historyNotes?: string;
 };
 
 /** Gemini には「あいだの文」だけ出させる。定型の枠はアプリが付ける。 */
@@ -16,6 +18,16 @@ export function buildSummaryInstructions(input: SummaryGenerateInput): string {
     ? `観点メモ（任意）: ${input.lens.trim()}`
     : "観点メモ: なし";
   const heading = valueHeadingForLabel(input.themeLabel);
+  const history = input.historyNotes?.trim()
+    ? [
+        "【過去レビュー（同テーマ／同担当・ソフト重複の材料）】",
+        "- 今日の投稿の事実を優先。過去の言い回しを丸写ししない。",
+        "- 同じ型の要約になりそうなら、今日の固有の実践を前面に出す。",
+        "- 過去との連続が見える場合だけ、薄い一言で触れてもよい（必須ではない）。",
+        input.historyNotes.trim(),
+        "",
+      ].join("\n")
+    : "";
 
   return [
     "あなたは職場のグループチャット向けに、リーダーが返す要約文の「中身」を書く助手です。",
@@ -72,6 +84,7 @@ export function buildSummaryInstructions(input: SummaryGenerateInput): string {
     "管理本部として現場を後方支援する立場でも信頼が大事だという整理",
     "店舗でお客様に感動を届けた素晴らしい接客だった",
     "",
+    history,
     "【入力】",
     `今日の枠の識別用（出力に書かない）: ${input.themeLabel}`,
     `Value帯名（出力に書かない）: ${heading}`,
@@ -214,6 +227,8 @@ export type LeaderGenerateInput = {
   researchFocus: string;
   /** 調べた要点メモ */
   researchBrief: string;
+  /** 同テーマ／同担当の過去レビュー要旨（任意） */
+  historyNotes?: string;
 };
 
 /** 所感・着想の本文だけ。締めはアプリ側の別欄。 */
@@ -232,6 +247,16 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
       ? `採択した参考（タイトルのみ・URLは書かない）: ${input.selectedLinkTitles.join(" / ")}`
       : "採択リンク: なし（不合格）";
   const heading = valueHeadingForLabel(input.themeLabel);
+  const history = input.historyNotes?.trim()
+    ? [
+        "【過去レビュー（同テーマ／同担当・所感の一貫性の材料）】",
+        "- 今日の投稿と調べた要点を優先。過去所感のコピペ禁止。",
+        "- 同じ担当の積み上げが見えるときだけ、連続性に薄く触れてよい。",
+        "- 同じテーマで言い方が被りそうなら、今日の固有点を前面に。",
+        input.historyNotes.trim(),
+        "",
+      ].join("\n")
+    : "";
 
   return [
     "あなたは職場のグループチャット向けに、リーダーが返す「所感・着想」の下書きを書く助手です。",
@@ -264,6 +289,7 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     "指針を意識できていて良いと思います。",
     "皆さんと一緒にやっていきましょう。",
     "",
+    history,
     "【入力】",
     `今日の枠の識別用（所感にコード全文を書かない）: ${input.themeLabel}`,
     `Value帯名（長々再掲しない）: ${heading}`,

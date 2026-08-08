@@ -224,3 +224,50 @@ export async function listRelatedReviews(input: {
   `;
   return (rows as ReviewRow[]).map(mapRow);
 }
+
+/** プロンプト注入用。短い箇条。DB未接続・失敗時は空文字。 */
+export function formatHistoryForPrompt(
+  items: ReviewHistoryRecord[],
+  opts?: { maxItems?: number; maxSummaryChars?: number },
+): string {
+  const maxItems = opts?.maxItems ?? 3;
+  const maxSummaryChars = opts?.maxSummaryChars ?? 120;
+  const slice = items.slice(0, maxItems);
+  if (!slice.length) return "";
+
+  return slice
+    .map((item, i) => {
+      const mid = item.summary
+        .replace(/^Value[０-９0-9].*?行動指針について、/, "")
+        .replace(/想いを共有頂きました。?$/, "")
+        .trim()
+        .slice(0, maxSummaryChars);
+      const note = item.leaderNote.trim().slice(0, 80);
+      return [
+        `${i + 1}. ${item.reviewDate} · ${item.presenterName}` +
+          (item.themeLabel ? ` · ${item.themeLabel}` : ""),
+        mid ? `   要約要旨: ${mid}` : "",
+        note ? `   所感要旨: ${note}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n");
+}
+
+export async function loadHistoryNotesForDraft(input: {
+  themeId?: string;
+  presenterName?: string;
+}): Promise<string> {
+  if (!isDatabaseConfigured()) return "";
+  try {
+    const items = await listRelatedReviews({
+      themeId: input.themeId,
+      presenterName: input.presenterName,
+      limit: 5,
+    });
+    return formatHistoryForPrompt(items);
+  } catch {
+    return "";
+  }
+}
