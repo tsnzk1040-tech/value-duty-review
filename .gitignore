@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Local corporate creed / secrets (do not commit)
+/data/local/
+
 # vercel
 .vercel
 

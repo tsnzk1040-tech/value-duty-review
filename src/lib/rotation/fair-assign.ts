@@ -1,15 +1,19 @@
 import {
   businessDaysBetween,
-  listBusinessDays,
+  listBusinessDaysWithMeta,
   type BusinessDayOptions,
 } from "./business-days";
+import { hasPreviousRotation } from "./previous-cycle";
+import { resolveThemeStart } from "./theme-start";
 import type {
   FairAssignInput,
   FairAssignResult,
+  Member,
   MemberId,
   RotationDay,
   ValueItemId,
 } from "./types";
+import { valueGroupForItem } from "./value-group";
 
 /** Mulberry32 — small deterministic PRNG from a numeric seed. */
 function mulberry32(seed: number): () => number {
@@ -42,8 +46,9 @@ export type FairAssignOptions = FairAssignInput & {
 };
 
 /**
- * Fair rotation assigner (POC skill implementation).
- * Encodes DECISIONS §7: cooldown ~7 BD, theme diversity over ~2 cycles, balance.
+ * Theme-first rotation assigner.
+ * Essence: walk themes; place on non-weekend/holiday dates; space people;
+ * avoid same Value as last turn; 常塚 (closer) last so next cycle can be designed.
  */
 export function fairAssign(input: FairAssignOptions): FairAssignResult {
   const active = input.members.filter((m) => m.active);
@@ -54,75 +59,204 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   if (input.valueItems.length === 0) {
     return { days: [], warnings: ["Value枝がありません"] };
   }
+  if (!hasPreviousRotation(input.historyCycles)) {
+    return {
+      days: [],
+      warnings: [
+        "前回のローテが必須です。前回分を登録してから生成してください。",
+      ],
+    };
+  }
 
-  const calendar = input.calendar ?? { skipWeekends: true, holidays: [] };
+  const calendar: BusinessDayOptions = {
+    skipWeekends: input.calendar?.skipWeekends ?? true,
+    skipJapaneseHolidays: input.calendar?.skipJapaneseHolidays ?? true,
+    holidays: input.calendar?.holidays ?? [],
+  };
   const rand = mulberry32(input.seed);
-  const dates = listBusinessDays(
+
+  const themeResolved = resolveThemeStart(
+    input.themeStartValueItemId,
+    input.historyCycles,
+    input.valueItems,
+  );
+  const themeStartIndex = themeResolved.index;
+
+  // Enough slots so every active member can appear once (no sit-outs).
+  // Themes still drive the sequence and wrap the catalog as needed.
+  const themeSlotCount = Math.max(
+    input.businessDayCount > 0
+      ? input.businessDayCount
+      : input.valueItems.length,
+    active.length,
+  );
+  if (input.businessDayCount > 0 && input.businessDayCount < active.length) {
+    warnings.push(
+      `テーマ枠設定 ${input.businessDayCount} はメンバー ${active.length} 人に足りないため ${themeSlotCount} 枠に引き上げ（休み番なし）`,
+    );
+  }
+
+  const themeSequence = Array.from({ length: themeSlotCount }, (_, di) => {
+    return input.valueItems[
+      (themeStartIndex + di) % input.valueItems.length
+    ]!;
+  });
+
+  const { days: dates, skippedJapaneseHolidays } = listBusinessDaysWithMeta(
     input.cycleStart,
-    input.businessDayCount,
+    themeSlotCount,
     calendar,
   );
+  if (skippedJapaneseHolidays.length > 0) {
+    const sample = skippedJapaneseHolidays
+      .map((h) => `${h.date}（${h.name}）`)
+      .join("、");
+    warnings.push(
+      `土日祝を避けて日付配置（スキップした祝日 ${skippedJapaneseHolidays.length}日）: ${sample}`,
+    );
+  }
+
+  if (themeResolved.source === "auto" && themeResolved.previousValueItemId) {
+    const prevLabel =
+      input.valueItems.find((v) => v.id === themeResolved.previousValueItemId)
+        ?.label ?? themeResolved.previousValueItemId;
+    const nextLabel =
+      input.valueItems.find((v) => v.id === themeResolved.valueItemId)?.label ??
+      themeResolved.valueItemId;
+    warnings.push(
+      `開始テーマ（自動）: ${nextLabel} ← 前サイクル最終 ${themeResolved.previousDate ?? ""} ${prevLabel} の次`,
+    );
+  } else if (themeResolved.source === "manual") {
+    const label =
+      input.valueItems.find((v) => v.id === themeResolved.valueItemId)?.label ??
+      themeResolved.valueItemId;
+    warnings.push(`開始テーマ（手動）: ${label}`);
+  } else if (themeResolved.source === "fallback") {
+    const label =
+      input.valueItems.find((v) => v.id === themeResolved.valueItemId)?.label ??
+      themeResolved.valueItemId;
+    warnings.push(
+      `開始テーマ（フォールバック）: ${label}（履歴なし、または指定ID不明）`,
+    );
+  }
+
+  warnings.push(
+    `テーマ枠 ${themeSlotCount}（カタログ ${input.valueItems.length}・メンバー ${active.length}）。テーマ巡回が本質。日付は土日祝を避けて乗せる。休み番なし。`,
+  );
+
+  const themeStartMeta = {
+    valueItemId: themeResolved.valueItemId,
+    source: themeResolved.source,
+    previousValueItemId: themeResolved.previousValueItemId,
+  };
 
   const historyDays: RotationDay[] = input.historyCycles.flatMap((c) => c.days);
   const built: RotationDay[] = [];
 
   const memberCount = new Map<MemberId, number>();
-  const themeCount = new Map<ValueItemId, number>();
   for (const m of active) memberCount.set(m.id, 0);
-  for (const v of input.valueItems) themeCount.set(v.id, 0);
 
   const lastAssignDate = new Map<MemberId, string>();
+  const lastThemeId = new Map<MemberId, ValueItemId>();
   for (const day of historyDays) {
     lastAssignDate.set(day.memberId, day.date);
+    lastThemeId.set(day.memberId, day.valueItemId);
   }
 
-  const themesByMember = new Map<MemberId, Set<ValueItemId>>();
-  for (const m of active) themesByMember.set(m.id, new Set());
-  for (const day of historyDays) {
-    const set = themesByMember.get(day.memberId);
-    if (set) set.add(day.valueItemId);
+  const closerId = input.lastAssigneeMemberId?.trim() || "";
+  const closer =
+    closerId.length > 0 ? active.find((m) => m.id === closerId) : undefined;
+  if (closerId && !closer) {
+    warnings.push(
+      `最終当番メンバー（${closerId}）がアクティブ一覧にいません。最終日ロックをスキップします`,
+    );
   }
 
-  for (const date of dates) {
-    const member = pickWeighted(
-      active,
-      (m) => {
-        let score = 10;
-        const last = lastAssignDate.get(m.id);
-        if (last) {
-          const gap = businessDaysBetween(last, date, calendar);
-          if (gap < input.cooldownBusinessDays) {
-            score -= (input.cooldownBusinessDays - gap) * 8;
-          }
-        }
-        const assigned = memberCount.get(m.id) ?? 0;
-        const avg =
-          built.length === 0 ? 0 : built.length / Math.max(active.length, 1);
-        score -= (assigned - avg) * 3;
-        if (built.length > 0 && built[built.length - 1].memberId === m.id) {
-          score -= 12;
-        }
-        return score;
-      },
-      rand,
+  const newcomers = active.filter(
+    (m) => m.newcomer && (!closer || m.id !== closer.id),
+  );
+  if (newcomers.length > 0) {
+    warnings.push(
+      `新人 ${newcomers.length}名はローテ後方（最終当番の直前）に配置: ${newcomers
+        .map((m) => m.displayName)
+        .join("、")}`,
     );
+  }
 
-    const usedThemes = themesByMember.get(member.id) ?? new Set();
-    const valueItem = pickWeighted(
-      input.valueItems,
-      (v) => {
-        let score = 10;
-        if (usedThemes.has(v.id)) score -= 9;
-        const tc = themeCount.get(v.id) ?? 0;
-        const avg =
-          built.length === 0
-            ? 0
-            : built.length / Math.max(input.valueItems.length, 1);
-        score -= (tc - avg) * 2;
-        return score;
-      },
-      rand,
+  for (let di = 0; di < dates.length; di += 1) {
+    const date = dates[di]!;
+    const valueItem = themeSequence[di]!;
+    const themeValue = valueGroupForItem(valueItem.id, input.valueItems);
+    const isLastDay = di === dates.length - 1;
+    const forceCloser = Boolean(isLastDay && closer);
+
+    const pool: Member[] =
+      closer && !forceCloser
+        ? active.filter((m) => m.id !== closer.id)
+        : active;
+
+    const veterans = pool.filter((m) => !m.newcomer);
+    const newcomerPool = pool.filter((m) => Boolean(m.newcomer));
+
+    // Veterans first; newcomers only after all veterans have their turn (end of cycle, before closer).
+    const veteranPending = veterans.filter(
+      (m) => (memberCount.get(m.id) ?? 0) === 0,
     );
+    const stagePool =
+      !forceCloser && veteranPending.length > 0 ? veterans : pool;
+    const stageFocus =
+      !forceCloser && veteranPending.length > 0
+        ? veteranPending
+        : !forceCloser && newcomerPool.length > 0 && veteranPending.length === 0
+          ? newcomerPool.filter((m) => (memberCount.get(m.id) ?? 0) === 0)
+          : stagePool;
+
+    const minCount = stageFocus.reduce(
+      (min, m) => Math.min(min, memberCount.get(m.id) ?? 0),
+      Number.POSITIVE_INFINITY,
+    );
+    let eligible =
+      stageFocus.length === 0
+        ? pool
+        : stageFocus.filter((m) => (memberCount.get(m.id) ?? 0) === minCount);
+
+    // Prefer people whose previous Value ≠ this theme's Value
+    if (themeValue != null && !forceCloser) {
+      const differentValue = eligible.filter((m) => {
+        const prevId = lastThemeId.get(m.id);
+        if (!prevId) return true;
+        const prevVal = valueGroupForItem(prevId, input.valueItems);
+        return prevVal !== themeValue;
+      });
+      if (differentValue.length > 0) eligible = differentValue;
+    }
+
+    const member = forceCloser
+      ? closer!
+      : pickWeighted(
+          eligible.length > 0 ? eligible : pool,
+          (m) => {
+            let score = 10;
+            if (m.newcomer && veteranPending.length > 0) score -= 30;
+            const last = lastAssignDate.get(m.id);
+            if (last) {
+              const gap = businessDaysBetween(last, date, calendar);
+              if (gap < input.cooldownBusinessDays) {
+                score -= (input.cooldownBusinessDays - gap) * 10;
+              }
+            }
+            const prevId = lastThemeId.get(m.id);
+            if (prevId && themeValue != null) {
+              const prevVal = valueGroupForItem(prevId, input.valueItems);
+              if (prevVal === themeValue) score -= 20;
+            }
+            if (built.length > 0 && built[built.length - 1]!.memberId === m.id) {
+              score -= 12;
+            }
+            return score;
+          },
+          rand,
+        );
 
     const day: RotationDay = {
       date,
@@ -132,34 +266,64 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
     built.push(day);
 
     lastAssignDate.set(member.id, date);
+    lastThemeId.set(member.id, valueItem.id);
     memberCount.set(member.id, (memberCount.get(member.id) ?? 0) + 1);
-    themeCount.set(valueItem.id, (themeCount.get(valueItem.id) ?? 0) + 1);
-    usedThemes.add(valueItem.id);
+  }
+
+  if (closer && built.length > 0) {
+    const last = built[built.length - 1]!;
+    if (last.memberId !== closer.id) {
+      warnings.push(
+        `最低限ルール未達: 最終が ${closer.displayName} になっていません（次ローテ設計のため最終固定）`,
+      );
+    }
+  }
+
+  const doubles = active.filter((m) => (memberCount.get(m.id) ?? 0) >= 2);
+  if (doubles.length > 0) {
+    warnings.push(
+      `同一サイクルで2回以上: ${doubles
+        .map((m) => `${m.displayName}×${memberCount.get(m.id)}`)
+        .join("、")}`,
+    );
   }
 
   for (const m of active) {
     const count = memberCount.get(m.id) ?? 0;
-    if (count === 0) warnings.push(`${m.displayName} が0回です（手直し推奨）`);
+    if (count === 0) {
+      warnings.push(`${m.displayName} が0回です（想定外・手直し推奨）`);
+    }
   }
 
   let cooldownHits = 0;
+  let sameValueHits = 0;
   for (let i = 0; i < built.length; i += 1) {
-    const day = built[i];
-    const prev = [...historyDays, ...built.slice(0, i)]
-      .filter((d) => d.memberId === day.memberId)
-      .map((d) => d.date)
-      .sort()
-      .at(-1);
+    const day = built[i]!;
+    const prevDays = [...historyDays, ...built.slice(0, i)].filter(
+      (d) => d.memberId === day.memberId,
+    );
+    const prev = prevDays.map((d) => d.date).sort().at(-1);
     if (prev) {
       const gap = businessDaysBetween(prev, day.date, calendar);
       if (gap > 0 && gap < input.cooldownBusinessDays) cooldownHits += 1;
     }
+    const prevTheme = prevDays.at(-1)?.valueItemId;
+    if (prevTheme) {
+      const a = valueGroupForItem(prevTheme, input.valueItems);
+      const b = valueGroupForItem(day.valueItemId, input.valueItems);
+      if (a != null && a === b) sameValueHits += 1;
+    }
   }
   if (cooldownHits > 0) {
     warnings.push(
-      `クールダウン未達が ${cooldownHits} 日あります（メンバー数に対して日数が多いと起きやすい。手直し可）`,
+      `日付が近すぎる当番が ${cooldownHits} 件（クールダウン目安 ${input.cooldownBusinessDays} 営業日）`,
+    );
+  }
+  if (sameValueHits > 0) {
+    warnings.push(
+      `前回と同じ Value 帯の当番が ${sameValueHits} 件（手直し可）`,
     );
   }
 
-  return { days: built, warnings };
+  return { days: built, warnings, themeStart: themeStartMeta };
 }

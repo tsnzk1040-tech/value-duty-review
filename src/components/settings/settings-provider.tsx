@@ -16,6 +16,7 @@ import {
   parseSettingsJson,
   saveSettings,
 } from "@/lib/settings/storage";
+import { withSyncedThemeSlots } from "@/lib/settings/sync-theme-slots";
 import type { AppSettings } from "@/lib/settings/types";
 
 type SettingsContextValue = {
@@ -42,8 +43,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     (next: AppSettings | ((prev: AppSettings) => AppSettings)) => {
       setSettings((prev) => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        saveSettings(resolved);
-        return resolved;
+        const synced = withSyncedThemeSlots(resolved);
+        saveSettings(synced);
+        return synced;
       });
     },
     [],

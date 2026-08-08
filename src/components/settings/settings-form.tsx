@@ -6,6 +6,13 @@ import { useSettings } from "@/components/settings/settings-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createSalt, hashPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
@@ -43,6 +50,7 @@ export function SettingsForm() {
       id: newId("m"),
       displayName: "新規メンバー",
       active: true,
+      newcomer: true,
     };
     updateSettings((prev) => ({
       ...prev,
@@ -185,6 +193,11 @@ export function SettingsForm() {
                 />
                 アクティブ（ローテ対象）
               </label>
+              {m.newcomer ? (
+                <p className="text-xs text-muted-foreground">
+                  新人（このローテでは後方配置。ノート用コピー後は通常扱い）
+                </p>
+              ) : null}
               <Button
                 variant="ghost"
                 size="sm"
@@ -201,14 +214,32 @@ export function SettingsForm() {
           ))}
         </ul>
         <Button variant="outline" onClick={addMember}>
-          メンバーを追加
+          メンバーを追加（新人として後方配置）
         </Button>
+        <p className="text-xs text-muted-foreground">
+          追加メンバーは初回ローテのみ後方（最終当番の直前）。そのローテをノート用コピーしたら通常扱いになる。
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium">Vision／Value（参照・改変しない）</h2>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          端末内に一言一句保存。毎日テーマは下の行動指針のみ。
+        </p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+          {settings.creed.vision}
+        </p>
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+          {settings.creed.valueHeadings.map((h) => (
+            <li key={h}>{h}</li>
+          ))}
+        </ul>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">Value枝（テーマ）</h2>
         <p className="text-xs text-muted-foreground">
-          ラベルのみ。理念の全文はここに貼らない（必要ならメモ欄か端末内だけ）。
+          毎日のテーマは ×-① などの行動指針（一言一句そのまま）。Value見出し自体はテーマにしない。
         </p>
         <ul className="flex flex-col gap-2">
           {settings.valueItems.map((v, index) => (
@@ -260,8 +291,27 @@ export function SettingsForm() {
           />
           土日を休む
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.calendar.skipJapaneseHolidays !== false}
+            onChange={(e) =>
+              updateSettings((prev) => ({
+                ...prev,
+                calendar: {
+                  ...prev.calendar,
+                  skipJapaneseHolidays: e.target.checked,
+                },
+              }))
+            }
+          />
+          日本の祝日を自動スキップ（生成年を見て判定・推奨オン）
+        </label>
+        <p className="text-xs text-muted-foreground">
+          祝日マスタは手入力不要。開始日から営業日を数えるときに通る年の祝日を自動除外する。
+        </p>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="holidays">祝日など（YYYY-MM-DD・1行1日）</Label>
+          <Label htmlFor="holidays">追加の休業日（会社休など・YYYY-MM-DD・1行1日）</Label>
           <Textarea
             id="holidays"
             className="min-h-28 font-mono text-xs"
@@ -269,7 +319,7 @@ export function SettingsForm() {
             onChange={(e) => setHolidayDraft(e.target.value)}
           />
           <Button variant="outline" onClick={applyHolidaysFromDraft}>
-            祝日リストを保存
+            追加休業日を保存
           </Button>
         </div>
       </section>
@@ -289,27 +339,25 @@ export function SettingsForm() {
               }))
             }
           />
+          <p className="text-xs text-muted-foreground">
+            デフォルトは「今日のつぎ営業日」（JST・土日祝スキップ）。実表の7/29固定ではない。
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="bd-count">営業日数</Label>
-          <Input
-            id="bd-count"
-            type="number"
-            min={1}
-            value={settings.rotation.businessDayCount}
-            onChange={(e) =>
-              updateSettings((prev) => ({
-                ...prev,
-                rotation: {
-                  ...prev.rotation,
-                  businessDayCount: Number(e.target.value) || 1,
-                },
-              }))
-            }
-          />
+          <Label>テーマ枠数（自動）</Label>
+          <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm tabular-nums">
+            {settings.rotation.businessDayCount}
+            <span className="ml-2 text-muted-foreground">
+              ＝アクティブ{" "}
+              {settings.members.filter((m) => m.active).length} 人
+            </span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            メンバー追加・削除・アクティブ切替に自動同期（休み番なし）。手入力はしない。
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cooldown">クールダウン（営業日）</Label>
+          <Label htmlFor="cooldown">当番間隔の目安（営業日）</Label>
           <Input
             id="cooldown"
             type="number"
@@ -325,6 +373,93 @@ export function SettingsForm() {
               }))
             }
           />
+          <p className="text-xs text-muted-foreground">
+            同じ人が近すぎる日付にならないようにする目安。
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor="theme-start">サイクル開始テーマ</Label>
+          <Select
+            value={
+              !settings.rotation.themeStartValueItemId ||
+              settings.rotation.themeStartValueItemId === "__auto__"
+                ? "__auto__"
+                : settings.rotation.themeStartValueItemId
+            }
+            onValueChange={(value) =>
+              updateSettings((prev) => ({
+                ...prev,
+                rotation: {
+                  ...prev.rotation,
+                  themeStartValueItemId:
+                    !value || value === "__auto__" ? "" : value,
+                },
+              }))
+            }
+          >
+            <SelectTrigger id="theme-start" className="w-full">
+              <SelectValue placeholder="どのテーマから始めるか">
+                {!settings.rotation.themeStartValueItemId ||
+                settings.rotation.themeStartValueItemId === "__auto__"
+                  ? "自動（前サイクル最終テーマの次）"
+                  : (settings.valueItems.find(
+                      (v) => v.id === settings.rotation.themeStartValueItemId,
+                    )?.label ?? settings.rotation.themeStartValueItemId)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__auto__">
+                自動（前サイクル最終テーマの次）
+              </SelectItem>
+              {settings.valueItems.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            既定は前サイクル最終テーマの次（自動）。違う場合だけ手動で修正する。サイクル内はカタログ順固定。
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor="last-assignee">最終当番（最低限ルール）</Label>
+          <Select
+            value={settings.rotation.lastAssigneeMemberId || "__none__"}
+            onValueChange={(value) =>
+              updateSettings((prev) => ({
+                ...prev,
+                rotation: {
+                  ...prev.rotation,
+                  lastAssigneeMemberId:
+                    !value || value === "__none__" ? "" : value,
+                },
+              }))
+            }
+          >
+            <SelectTrigger id="last-assignee" className="w-full">
+              <SelectValue placeholder="最終日の当番">
+                {!settings.rotation.lastAssigneeMemberId
+                  ? "（ロックなし）"
+                  : (settings.members.find(
+                      (m) => m.id === settings.rotation.lastAssigneeMemberId,
+                    )?.displayName ?? settings.rotation.lastAssigneeMemberId)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">（ロックなし）</SelectItem>
+              {settings.members
+                .filter((m) => m.active)
+                .map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.displayName}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            土日＋日本の祝日自動スキップ＋最後はツネヅカ（＝トシオ／常塚（新ローテ））。会社休は上の「追加の休業日」へ。
+          </p>
         </div>
       </section>
 
