@@ -6,7 +6,7 @@ type AppIconProps = {
   markClassName?: string;
 };
 
-/** ホーム画面・ヘッダ用。案A（向かい合う2矢印＝リレー輪）。色は shadcn セマンティックトークン。 */
+/** ホーム画面・ヘッダ用。向かい合う2矢印（リレー輪）。色は shadcn セマンティックトークン。 */
 export function AppIcon({ className, markClassName }: AppIconProps) {
   return (
     <div
@@ -21,7 +21,7 @@ export function AppIcon({ className, markClassName }: AppIconProps) {
   );
 }
 
-/** SVG マーク単体（app-icon-svg と同パス）。 */
+/** SVG マーク単体（app-icon-svg / 静的 PNG と同形）。 */
 export function AppIconMark({ className }: { className?: string }) {
   return (
     <svg
@@ -34,37 +34,28 @@ export function AppIconMark({ className }: { className?: string }) {
       <circle
         cx="16"
         cy="16"
-        r="11"
+        r="12"
+        fill="none"
         stroke="currentColor"
-        strokeWidth="2.25"
-        strokeOpacity="0.35"
+        strokeWidth="1.5"
+        strokeOpacity="0.3"
       />
       <path
-        d="M10 14.5c1.2-3.2 4.2-5.2 7.6-5.2 3.8 0 6.9 2.4 7.9 5.6"
+        d="M8.5 13.2 A8.2 8.2 0 0 1 23.5 13.2"
+        fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2.6"
         strokeLinecap="round"
       />
+      <path d="M21.2 10.4 L25.4 13.6 L20.8 15.5 Z" fill="currentColor" />
       <path
-        d="M23.8 12.2 26 15.8 22.2 16.6"
+        d="M23.5 18.8 A8.2 8.2 0 0 1 8.5 18.8"
+        fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M22 17.5c-1.2 3.2-4.2 5.2-7.6 5.2-3.8 0-6.9-2.4-7.9-5.6"
-        stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2.6"
         strokeLinecap="round"
       />
-      <path
-        d="M8.2 19.8 6 16.2 9.8 15.4"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M10.8 21.6 L6.6 18.4 L11.2 16.5 Z" fill="currentColor" />
     </svg>
   );
 }

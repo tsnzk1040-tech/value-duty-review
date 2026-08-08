@@ -14,7 +14,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!ready) return;
-    if (pathname === "/login") {
+    if (pathname === "/login" || pathname === "/icon-preview") {
       setAllowed(true);
       return;
     }
@@ -38,7 +38,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!allowed && pathname !== "/login") {
+  if (!allowed && pathname !== "/login" && pathname !== "/icon-preview") {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 items-center px-4 py-8 text-sm text-muted-foreground">
         認証へ移動中…
