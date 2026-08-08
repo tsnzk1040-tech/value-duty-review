@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { fairAssign } from "@/lib/rotation/fair-assign";
-import { formatNotebookCopy } from "@/lib/rotation/format-notebook";
+import {
+  formatNotebookCopy,
+  ROTATION_ASSIGNEE_INSTRUCTION,
+} from "@/lib/rotation/format-notebook";
 import type { RotationDay } from "@/lib/rotation/types";
 
 export function RotationWorkbench() {
@@ -185,6 +188,9 @@ export function RotationWorkbench() {
 
       <section className="flex flex-col gap-2">
         <Label htmlFor="notebook-preview">ノート用プレビュー</Label>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {ROTATION_ASSIGNEE_INSTRUCTION}
+        </p>
         <Textarea
           id="notebook-preview"
           readOnly
