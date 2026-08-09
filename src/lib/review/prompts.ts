@@ -2,6 +2,7 @@ import {
   CLOSING_VARIATIONS,
   stripTrailingClosingVariation,
 } from "@/lib/review/closing";
+import { stripGuidelineCodeRestate } from "@/lib/review/final-check";
 import {
   summaryPrefix,
   summarySuffix,
@@ -68,7 +69,7 @@ export function buildSummaryInstructions(input: SummaryGenerateInput): string {
     "【絶対に書かない】",
     "  - Value帯の名称（例: Value６　妥協なき信念、貫くは正道）",
     "  - 「○番目の行動指針について」／「という行動指針について」／「想いを共有頂きました」",
-    "  - 行動指針コードや指針の全文（例: 6-④…）",
+    "  - 行動指針コードや指針の全文（例: 6-④…／「行動指針3-②について」）",
     "  - お礼・定型挨拶（「ありがとう」「本日／今日の振り返りです」など。お礼パートの仕事）",
     "  - 「一歩前進」「浸透が進んだ」「良い循環」など実感・評価フレーズ（所感の仕事）",
     "  - 「ですね」「〜ですね。」などの語尾",
@@ -120,6 +121,7 @@ export function extractSummaryBody(raw: string, themeLabel: string): string {
   // 定型と二重になりやすいフレーズを落とす
   body = body.replace(/の?\d+番目の行動指針について、?/g, "");
   body = body.replace(/(という)?行動指針について、?/g, "");
+  body = stripGuidelineCodeRestate(body);
   body = body.replace(/^について、?/g, "");
 
   const fullLabel = themeLabel.trim();
@@ -127,6 +129,7 @@ export function extractSummaryBody(raw: string, themeLabel: string): string {
   const withoutCode = fullLabel.replace(/^\d+\s*[-－]\s*[①-⑩]\s*/, "").trim();
   if (withoutCode.length >= 8) body = body.split(withoutCode).join("");
   body = body.replace(/^\d+\s*[-－]\s*[①-⑩]\s*/g, "");
+  body = stripGuidelineCodeRestate(body);
 
   return body.replace(/^[,、。\s]+|[,、。\s]+$/g, "").replace(/\s{2,}/g, " ").trim();
 }
@@ -141,6 +144,8 @@ export function isWeakSummaryBody(body: string, themeLabel: string): boolean {
   if (/一歩前進|浸透が進んだ|良い循環/.test(body)) return true;
   if (/ありがとう|(本日|今日)の振り返り/.test(body)) return true;
   if (/行動指針について/.test(body)) return true;
+  if (/行動指針\s*\d+\s*[-－]/.test(body)) return true;
+  if (/^\d+\s*[-－]\s*[①-⑩]\s*について/.test(body)) return true;
   if (/ですね/.test(body)) return true;
   return false;
 }
@@ -165,6 +170,7 @@ function polishSummaryMid(mid: string): string {
   out = out.replace(/(本日の|今日の)振り返り(です|コメント)?[、,。．]?\s*/g, "");
   out = out.replace(/の?\d+番目の行動指針について、?/g, "");
   out = out.replace(/(という)?行動指針について、?/g, "");
+  out = stripGuidelineCodeRestate(out);
   out = out.replace(/^について、?/g, "");
   // 「〜ていますね。」を先に落とす（「ですね」だけ消すと「捉えていま」になる）
   out = out.replace(/ていますね[。．]?/g, "ていて、");

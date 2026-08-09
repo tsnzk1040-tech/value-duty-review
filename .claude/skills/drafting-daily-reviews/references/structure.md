@@ -65,6 +65,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 ## アプリ組み立てとの関係
 
 - **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。`投稿用にコピー` 時に Neon `review_date` へ保存（DBの CURRENT_DATE に頼らない）
+- **定型のあと**: 行動指針コード／「行動指針3-②について」等の再掲は書かない（`extractSummaryBody`／`repairDuplicatedGuidelinePhrase` で機械除去）
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
 - 要約: `POST /api/review/draft` `kind=summary`
 - 検索ワード候補: 同 API `kind=keyword-suggestions`

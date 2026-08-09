@@ -38,6 +38,14 @@ export function checkFinalReviewPost(text: string): FinalCheckResult {
       message: "「〜について、という行動指針について」の重複がある",
     });
   }
+  if (/行動指針について、行動指針\s*\d+\s*[-－]/.test(t)) {
+    issues.push({
+      id: "dup-guideline-code",
+      severity: "error",
+      message:
+        "定型のあとに「行動指針○-①について」が続いてる。コード再掲を消して",
+    });
+  }
 
   if ((t.match(/想いを共有頂きました/g) ?? []).length >= 2) {
     issues.push({
@@ -83,10 +91,31 @@ export function checkFinalReviewPost(text: string): FinalCheckResult {
   return { ok: errors.length === 0, issues };
 }
 
+/** 定型のあとに出やすい「行動指針3-②について」等の再掲を落とす。 */
+export function stripGuidelineCodeRestate(text: string): string {
+  return text
+    .replace(/行動指針\s*\d+\s*[-－]\s*[①-⑩０-９0-9]+\s*について、?/g, "")
+    .replace(/(?:^|[、,])\s*\d+\s*[-－]\s*[①-⑩]\s*について、?/g, (m) =>
+      /^[、,]/.test(m) ? "、" : "",
+    )
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[、,。．\s]+/, "")
+    .trim();
+}
+
 /** 既に組み立て済みの要約行から、二重定型だけ機械修正する。 */
 export function repairDuplicatedGuidelinePhrase(text: string): string {
-  return text
-    .replace(/の(\d+番目|当該)の行動指針について、(という)?行動指針について、/g, "の$1の行動指針について、")
-    .replace(/行動指針について、という行動指針について、/g, "行動指針について、")
-    .replace(/(行動指針について、)\1+/g, "$1");
+  return stripGuidelineCodeRestate(
+    text
+      .replace(
+        /の(\d+番目|当該)の行動指針について、(という)?行動指針について、/g,
+        "の$1の行動指針について、",
+      )
+      .replace(
+        /の(\d+番目|当該)の行動指針について、行動指針\s*\d+\s*[-－]\s*[①-⑩０-９0-9]+\s*について、?/g,
+        "の$1の行動指針について、",
+      )
+      .replace(/行動指針について、という行動指針について、/g, "行動指針について、")
+      .replace(/(行動指針について、)\1+/g, "$1"),
+  );
 }
