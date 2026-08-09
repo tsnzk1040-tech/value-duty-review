@@ -494,6 +494,10 @@ export function ReviewWorkbench() {
   async function copyFinal() {
     const current = draft;
     if (!current) return;
+    if (!current.reviewDate.trim()) {
+      setHint("コメント対象の営業日が空。下書きに戻って日付を入れて");
+      return;
+    }
     const result = checkFinalReviewPost(finalText);
     setFinalCheck(result);
     if (!result.ok) {
@@ -513,6 +517,7 @@ export function ReviewWorkbench() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          reviewDate: current.reviewDate.slice(0, 10),
           presenterName: current.presenterName,
           themeId: current.themeId,
           themeLabel,
@@ -555,7 +560,9 @@ export function ReviewWorkbench() {
   }
 
   const canGenerate =
-    Boolean(draft.sourcePost.trim()) && Boolean(draft.presenterName.trim());
+    Boolean(draft.sourcePost.trim()) &&
+    Boolean(draft.presenterName.trim()) &&
+    Boolean(draft.reviewDate.trim());
 
   return (
     <div className="flex flex-col gap-6">
@@ -596,6 +603,18 @@ export function ReviewWorkbench() {
 
       {draft.step === 1 ? (
         <section className="flex flex-col gap-4" aria-label="下書き">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="review-date">コメント対象の営業日</Label>
+            <Input
+              id="review-date"
+              type="date"
+              value={draft.reviewDate}
+              onChange={(e) => patch({ reviewDate: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              履歴に残す日付。既定は今日（JST）以前の直近営業日。土日・祝なら直す。
+            </p>
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="theme">今日の行動指針</Label>
             <Select
@@ -1057,6 +1076,15 @@ export function ReviewWorkbench() {
 
       {draft.step === 5 ? (
         <section className="flex flex-col gap-4" aria-label="通読コピー">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="review-date-final">コメント対象の営業日（履歴）</Label>
+            <Input
+              id="review-date-final"
+              type="date"
+              value={draft.reviewDate}
+              onChange={(e) => patch({ reviewDate: e.target.value })}
+            />
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="final">投稿用プレビュー（構成どおり）</Label>
             <Textarea

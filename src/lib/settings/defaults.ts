@@ -1,6 +1,7 @@
 import {
   POC_BUSINESS_DAY_COUNT,
   POC_COOLDOWN_BUSINESS_DAYS,
+  POC_MAX_GAP_BUSINESS_DAYS,
   POC_HISTORY_CYCLES,
   POC_LAST_ASSIGNEE_MEMBER_ID,
   POC_MEMBERS,
@@ -31,6 +32,8 @@ export function createDefaultSettings(): AppSettings {
       cycleStart: "",
       businessDayCount: POC_BUSINESS_DAY_COUNT,
       cooldownBusinessDays: POC_COOLDOWN_BUSINESS_DAYS,
+      maxGapBusinessDays: POC_MAX_GAP_BUSINESS_DAYS,
+      avoidSameValueBand: true,
       lastAssigneeMemberId: POC_LAST_ASSIGNEE_MEMBER_ID,
       themeStartValueItemId: POC_THEME_START_VALUE_ITEM_ID,
       historyCycles: structuredClone(POC_HISTORY_CYCLES),

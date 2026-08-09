@@ -241,15 +241,28 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
         ? pool
         : stageFocus.filter((m) => (memberCount.get(m.id) ?? 0) === minCount);
 
-    // Prefer people whose previous Value ≠ this theme's Value
-    if (themeValue != null && !forceCloser) {
-      const differentValue = eligible.filter((m) => {
+    const avoidSameValue = input.avoidSameValueBand !== false;
+
+    const differentValueOf = (candidates: Member[]) =>
+      candidates.filter((m) => {
         const prevId = lastThemeId.get(m.id);
         if (!prevId) return true;
+        if (themeValue == null) return true;
         const prevVal = valueGroupForItem(prevId, input.valueItems);
         return prevVal !== themeValue;
       });
-      if (differentValue.length > 0) eligible = differentValue;
+
+    // Hard preference: same Value band as that person's previous turn is last resort
+    // (except forced closer). Cascade until someone remains.
+    if (avoidSameValue && themeValue != null && !forceCloser) {
+      const cascades: Member[][] = [
+        differentValueOf(eligible),
+        differentValueOf(stageFocus),
+        differentValueOf(stagePool),
+        differentValueOf(pool),
+      ];
+      const picked = cascades.find((c) => c.length > 0);
+      if (picked) eligible = picked;
     }
 
     const member = forceCloser
@@ -265,11 +278,15 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
               if (gap < input.cooldownBusinessDays) {
                 score -= (input.cooldownBusinessDays - gap) * 10;
               }
+              const maxGap = input.maxGapBusinessDays ?? 0;
+              if (maxGap > 0 && gap > maxGap) {
+                score -= (gap - maxGap) * 8;
+              }
             }
             const prevId = lastThemeId.get(m.id);
-            if (prevId && themeValue != null) {
+            if (avoidSameValue && prevId && themeValue != null) {
               const prevVal = valueGroupForItem(prevId, input.valueItems);
-              if (prevVal === themeValue) score -= 20;
+              if (prevVal === themeValue) score -= 40;
             }
             if (built.length > 0 && built[built.length - 1]!.memberId === m.id) {
               score -= 12;
@@ -323,6 +340,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   }
 
   let cooldownHits = 0;
+  let maxGapHits = 0;
   let sameValueHits = 0;
   for (let i = 0; i < built.length; i += 1) {
     const day = built[i]!;
@@ -333,6 +351,12 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
     if (prev) {
       const gap = businessDaysBetween(prev, day.date, calendar);
       if (gap > 0 && gap < input.cooldownBusinessDays) cooldownHits += 1;
+      if (
+        (input.maxGapBusinessDays ?? 0) > 0 &&
+        gap > input.maxGapBusinessDays
+      ) {
+        maxGapHits += 1;
+      }
     }
     const prevTheme = prevDays.at(-1)?.valueItemId;
     if (prevTheme) {
@@ -346,9 +370,16 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
       `日付が近すぎる当番が ${cooldownHits} 件（クールダウン目安 ${input.cooldownBusinessDays} 営業日）`,
     );
   }
+  if (maxGapHits > 0) {
+    warnings.push(
+      `日付が開きすぎの当番が ${maxGapHits} 件（上限目安 ${input.maxGapBusinessDays} 営業日）`,
+    );
+  }
   if (sameValueHits > 0) {
     warnings.push(
-      `前回と同じ Value 帯の当番が ${sameValueHits} 件（手直し可）`,
+      input.avoidSameValueBand === false
+        ? `前回と同じ Value 帯の当番が ${sameValueHits} 件（回避オフ）`
+        : `前回と同じ Value 帯の当番が ${sameValueHits} 件（候補が尽きた例外・手直し可）`,
     );
   }
 

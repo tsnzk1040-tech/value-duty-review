@@ -157,3 +157,31 @@ export function businessDaysBetween(
   }
   return n;
 }
+
+/**
+ * Latest business day on or before `ymd` (weekends / JP holidays skipped).
+ * Default for 「コメント対象の営業日」when opening a new draft.
+ */
+export function latestBusinessDayOnOrBefore(
+  ymd: string,
+  options: BusinessDayOptions = {},
+): string {
+  const jp =
+    options.skipJapaneseHolidays === false
+      ? null
+      : createJapaneseHolidayLookup();
+  let cur = ymd;
+  for (let i = 0; i < 21; i += 1) {
+    if (!isNonWorkingDay(cur, options, jp)) return cur;
+    cur = addCalendarDays(cur, -1);
+  }
+  return ymd;
+}
+
+/** Today (JST) snapped to the latest business day on or before. */
+export function defaultReviewDateYmd(now: Date = new Date()): string {
+  return latestBusinessDayOnOrBefore(todayYmdJst(now), {
+    skipWeekends: true,
+    skipJapaneseHolidays: true,
+  });
+}

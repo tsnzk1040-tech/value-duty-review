@@ -49,6 +49,8 @@ export function RotationWorkbench() {
       cycleStart: settings.rotation.cycleStart,
       businessDayCount: settings.rotation.businessDayCount,
       cooldownBusinessDays: settings.rotation.cooldownBusinessDays,
+      maxGapBusinessDays: settings.rotation.maxGapBusinessDays,
+      avoidSameValueBand: settings.rotation.avoidSameValueBand ?? true,
       lastAssigneeMemberId: settings.rotation.lastAssigneeMemberId,
       themeStartValueItemId: settings.rotation.themeStartValueItemId,
       seed: 20260808,
@@ -79,6 +81,8 @@ export function RotationWorkbench() {
       cycleStart: settings.rotation.cycleStart,
       businessDayCount: settings.rotation.businessDayCount,
       cooldownBusinessDays: settings.rotation.cooldownBusinessDays,
+      maxGapBusinessDays: settings.rotation.maxGapBusinessDays,
+      avoidSameValueBand: settings.rotation.avoidSameValueBand ?? true,
       lastAssigneeMemberId: settings.rotation.lastAssigneeMemberId,
       themeStartValueItemId: settings.rotation.themeStartValueItemId,
       seed: nextSeed,
@@ -143,8 +147,13 @@ export function RotationWorkbench() {
           毎日回す前提: 開始日・開始テーマは自動（違うときだけ手動）。前回ローテ必須。枠＝人数。最終は常塚。
           既定の前回は渡済みの「新ローテーション」（7/29〜8/27）。設定バージョン更新で再読込。
           メンバー{settings.members.filter((m) => m.active).length}・行動指針
-          {settings.valueItems.length}・間隔目安
-          {settings.rotation.cooldownBusinessDays}・祝日自動
+          {settings.valueItems.length}・間隔
+          {settings.rotation.cooldownBusinessDays}〜
+          {settings.rotation.maxGapBusinessDays > 0
+            ? settings.rotation.maxGapBusinessDays
+            : "∞"}
+          {settings.rotation.avoidSameValueBand ? "・同Value回避" : ""}
+          ・祝日自動
           {settings.calendar.skipJapaneseHolidays !== false ? "ON" : "OFF"}
           {settings.rotation.cycleStart
             ? `・開始日手動 ${settings.rotation.cycleStart}`

@@ -193,6 +193,8 @@ export const POC_CYCLE_START = POC_SAMPLE_CYCLE_START;
  */
 export const POC_BUSINESS_DAY_COUNT = POC_MEMBERS.filter((m) => m.active).length;
 export const POC_COOLDOWN_BUSINESS_DAYS = 7;
+/** Soft max gap between a person's assignments (0 = no upper soft limit). */
+export const POC_MAX_GAP_BUSINESS_DAYS = 21;
 
 /** Minimum rule: cycle ends with 常塚（新ローテ）＝ツネヅカ（トシオ）. */
 export const POC_LAST_ASSIGNEE_MEMBER_ID = "m-tsunezuka";

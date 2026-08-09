@@ -3,6 +3,7 @@ import { generateSummaryStub } from "@/lib/review/providers/summary";
 import { repairDuplicatedGuidelinePhrase } from "@/lib/review/final-check";
 import { formatThanks } from "@/lib/review/thanks";
 import { DEFAULT_CLOSING } from "@/lib/review/closing";
+import { defaultReviewDateYmd } from "@/lib/rotation/business-days";
 
 export { extractSummaryPoints } from "@/lib/review/draft-extract";
 export { formatThanks } from "@/lib/review/thanks";
@@ -18,7 +19,7 @@ export {
   pickClosingVariation,
 } from "@/lib/review/closing";
 
-export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v4";
+export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v5";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
@@ -36,6 +37,8 @@ export type LinkCandidate = {
 
 export type ReviewDraft = {
   step: ReviewStep;
+  /** コメント対象の営業日 YYYY-MM-DD（履歴 review_date） */
+  reviewDate: string;
   /** ① paste from group chat */
   sourcePost: string;
   /** 呼び名（お礼用） */
@@ -72,7 +75,7 @@ export const REVIEW_STEPS: {
     step: 1,
     title: "下書き",
     process: "②③",
-    blurb: "投稿・呼び名を入れ、お礼＋要約案を出す（API／Gemini）",
+    blurb: "対象営業日・投稿・呼び名を入れ、お礼＋要約案を出す（API／Gemini）",
   },
   {
     step: 2,
@@ -103,6 +106,7 @@ export const REVIEW_STEPS: {
 export function createEmptyDraft(themeId = ""): ReviewDraft {
   return {
     step: 1,
+    reviewDate: defaultReviewDateYmd(),
     sourcePost: "",
     presenterName: "",
     themeId,
@@ -196,6 +200,10 @@ export function loadReviewDraft(): ReviewDraft | null {
     return {
       ...createEmptyDraft(parsed.themeId ?? ""),
       ...parsed,
+      reviewDate:
+        typeof parsed.reviewDate === "string" && parsed.reviewDate.trim()
+          ? parsed.reviewDate.slice(0, 10)
+          : defaultReviewDateYmd(),
       presenterName: parsed.presenterName ?? "",
       researchFocus: parsed.researchFocus ?? "",
       researchBrief: parsed.researchBrief ?? "",

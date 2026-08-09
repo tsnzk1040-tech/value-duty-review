@@ -37,6 +37,16 @@ export type RotationSettings = {
   /** Soft spacing: avoid same person too soon after prior turn */
   cooldownBusinessDays: number;
   /**
+   * Soft max gap (business days) since prior assignment — avoid leaving someone too long.
+   * 0 = no upper soft limit.
+   */
+  maxGapBusinessDays: number;
+  /**
+   * Prefer / require avoiding the same Value band (1〜6) as that person's previous turn.
+   * Default true: hard filter when anyone eligible has a different band.
+   */
+  avoidSameValueBand: boolean;
+  /**
    * Minimum rule: cycle must end with this member (ツネヅカ＝トシオ / 常塚（新ローテ）).
    * Empty string = no forced closer.
    */

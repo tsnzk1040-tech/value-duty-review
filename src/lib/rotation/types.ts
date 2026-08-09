@@ -44,6 +44,15 @@ export type FairAssignInput = {
   /** ~7 business days cooldown after an assignment */
   cooldownBusinessDays: number;
   /**
+   * Soft max gap since prior assignment (0 = off). Prefer not leaving someone too long.
+   */
+  maxGapBusinessDays: number;
+  /**
+   * Avoid same Value band (1〜6) as that person's previous assignment.
+   * Default true = hard filter when a different-band candidate exists.
+   */
+  avoidSameValueBand: boolean;
+  /**
    * Minimum rule: last business day must be this member
    * (ツネヅカ＝トシオ / 常塚（新ローテ）). Empty = no lock.
    */

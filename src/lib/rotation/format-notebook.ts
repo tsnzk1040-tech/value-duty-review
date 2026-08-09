@@ -8,12 +8,10 @@ export function themeCodeFromLabel(label: string): string {
 }
 
 /**
- * Notebook paste: keep full text only for 1-①; other themes → code only.
+ * Notebook paste: theme column is always code only (`1-①`, `6-④`, …).
  */
 export function formatThemeForNotebook(label: string): string {
-  const code = themeCodeFromLabel(label);
-  if (code === "1-①") return label;
-  return code;
+  return themeCodeFromLabel(label);
 }
 
 /** Notebook column for prior-assignment gap (business days). */

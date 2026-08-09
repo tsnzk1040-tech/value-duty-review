@@ -381,7 +381,7 @@ export function SettingsForm() {
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cooldown">当番間隔の目安（営業日）</Label>
+          <Label htmlFor="cooldown">当番間隔の下限目安（営業日）</Label>
           <Input
             id="cooldown"
             type="number"
@@ -401,6 +401,47 @@ export function SettingsForm() {
             同じ人が近すぎる日付にならないようにする目安。
           </p>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="max-gap">当番間隔の上限目安（営業日）</Label>
+          <Input
+            id="max-gap"
+            type="number"
+            min={0}
+            value={settings.rotation.maxGapBusinessDays}
+            onChange={(e) =>
+              updateSettings((prev) => ({
+                ...prev,
+                rotation: {
+                  ...prev.rotation,
+                  maxGapBusinessDays: Number(e.target.value) || 0,
+                },
+              }))
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            開きすぎを抑える目安。0＝上限なし。既定21。
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            className="size-4 accent-primary"
+            checked={settings.rotation.avoidSameValueBand ?? true}
+            onChange={(e) =>
+              updateSettings((prev) => ({
+                ...prev,
+                rotation: {
+                  ...prev.rotation,
+                  avoidSameValueBand: e.target.checked,
+                },
+              }))
+            }
+          />
+          前回と同じ Value 帯（1〜6）を避ける
+        </label>
+        <p className="text-xs text-muted-foreground sm:col-span-2 -mt-2">
+          ON（既定）: 違う帯の候補がいれば必ずそちら。最終当番ロック時や候補切れだけ例外。
+        </p>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="theme-start">サイクル開始テーマ</Label>
           <Select
