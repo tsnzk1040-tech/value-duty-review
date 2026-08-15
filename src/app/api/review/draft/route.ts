@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       themeId: body.themeId,
       lens: body.lens,
       presenterName: body.presenterName,
+      historyNotes: body.historyNotes,
     });
     return NextResponse.json(result);
   }
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
       currentSummary: body.currentSummary,
       instruction: body.instruction,
       preferredProvider: preferred,
+      historyNotes: body.historyNotes,
     });
     return NextResponse.json(result);
   }
@@ -201,6 +203,7 @@ export async function POST(req: Request) {
       researchFocus: body.researchFocus,
       researchBrief: body.researchBrief,
       presenterName: body.presenterName,
+      historyNotes: body.historyNotes,
     });
     return NextResponse.json(result);
   }

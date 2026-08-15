@@ -37,11 +37,11 @@ export async function registerPlatformPasskey(): Promise<string> {
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: "VDRレビュー", id: rpId },
+      rp: { name: "企業理念リレー", id: rpId },
       user: {
         id: userId,
         name: "vdr-local",
-        displayName: "VDRレビュー",
+        displayName: "企業理念リレー",
       },
       pubKeyCredParams: [
         { type: "public-key", alg: -7 },

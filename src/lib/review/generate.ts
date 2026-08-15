@@ -4,7 +4,6 @@ import type {
   SummaryGenerateInput,
 } from "@/lib/review/prompts";
 import type { ClosingGenerateInput } from "@/lib/review/closing";
-import { loadHistoryNotesForDraft, loadSameThemeHistoryForLeader } from "@/lib/review/history";
 import { generateLlmFinalCheckIssues } from "@/lib/review/providers/llm-final-check";
 import type { FinalCheckIssue } from "@/lib/review/final-check";
 import {
@@ -57,6 +56,7 @@ export type ReviewSummaryGenerateRequest = {
   themeId?: string;
   lens?: string;
   presenterName: string;
+  historyNotes?: string;
 };
 
 export type ReviewSummaryReviseRequest = {
@@ -69,6 +69,7 @@ export type ReviewSummaryReviseRequest = {
   currentSummary: string;
   instruction: string;
   preferredProvider: SummaryModelId;
+  historyNotes?: string;
 };
 
 export type ReviewLeaderGenerateRequest = {
@@ -82,6 +83,7 @@ export type ReviewLeaderGenerateRequest = {
   researchFocus: string;
   researchBrief: string;
   presenterName?: string;
+  historyNotes?: string;
 };
 
 export type ReviewSearchGenerateRequest = {
@@ -243,10 +245,7 @@ export async function generateReviewSummaryDraft(
   input: ReviewSummaryGenerateRequest,
 ): Promise<ReviewSummaryGenerateResponse> {
   const opener = formatThanks(input.presenterName);
-  const historyNotes = await loadHistoryNotesForDraft({
-    themeId: input.themeId,
-    presenterName: input.presenterName,
-  });
+  const historyNotes = input.historyNotes?.trim() ?? "";
   const summaryInput: SummaryGenerateInput = {
     sourcePost: input.sourcePost,
     themeLabel: input.themeLabel,
@@ -338,10 +337,7 @@ export async function generateReviewSummaryRevise(
   input: ReviewSummaryReviseRequest,
 ): Promise<ReviewSummaryReviseResponse> {
   const opener = formatThanks(input.presenterName);
-  const historyNotes = await loadHistoryNotesForDraft({
-    themeId: input.themeId,
-    presenterName: input.presenterName,
-  });
+  const historyNotes = input.historyNotes?.trim() ?? "";
   const summaryInput: SummaryGenerateInput = {
     sourcePost: input.sourcePost,
     themeLabel: input.themeLabel,
@@ -540,7 +536,7 @@ export async function generateReviewLeaderDraft(
     };
   }
 
-  const historyNotes = await loadSameThemeHistoryForLeader(input.themeId);
+  const historyNotes = input.historyNotes?.trim() ?? "";
 
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,

@@ -1,9 +1,5 @@
-import {
-  ensureReviewsSchema,
-  isDatabaseConfigured,
-  REVIEW_HISTORY_LIMIT,
-  sql,
-} from "@/lib/db/neon";
+import type { AppSettings } from "@/lib/settings/types";
+import { latestPreviousCycle } from "@/lib/rotation/previous-cycle";
 
 export type ReviewHistoryLink = {
   title: string;
@@ -44,188 +40,121 @@ export type SaveReviewHistoryInput = {
   reviewDate?: string;
 };
 
-type ReviewRow = {
-  id: string;
-  created_at: string | Date;
-  review_date: string | Date;
-  presenter_name: string;
-  theme_id: string;
-  theme_label: string;
-  source_post: string;
-  opener: string;
-  summary: string;
-  leader_note: string;
-  closing: string;
-  links_json: ReviewHistoryLink[] | string;
-  full_text: string;
-  keywords: string;
-  research_brief: string;
-};
+export const HISTORY_STORAGE_KEY = "vdr.review.history.v1";
 
-function toIsoDate(value: string | Date): string {
-  if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+/** 残す件数＝前回ローテ1周（日数）。無ければ当番人数。 */
+export function reviewHistoryKeepCount(settings: AppSettings): number {
+  const prev = latestPreviousCycle(settings.rotation.historyCycles);
+  if (prev && prev.days.length > 0) return prev.days.length;
+  const active = settings.members.filter((m) => m.active !== false).length;
+  return Math.max(settings.rotation.businessDayCount || 0, active, 1);
 }
 
-function toIsoDateTime(value: string | Date): string {
-  if (typeof value === "string") return value;
-  return value.toISOString();
+function isBrowser(): boolean {
+  return typeof window !== "undefined";
 }
 
-function parseLinks(raw: ReviewHistoryLink[] | string): ReviewHistoryLink[] {
-  if (Array.isArray(raw)) return raw;
+function readAll(): ReviewHistoryRecord[] {
+  if (!isBrowser()) return [];
   try {
-    const parsed = JSON.parse(raw) as ReviewHistoryLink[];
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ReviewHistoryRecord[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-function mapRow(row: ReviewRow): ReviewHistoryRecord {
-  return {
-    id: row.id,
-    createdAt: toIsoDateTime(row.created_at),
-    reviewDate: toIsoDate(row.review_date),
-    presenterName: row.presenter_name,
-    themeId: row.theme_id,
-    themeLabel: row.theme_label,
-    sourcePost: row.source_post,
-    opener: row.opener,
-    summary: row.summary,
-    leaderNote: row.leader_note,
-    closing: row.closing,
-    links: parseLinks(row.links_json),
-    fullText: row.full_text,
-    keywords: row.keywords,
-    researchBrief: row.research_brief,
-  };
+function writeAll(items: ReviewHistoryRecord[], keep: number) {
+  if (!isBrowser()) return;
+  const cap = Math.max(keep, 1);
+  const capped = items
+    .slice()
+    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate))
+    .slice(0, cap);
+  window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(capped));
 }
 
-export async function saveReviewHistory(
+export function pruneReviewHistory(keep: number): ReviewHistoryRecord[] {
+  const items = readAll();
+  writeAll(items, keep);
+  return readAll();
+}
+
+export function saveReviewHistory(
   input: SaveReviewHistoryInput,
-): Promise<ReviewHistoryRecord> {
-  if (!isDatabaseConfigured()) {
-    throw new Error("DATABASE_URL is not set");
-  }
-  await ensureReviewsSchema();
-  const db = sql();
-  const id = crypto.randomUUID();
-  const links = input.links ?? [];
+  keep: number,
+): ReviewHistoryRecord {
   const reviewDate =
     input.reviewDate?.slice(0, 10) ||
     new Date().toISOString().slice(0, 10);
-
-  // 同じ投稿日（review_date）は後勝ちで上書き
-  await db`
-    DELETE FROM reviews
-    WHERE review_date = ${reviewDate}::date
-  `;
-
-  const rows = await db`
-    INSERT INTO reviews (
-      id, review_date, presenter_name, theme_id, theme_label,
-      source_post, opener, summary, leader_note, closing,
-      links_json, full_text, keywords, research_brief
-    ) VALUES (
-      ${id},
-      ${reviewDate}::date,
-      ${input.presenterName.trim()},
-      ${input.themeId.trim()},
-      ${input.themeLabel.trim()},
-      ${input.sourcePost},
-      ${input.opener},
-      ${input.summary},
-      ${input.leaderNote},
-      ${input.closing},
-      ${JSON.stringify(links)}::jsonb,
-      ${input.fullText},
-      ${input.keywords?.trim() ?? ""},
-      ${input.researchBrief?.trim() ?? ""}
-    )
-    RETURNING *
-  `;
-
-  return mapRow(rows[0] as ReviewRow);
+  const record: ReviewHistoryRecord = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    reviewDate,
+    presenterName: input.presenterName.trim(),
+    themeId: input.themeId.trim(),
+    themeLabel: input.themeLabel.trim(),
+    sourcePost: input.sourcePost,
+    opener: input.opener,
+    summary: input.summary,
+    leaderNote: input.leaderNote,
+    closing: input.closing,
+    links: input.links ?? [],
+    fullText: input.fullText,
+    keywords: input.keywords?.trim() ?? "",
+    researchBrief: input.researchBrief?.trim() ?? "",
+  };
+  const next = readAll().filter((item) => item.reviewDate !== reviewDate);
+  next.unshift(record);
+  writeAll(next, keep);
+  return record;
 }
 
-export async function listRecentReviews(
-  limit = REVIEW_HISTORY_LIMIT,
-): Promise<ReviewHistoryRecord[]> {
-  if (!isDatabaseConfigured()) return [];
-  await ensureReviewsSchema();
-  const db = sql();
+export function listRecentReviews(
+  limit: number,
+): ReviewHistoryRecord[] {
   const safeLimit = Math.min(Math.max(limit, 1), 100);
-  const rows = await db`
-    SELECT DISTINCT ON (review_date) *
-    FROM reviews
-    ORDER BY review_date DESC, created_at DESC
-    LIMIT ${safeLimit}
-  `;
-  return (rows as ReviewRow[]).map(mapRow);
+  return readAll()
+    .slice()
+    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate))
+    .slice(0, safeLimit);
 }
 
-/** 同テーマ or／and 同担当の直近（ソフト重複・所感一貫性の材料／履歴検索）。 */
-export async function listRelatedReviews(input: {
+export function listRelatedReviews(input: {
   themeId?: string;
   presenterName?: string;
   limit?: number;
-  /** 両方指定時。履歴UIは and、下書き材料は or（既定） */
   match?: "or" | "and";
-}): Promise<ReviewHistoryRecord[]> {
-  if (!isDatabaseConfigured()) return [];
-  await ensureReviewsSchema();
-  const db = sql();
+}): ReviewHistoryRecord[] {
   const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 100);
   const themeId = input.themeId?.trim() ?? "";
   const presenterName = input.presenterName?.trim() ?? "";
   const matchAnd = input.match === "and";
+  const all = readAll()
+    .slice()
+    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
 
   if (!themeId && !presenterName) {
-    return listRecentReviews(safeLimit);
+    return all.slice(0, safeLimit);
   }
 
-  if (themeId && presenterName) {
-    const rows = matchAnd
-      ? await db`
-          SELECT DISTINCT ON (review_date) *
-          FROM reviews
-          WHERE theme_id = ${themeId} AND presenter_name = ${presenterName}
-          ORDER BY review_date DESC, created_at DESC
-          LIMIT ${safeLimit}
-        `
-      : await db`
-          SELECT DISTINCT ON (review_date) *
-          FROM reviews
-          WHERE theme_id = ${themeId} OR presenter_name = ${presenterName}
-          ORDER BY review_date DESC, created_at DESC
-          LIMIT ${safeLimit}
-        `;
-    return (rows as ReviewRow[]).map(mapRow);
-  }
-
-  if (themeId) {
-    const rows = await db`
-      SELECT DISTINCT ON (review_date) *
-      FROM reviews
-      WHERE theme_id = ${themeId}
-      ORDER BY review_date DESC, created_at DESC
-      LIMIT ${safeLimit}
-    `;
-    return (rows as ReviewRow[]).map(mapRow);
-  }
-
-  const rows = await db`
-    SELECT DISTINCT ON (review_date) *
-    FROM reviews
-    WHERE presenter_name = ${presenterName}
-    ORDER BY review_date DESC, created_at DESC
-    LIMIT ${safeLimit}
-  `;
-  return (rows as ReviewRow[]).map(mapRow);
+  return all
+    .filter((item) => {
+      const themeOk = themeId ? item.themeId === themeId : false;
+      const presenterOk = presenterName
+        ? item.presenterName === presenterName
+        : false;
+      if (themeId && presenterName) {
+        return matchAnd ? themeOk && presenterOk : themeOk || presenterOk;
+      }
+      if (themeId) return themeOk;
+      return presenterOk;
+    })
+    .slice(0, safeLimit);
 }
 
-/** プロンプト注入用。短い箇条。DB未接続・失敗時は空文字。 */
 export function formatHistoryForPrompt(
   items: ReviewHistoryRecord[],
   opts?: { maxItems?: number; maxSummaryChars?: number },
@@ -257,33 +186,21 @@ export function formatHistoryForPrompt(
     .join("\n");
 }
 
-export async function loadHistoryNotesForDraft(input: {
+export function historyNotesForDraft(input: {
   themeId?: string;
   presenterName?: string;
-}): Promise<string> {
-  if (!isDatabaseConfigured()) return "";
-  try {
-    const items = await listRelatedReviews({
-      themeId: input.themeId,
-      presenterName: input.presenterName,
-      limit: 5,
-    });
-    return formatHistoryForPrompt(items);
-  } catch {
-    return "";
-  }
+}): string {
+  const items = listRelatedReviews({
+    themeId: input.themeId,
+    presenterName: input.presenterName,
+    limit: 5,
+  });
+  return formatHistoryForPrompt(items);
 }
 
-/** 所感用。同テーマの前回だけ（担当ORは混ぜない）。無ければ空＝触れない。 */
-export async function loadSameThemeHistoryForLeader(
-  themeId?: string,
-): Promise<string> {
+export function sameThemeHistoryForLeader(themeId?: string): string {
   const id = themeId?.trim() ?? "";
-  if (!id || !isDatabaseConfigured()) return "";
-  try {
-    const items = await listRelatedReviews({ themeId: id, limit: 4 });
-    return formatHistoryForPrompt(items, { maxItems: 3 });
-  } catch {
-    return "";
-  }
+  if (!id) return "";
+  const items = listRelatedReviews({ themeId: id, limit: 4 });
+  return formatHistoryForPrompt(items, { maxItems: 3 });
 }

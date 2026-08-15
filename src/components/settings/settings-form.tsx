@@ -23,6 +23,7 @@ import {
 } from "@/lib/settings/webauthn";
 import { defaultCycleStartYmd } from "@/lib/rotation/business-days";
 import type { Member, ValueItem } from "@/lib/rotation/types";
+import { CREED_CHART_CHANGED, saveCreedChartBlob } from "@/lib/creed/creed-chart-store";
 
 function newId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -289,8 +290,25 @@ export function SettingsForm() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">企業理念（参照・改変しない）</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          公式チャートをアプリ内参照用に同梱。毎日テーマは下の行動指針のみ。レビューはこの方向性から外れない。
+          チャートは社外NG。公開URLには置かない。手元の PNG をこの端末へ取り込む（IndexedDB）。
         </p>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="creed-chart-file">理念チャート（PNG）</Label>
+          <Input
+            id="creed-chart-file"
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              void (async () => {
+                await saveCreedChartBlob(file);
+                window.dispatchEvent(new Event(CREED_CHART_CHANGED));
+                flash("この端末にチャートを取り込んだ");
+              })();
+            }}
+          />
+        </div>
         <CorporateCreedPanel />
       </section>
 

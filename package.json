@@ -7,15 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate-reviews": "tsx scripts/migrate-reviews.mts",
-    "db:seed-sample-history": "tsx scripts/seed-history-from-sample.mts",
-    "db:delete-seed-history": "tsx scripts/delete-seed-history.mts",
     "icons:generate": "tsx scripts/generate-app-icons.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@holiday-jp/holiday_jp": "^2.5.1",
-    "@neondatabase/serverless": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.30.0",

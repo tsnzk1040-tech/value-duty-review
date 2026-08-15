@@ -52,10 +52,10 @@ npm run lint
 ### データ／認証
 
 - マスタ正本: **localStorage**（JSON）。端末またぎなし
-- **レビュー履歴正本: Neon**（`reviews` 最小。Parking `P-20260808-G`）。`DATABASE_URL` 必須。スキーマは `db/schema.sql`（初回APIでも CREATE IF NOT EXISTS）
-- バックアップ: 設定画面で JSON コピー／取り込み（マスタ）。履歴は DB
+- **レビュー履歴正本: 同じ端末の localStorage**（コピー時保存。Parking `P-20260809-D`）
+- バックアップ: 設定画面で JSON コピー／取り込み（マスタ）。履歴は端末内
 - 認証: 設定でパスワード有効化（ハッシュ保存）。タブ単位の session 解除
-- 理念全文はリポに置かない
+- 理念全文・理念チャートはリポ／公開URLに置かない。チャートは設定からこの端末へ取り込む
 
 ローテスキル正本: `.claude/skills/rotation-fair-assign/SKILL.md`  
 実装: `src/lib/rotation/fair-assign.ts`

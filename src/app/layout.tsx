@@ -19,12 +19,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VDRレビュー",
+  title: "企業理念リレー",
   description: "理念リレーの毎日レビューと当番ローテ",
-  applicationName: "VDRレビュー",
+  applicationName: "企業理念リレー",
   appleWebApp: {
     capable: true,
-    title: "VDRレビュー",
+    title: "企業理念リレー",
     statusBarStyle: "default",
   },
 };

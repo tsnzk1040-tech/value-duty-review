@@ -12,23 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ReviewHistoryRecord } from "@/lib/review/history";
-
-type HistoryResponse = {
-  configured?: boolean;
-  items?: ReviewHistoryRecord[];
-  message?: string;
-  error?: string;
-};
+import {
+  listRecentReviews,
+  listRelatedReviews,
+  pruneReviewHistory,
+  reviewHistoryKeepCount,
+  type ReviewHistoryRecord,
+} from "@/lib/review/history";
 
 const ALL = "__all__";
 
 export function HistoryList() {
   const { settings, ready } = useSettings();
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState<boolean | null>(null);
   const [items, setItems] = useState<ReviewHistoryRecord[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [themeId, setThemeId] = useState(ALL);
@@ -46,40 +42,26 @@ export function HistoryList() {
     );
   }, [settings.valueItems, themeId]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(() => {
     setOpenId(null);
-    try {
-      const params = new URLSearchParams();
-      params.set("limit", "50");
-      params.set("match", "and");
-      if (themeId !== ALL) params.set("themeId", themeId);
-      if (presenterName !== ALL) params.set("presenterName", presenterName);
-
-      const res = await fetch(`/api/review/history?${params.toString()}`);
-      const data = (await res.json()) as HistoryResponse;
-      if (!res.ok) {
-        setError(data.error ?? `読み込み失敗（${res.status}）`);
-        setItems([]);
-        return;
-      }
-      setConfigured(data.configured !== false);
-      setItems(data.items ?? []);
-      if (data.configured === false) {
-        setError(data.message ?? "履歴DB未接続");
-      }
-    } catch {
-      setError("履歴の取得に失敗した");
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [themeId, presenterName]);
+    const keep = reviewHistoryKeepCount(settings);
+    pruneReviewHistory(keep);
+    const next =
+      themeId !== ALL || presenterName !== ALL
+        ? listRelatedReviews({
+            themeId: themeId === ALL ? undefined : themeId,
+            presenterName:
+              presenterName === ALL ? undefined : presenterName,
+            limit: keep,
+            match: "and",
+          })
+        : listRecentReviews(keep);
+    setItems(next);
+  }, [themeId, presenterName, settings]);
 
   useEffect(() => {
     if (!ready) return;
-    void load();
+    load();
   }, [ready, load]);
 
   async function copyFullText(text: string) {
@@ -154,7 +136,7 @@ export function HistoryList() {
           選択をクリア
         </Button>
         <p className="text-xs text-muted-foreground">
-          テーマ・担当の選択を外して、直近一覧に戻す。
+          テーマ・担当の選択を外して、直近一覧に戻す。この端末の履歴。
         </p>
       </div>
     </div>
@@ -162,20 +144,6 @@ export function HistoryList() {
 
   if (!ready) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
-  }
-
-  if (configured === false) {
-    return (
-      <div className="flex flex-col gap-4">
-        {filters}
-        <p className="text-sm text-muted-foreground" role="status">
-          {error ?? "DATABASE_URL 未設定。履歴はまだ Neon に繋がっていない。"}
-        </p>
-        <Button variant="outline" className="h-11 w-full" onClick={() => void load()}>
-          再読み込み
-        </Button>
-      </div>
-    );
   }
 
   return (
@@ -186,17 +154,11 @@ export function HistoryList() {
           {hint}
         </p>
       ) : null}
-      {loading ? (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      ) : error && items.length === 0 ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {themeId !== ALL || presenterName !== ALL
             ? "条件に合う履歴がない。"
-            : "まだ履歴がない。通読でコピーするとここに残る。"}
+            : "まだ履歴がない。通読でコピーするとこの端末に残る。"}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -264,7 +226,7 @@ export function HistoryList() {
           })}
         </ul>
       )}
-      <Button variant="outline" className="h-11 w-full" onClick={() => void load()}>
+      <Button variant="outline" className="h-11 w-full" onClick={load}>
         再読み込み
       </Button>
     </div>

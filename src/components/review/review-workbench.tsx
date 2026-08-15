@@ -40,6 +40,12 @@ import {
 } from "@/lib/review/final-check";
 import { PAGE_PASTE_MIN_CHARS } from "@/lib/review/providers/research-brief";
 import { consumePendingShare } from "@/lib/review/share-target";
+import {
+  historyNotesForDraft,
+  reviewHistoryKeepCount,
+  sameThemeHistoryForLeader,
+  saveReviewHistory,
+} from "@/lib/review/history";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
 
 function providerLabel(
@@ -248,6 +254,10 @@ export function ReviewWorkbench() {
             themeId: draft!.themeId,
             lens: draft!.lens,
             presenterName: draft!.presenterName,
+            historyNotes: historyNotesForDraft({
+              themeId: draft!.themeId,
+              presenterName: draft!.presenterName,
+            }),
           }),
         });
         const data = (await res.json()) as {
@@ -352,6 +362,10 @@ export function ReviewWorkbench() {
             currentSummary: draft!.summary,
             instruction: text,
             preferredProvider: preferred,
+            historyNotes: historyNotesForDraft({
+              themeId: draft!.themeId,
+              presenterName: draft!.presenterName,
+            }),
           }),
         });
         const data = (await res.json()) as {
@@ -437,7 +451,7 @@ export function ReviewWorkbench() {
     }
     window.open(googleAiModeSearchUrl(q), "_blank", "noopener,noreferrer");
     setHint(
-      "Googleを開いた。OKな結果を共有→「VDRレビュー」で参照を1本入れる",
+      "Googleを開いた。OKな結果を共有→「企業理念リレー」で参照を1本入れる",
     );
   }
 
@@ -567,6 +581,7 @@ export function ReviewWorkbench() {
             researchFocus: draft!.researchFocus,
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
+            historyNotes: sameThemeHistoryForLeader(draft!.themeId),
           }),
         });
         const data = (await res.json()) as {
@@ -786,48 +801,27 @@ export function ReviewWorkbench() {
 
     setHint("投稿用テキストをコピーした。履歴へ保存中…");
     try {
-      const res = await fetch("/api/review/history", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reviewDate: current.reviewDate.slice(0, 10),
-          presenterName: current.presenterName,
-          themeId: current.themeId,
-          themeLabel,
-          sourcePost: current.sourcePost,
-          opener: current.opener,
-          summary: current.summary,
-          leaderNote: current.leaderNote,
-          closing: current.closing,
-          links: current.linkCandidates
-            .filter((l) => l.selected && l.url.trim())
-            .map((l) => ({ title: l.title, url: l.url })),
-          fullText: finalText,
-          keywords: current.keywords,
-          researchBrief: current.researchBrief,
-        }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        configured?: boolean;
-        item?: { id: string };
-      };
-      if (res.status === 503 || data.configured === false) {
-        setHint(
-          "コピーした。履歴DB未接続（DATABASE_URL）。グループチャットへ貼って",
-        );
-        return;
-      }
-      if (!res.ok) {
-        setHint(
-          `コピーした。履歴保存は失敗（${data.error ?? res.status}）。投稿は手元のコピーで続行可`,
-        );
-        return;
-      }
-      setHint("コピーした＋履歴に保存した。グループチャットへ貼って");
+      saveReviewHistory({
+        reviewDate: current.reviewDate.slice(0, 10),
+        presenterName: current.presenterName,
+        themeId: current.themeId,
+        themeLabel,
+        sourcePost: current.sourcePost,
+        opener: current.opener,
+        summary: current.summary,
+        leaderNote: current.leaderNote,
+        closing: current.closing,
+        links: current.linkCandidates
+          .filter((l) => l.selected && l.url.trim())
+          .map((l) => ({ title: l.title, url: l.url })),
+        fullText: finalText,
+        keywords: current.keywords,
+        researchBrief: current.researchBrief,
+      }, reviewHistoryKeepCount(settings));
+      setHint("コピーした＋この端末の履歴に保存した。グループチャットへ貼って");
     } catch {
       setHint(
-        "コピーした。履歴保存リクエスト失敗。投稿は手元のコピーで続行可",
+        "コピーした。履歴保存に失敗した。投稿は手元のコピーで続行可",
       );
     }
   }
@@ -841,12 +835,12 @@ export function ReviewWorkbench() {
     <div className="flex flex-col">
       <div className="sticky top-0 z-30 -mx-4 flex flex-col gap-2 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <header className="flex flex-col gap-0.5">
-          <p className="text-xs text-muted-foreground">毎日レビュー</p>
-          <h1 className="text-lg font-semibold tracking-tight">下書き</h1>
+          <p className="text-xs text-muted-foreground">企業理念リレー</p>
+          <h1 className="text-lg font-semibold tracking-tight">レビュープロセス</h1>
         </header>
 
         <nav
-          aria-label="レビュー段階"
+          aria-label="レビュープロセス"
           className="rounded-md border border-primary bg-primary p-1.5 text-primary-foreground"
         >
           <ol className="grid w-full grid-cols-5 gap-1">
@@ -882,7 +876,7 @@ export function ReviewWorkbench() {
 
         <div className="rounded-md border border-border bg-card px-2.5 py-1.5">
           <p className="text-xs font-medium text-foreground">
-            この画面の使い方 · 段階 {draft.step}/5
+            レビュープロセス {draft.step}/5
           </p>
           <p className="text-xs leading-snug text-muted-foreground">
             実プロセス {stepMeta.process} — {stepMeta.blurb}
@@ -1194,7 +1188,7 @@ export function ReviewWorkbench() {
             work={
               <>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            検索ワードでGoogleを開き、OKな結果を共有→「VDRレビュー」で参照を1本入れる。要点は所感側。
+            検索ワードでGoogleを開き、OKな結果を共有→「企業理念リレー」で参照を1本入れる。要点は所感側。
           </p>
           <div className="flex flex-col gap-1.5">
             <Label>検索ワード候補</Label>

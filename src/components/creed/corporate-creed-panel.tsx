@@ -1,18 +1,16 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useState } from "react";
 
 import {
-  CORPORATE_CREED_CHART_PATH,
   CORPORATE_CREED_VISION,
   CORPORATE_CREED_VALUE_BANDS,
   creedValueBandForTheme,
 } from "@/lib/creed/corporate-creed";
+import { CREED_CHART_CHANGED, loadCreedChartBlob } from "@/lib/creed/creed-chart-store";
 
 type CorporateCreedPanelProps = {
-  /** 今日の行動指針ラベル（例: 1-①…）。あると該当 Value を強調する。 */
   themeLabel?: string;
-  /** レビュー上部などコンパクト表示 */
   compact?: boolean;
 };
 
@@ -21,24 +19,53 @@ export function CorporateCreedPanel({
   compact = false,
 }: CorporateCreedPanelProps) {
   const band = themeLabel ? creedValueBandForTheme(themeLabel) : null;
+  const [chartUrl, setChartUrl] = useState<string | null>(null);
+  const [chartTick, setChartTick] = useState(0);
 
-  const chart = (
+  useEffect(() => {
+    const onChange = () => setChartTick((n) => n + 1);
+    window.addEventListener(CREED_CHART_CHANGED, onChange);
+    return () => window.removeEventListener(CREED_CHART_CHANGED, onChange);
+  }, []);
+
+  useEffect(() => {
+    let revoked: string | null = null;
+    let cancelled = false;
+    void loadCreedChartBlob().then((blob) => {
+      if (cancelled) return;
+      if (!blob) {
+        setChartUrl(null);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      revoked = url;
+      setChartUrl(url);
+    });
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [chartTick]);
+
+  const chart = chartUrl ? (
     <a
-      href={CORPORATE_CREED_CHART_PATH}
+      href={chartUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="block overflow-hidden rounded-md border border-border bg-card"
       title="企業理念チャートを拡大表示"
     >
-      <Image
-        src={CORPORATE_CREED_CHART_PATH}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={chartUrl}
         alt="企業理念チャート（Vision・Mission・Value・行動指針）"
-        width={1200}
-        height={1600}
         className="h-auto w-full"
-        priority={!compact}
       />
     </a>
+  ) : (
+    <p className="text-xs leading-snug text-muted-foreground">
+      チャートは社外NGのため公開URLには置かない。設定でこの端末に取り込む。
+    </p>
   );
 
   if (compact) {

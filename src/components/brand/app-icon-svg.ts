@@ -1,6 +1,6 @@
 /** Shared mark paths (viewBox 0 0 32 32). Clear facing relay arrows — not an S blob. */
 export const APP_ICON_MARK_INNER = `
-  <circle cx="16" cy="16" r="12" fill="none" stroke="#fafafa" stroke-width="1.5" stroke-opacity="0.35"/>
+  <circle cx="16" cy="16" r="12.2" fill="none" stroke="#ffffff" stroke-width="2" />
   <!-- upper arc → right arrowhead -->
   <path d="M8.5 13.2 A8.2 8.2 0 0 1 23.5 13.2" fill="none" stroke="#fafafa" stroke-width="2.6" stroke-linecap="round"/>
   <path d="M21.2 10.4 L25.4 13.6 L20.8 15.5 Z" fill="#fafafa"/>

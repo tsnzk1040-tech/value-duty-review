@@ -64,12 +64,12 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 
 1. **検索ワード候補〜3つ**（Gemini）→ 選ぶか、希望ワードを手入力
 2. **Google AIモードで調べる**（`udm=50` を別タブで開く）
-3. OKな結果を **共有→VDRレビュー**（PWA Share Target）。Google URLを優先して **参照1本に差し替え**（手のURL＋コメント欄は無し）
+3. OKな結果を **共有→企業理念リレー**（PWA Share Target）。Google URLを優先して **参照1本に差し替え**（手のURL＋コメント欄は無し）
 4. **所感へ** → 開いたページの本文を貼る（クリップボード可）→ **貼ると要点メモ** → **所感向けフォーカス** → 所感下書き
 
 ## アプリ組み立てとの関係
 
-- **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。`投稿用にコピー` 時に Neon `review_date` へ保存（DBの CURRENT_DATE に頼らない）
+- **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。`投稿用にコピー` 時にこの端末の履歴へ保存
 - **今日の行動指針**: 投稿本文の `4-③` / `4-3` 等から自動セット（Selectで修正可）。`matchValueItemFromSourcePost`
 - **定型のあと**: 行動指針コード／「行動指針3-②について」等の再掲は書かない（`extractSummaryBody`／`repairDuplicatedGuidelinePhrase` で機械除去）
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
@@ -81,7 +81,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - 所感: 同 API `kind=leader`（参照・要点・フォーカスが必須）
 - 参照リンク: PWA共有で調べるへ（♯＝検索ワード）
 - 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め。**ブロック間は空行**）。通読で `assembledPost` として最終編集可。定型の二重は要約組み立て時に機械修正
-- **PWA共有**: ホーム画面追加後、Androidの共有から「VDRレビュー」を選ぶと `/share-target` 経由で受け取り。短いURL共有→調べるの参照（Google優先1本）、長文→投稿欄（両方あるときは選択）
+- **PWA共有**: ホーム画面追加後、Androidの共有から「企業理念リレー」を選ぶと `/share-target` 経由で受け取り。短いURL共有→調べるの参照（Google優先1本）、長文→投稿欄（両方あるときは選択）
 
 - **投稿前**: 通読ステップの最終チェック（`src/lib/review/final-check.ts`）／Cursor は [final-check.md](final-check.md)
 - プロンプト: `src/lib/review/prompts.ts`

@@ -1,8 +1,7 @@
 import { POC_VISION, POC_VALUE_HEADINGS } from "@/lib/rotation/seed";
 import { valueGroupFromLabel } from "@/lib/rotation/value-group";
 
-/** Official corporate creed chart (user-provided, 2026-08). */
-export const CORPORATE_CREED_CHART_PATH = "/corporate-creed.png";
+/** チャート画像は public に置かない（社外NG）。端末の IndexedDB へ取り込む。 */
 
 export type CreedMission = {
   title: string;
