@@ -2,6 +2,9 @@ import { extractSummaryPoints } from "@/lib/review/draft-extract";
 import {
   assembleSummary,
   buildSummaryInstructions,
+  buildSummaryReviseInstructions,
+  extractSummaryBody,
+  summaryReviseLengthMode,
   type SummaryGenerateInput,
 } from "@/lib/review/prompts";
 import { callGeminiRaw } from "@/lib/review/providers/gemini";
@@ -111,24 +114,31 @@ export async function reviseSummaryWithProvider(
   instruction: string,
   provider: SummaryModelId,
 ): Promise<SummaryGenerateResult> {
-  const prompt = [
-    buildSummaryInstructions(input),
-    "",
-    "【直し指示】",
-    "いまの要約の定型枠（Value帯・何番目・想いを共有頂きました）は維持する。",
-    "あいだの言い換え本文だけを、次の指示に従って直す。指示に無い要素は足さない。",
-    `直し: ${instruction.trim()}`,
-    "",
-    "いまの要約全文:",
-    currentSummary.trim(),
-  ].join("\n");
+  const prompt = buildSummaryReviseInstructions(
+    input,
+    currentSummary,
+    instruction,
+  );
+  const currentMidLen = extractSummaryBody(
+    currentSummary,
+    input.themeLabel,
+  ).length;
+  const minBodyChars =
+    summaryReviseLengthMode(instruction) === "shorten"
+      ? Math.max(40, Math.round(currentMidLen * 0.65))
+      : 70;
 
   if (provider === "chatgpt") {
     const apiKey = openAiApiKey();
     if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
     const model = openAiModel();
     const raw = await callOpenAiRaw(prompt, model, apiKey);
-    const assembled = assembleSummary(raw, input.themeLabel, input.sourcePost);
+    const assembled = assembleSummary(
+      raw,
+      input.themeLabel,
+      input.sourcePost,
+      minBodyChars,
+    );
     if (!assembled) throw new Error("ChatGPT summary revise too weak");
     return { summary: assembled, provider: "chatgpt", model };
   }
@@ -137,7 +147,12 @@ export async function reviseSummaryWithProvider(
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const raw = await callGeminiRaw(prompt, model, apiKey);
-  const assembled = assembleSummary(raw, input.themeLabel, input.sourcePost);
+  const assembled = assembleSummary(
+    raw,
+    input.themeLabel,
+    input.sourcePost,
+    minBodyChars,
+  );
   if (!assembled) throw new Error("Gemini summary revise too weak");
   return { summary: assembled, provider: "gemini", model };
 }

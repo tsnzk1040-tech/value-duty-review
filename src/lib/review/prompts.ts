@@ -141,8 +141,86 @@ export function extractSummaryBody(raw: string, themeLabel: string): string {
   return body.replace(/^[,、。\s]+|[,、。\s]+$/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
-export function isWeakSummaryBody(body: string, themeLabel: string): boolean {
-  if (body.length < 70) return true;
+export type SummaryReviseLengthMode = "thicken" | "shorten" | "keep";
+
+/** 直し指示から分量モードを読む。両方ある／どちらでもないときは字数は据え置き。 */
+export function summaryReviseLengthMode(
+  instruction: string,
+): SummaryReviseLengthMode {
+  const t = instruction.trim();
+  const thicken = /厚|詳しく|長く|膨ら|足して|増や/.test(t);
+  const shorten = /簡潔|短く|削|圧縮|短め/.test(t);
+  if (thicken && !shorten) return "thicken";
+  if (shorten && !thicken) return "shorten";
+  return "keep";
+}
+
+/** 直し専用。初回の120〜180字制限は載せない。 */
+export function buildSummaryReviseInstructions(
+  input: SummaryGenerateInput,
+  currentSummary: string,
+  instruction: string,
+): string {
+  const heading = valueHeadingForLabel(input.themeLabel);
+  const currentMid = extractSummaryBody(currentSummary, input.themeLabel);
+  const n = currentMid.length;
+  const mode = summaryReviseLengthMode(instruction);
+  const thickenTarget = Math.max(1, Math.round(n * 1.2));
+  const shortenTarget = Math.max(1, Math.round(n * 0.8));
+
+  const lengthLines =
+    mode === "thicken"
+      ? [
+          "【分量（この直しが最優先。初回の120〜180字・短く洗練は使わない）】",
+          `いまの言い換え本文は約${n}字。目安は約${thickenTarget}字（1.2倍）。`,
+          "投稿の具体を足して厚くする。所感・評価は足さない。",
+        ]
+      : mode === "shorten"
+        ? [
+            "【分量（この直しが最優先。初回の120〜180字制限は使わない）】",
+            `いまの言い換え本文は約${n}字。目安は約${shortenTarget}字（0.8倍）。`,
+            "重複と飾りを削る。調べた／試した事実は落とさない。",
+          ]
+        : [
+            "【分量（初回の120〜180字制限は使わない）】",
+            `いまの言い換え本文は約${n}字。指示が分量に触れていないので、字数は大きく変えない。`,
+            "指示の軸だけ直す。",
+          ];
+
+  const lens = input.lens.trim()
+    ? ["観点メモ（材料）:", input.lens.trim(), ""].join("\n")
+    : "";
+
+  return [
+    "いまある要約の「あいだ」だけを、直し指示に従って書き直す。",
+    "出力は言い換え本文のみ。定型枠（Value帯・何番目・想いを共有頂きました）は書かない。アプリが付ける。",
+    "",
+    "【直し指示（最優先）】",
+    instruction.trim(),
+    "",
+    ...lengthLines,
+    "",
+    "【守る】",
+    "- 落ち着いたリーダー理解。ですね・だね・だよ・！！禁止。",
+    "- お礼・実感（一歩前進など）・所感・提案は書かない。",
+    `- Value帯名（${heading}）・行動指針コード・「想いを共有」は書かない。`,
+    "- 文末は「〜してみた」「〜したい」「〜ていて」などで止め、です・ますで終わらない。",
+    "",
+    lens,
+    "【いまの要約全文】",
+    currentSummary.trim(),
+    "",
+    "投稿本文:",
+    input.sourcePost.trim() || "（なし）",
+  ].join("\n");
+}
+
+export function isWeakSummaryBody(
+  body: string,
+  themeLabel: string,
+  minBodyChars = 70,
+): boolean {
+  if (body.length < minBodyChars) return true;
   const heading = valueHeadingForLabel(themeLabel);
   if (heading && body.includes(heading)) return true;
   if (/^Value[０-９0-9]/.test(body)) return true;
@@ -223,11 +301,12 @@ export function assembleSummary(
   rawBody: string,
   themeLabel: string,
   sourcePost = "",
+  minBodyChars = 70,
 ): string | null {
   let mid = extractSummaryBody(rawBody, themeLabel);
   if (sourcePost) mid = ensurePenetrationFacts(mid, sourcePost);
   mid = polishSummaryMid(mid);
-  if (isWeakSummaryBody(mid, themeLabel)) return null;
+  if (isWeakSummaryBody(mid, themeLabel, minBodyChars)) return null;
   return `${summaryPrefix(themeLabel)}${mid}${summarySuffix()}`;
 }
 

@@ -74,7 +74,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - **定型のあと**: 行動指針コード／「行動指針3-②について」等の再掲は書かない（`extractSummaryBody`／`repairDuplicatedGuidelinePhrase` で機械除去）
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
 - 要約: `POST /api/review/draft` `kind=summary`（Gemini＋ChatGPT があれば2案。採用モデルは要点にも使う）
-- 要約直し: 同 API `kind=summary-revise`
+- 要約直し: 同 API `kind=summary-revise`（**直し専用プロンプト**。初回の120〜180字は載せない。指示が厚くなら本文の約1.2倍、簡潔なら約0.8倍）
 - 観点 `lens`: **要約を厚くする**（所感には渡さない）
 - 要点: 同 API `kind=research-brief`（所感ステップ。貼付で自動。採用した要約モデル）
 - 検索ワード候補: 同 API `kind=keyword-suggestions`
