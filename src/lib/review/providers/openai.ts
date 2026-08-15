@@ -1,5 +1,15 @@
 /** OpenAI Chat Completions（要約・要点用。所感本文には使わない） */
 
+function formatOpenAiHttpError(status: number, errText: string): string {
+  if (status === 429 && /quota|billing/i.test(errText)) {
+    return "OpenAIの利用枠（課金）が足りない。platform.openai.com の Billing でクレジットを入れてから再試行";
+  }
+  if (status === 401) {
+    return "OpenAI APIキーが無効。Vercel の OPENAI_API_KEY を確認";
+  }
+  return `OpenAI HTTP ${status}: ${errText.slice(0, 200)}`;
+}
+
 export async function callOpenAiRaw(
   prompt: string,
   model: string,
@@ -20,7 +30,7 @@ export async function callOpenAiRaw(
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`OpenAI HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    throw new Error(formatOpenAiHttpError(res.status, errText));
   }
   const data = (await res.json()) as {
     choices?: { message?: { content?: string | null } }[];

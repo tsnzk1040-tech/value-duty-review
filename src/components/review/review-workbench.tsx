@@ -1064,26 +1064,6 @@ export function ReviewWorkbench() {
               <p className="text-xs text-muted-foreground">
                 採用したモデルで直す。定型の枠は維持する。
               </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full"
-                  disabled={generating}
-                  onClick={() => runSummaryRevise("もう少し厚めに、実践の具体を足して")}
-                >
-                  厚めに
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full"
-                  disabled={generating}
-                  onClick={() => runSummaryRevise("簡潔に。重複を削って")}
-                >
-                  簡潔に
-                </Button>
-              </div>
               <Input
                 id="summary-revise"
                 value={summaryRevise}
