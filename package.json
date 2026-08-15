@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate-reviews": "tsx scripts/migrate-reviews.mts",
     "db:seed-sample-history": "tsx scripts/seed-history-from-sample.mts",
+    "db:delete-seed-history": "tsx scripts/delete-seed-history.mts",
     "icons:generate": "tsx scripts/generate-app-icons.mts"
   },
   "dependencies": {

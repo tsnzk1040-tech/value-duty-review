@@ -5,6 +5,8 @@ import type {
 } from "@/lib/review/prompts";
 import type { ClosingGenerateInput } from "@/lib/review/closing";
 import { loadHistoryNotesForDraft, loadSameThemeHistoryForLeader } from "@/lib/review/history";
+import { generateLlmFinalCheckIssues } from "@/lib/review/providers/llm-final-check";
+import type { FinalCheckIssue } from "@/lib/review/final-check";
 import {
   generateClosingGemini,
   generateClosingStub,
@@ -119,6 +121,11 @@ export type ReviewClosingGenerateRequest = {
   exclude?: string;
 };
 
+export type ReviewFinalCheckRequest = {
+  kind: "final-check";
+  text: string;
+};
+
 export type ReviewDraftGenerateRequest =
   | ReviewSummaryGenerateRequest
   | ReviewSummaryReviseRequest
@@ -126,7 +133,8 @@ export type ReviewDraftGenerateRequest =
   | ReviewSearchGenerateRequest
   | ReviewKeywordSuggestRequest
   | ReviewResearchBriefRequest
-  | ReviewClosingGenerateRequest;
+  | ReviewClosingGenerateRequest
+  | ReviewFinalCheckRequest;
 
 export type ReviewSummaryCandidate = {
   provider: GenerateProviderId;
@@ -196,6 +204,13 @@ export type ReviewClosingGenerateResponse = {
   fallbackReason?: string;
 };
 
+export type ReviewFinalCheckResponse = {
+  kind: "final-check";
+  issues: FinalCheckIssue[];
+  provider: GenerateProviderId;
+  fallbackReason?: string;
+};
+
 export type ReviewDraftGenerateResponse =
   | ReviewSummaryGenerateResponse
   | ReviewSummaryReviseResponse
@@ -203,7 +218,8 @@ export type ReviewDraftGenerateResponse =
   | ReviewSearchGenerateResponse
   | ReviewKeywordSuggestResponse
   | ReviewResearchBriefResponse
-  | ReviewClosingGenerateResponse;
+  | ReviewClosingGenerateResponse
+  | ReviewFinalCheckResponse;
 
 function resolveProviderPreference(): "auto" | "gemini" | "stub" {
   const raw = process.env.REVIEW_GENERATE_PROVIDER?.trim().toLowerCase();
@@ -607,6 +623,32 @@ export async function generateReviewClosingDraft(
       kind: "closing",
       closing: stub.closing,
       candidates: stub.candidates,
+      provider: "stub",
+      fallbackReason: message,
+    };
+  }
+}
+
+export async function generateReviewLlmFinalCheck(
+  input: ReviewFinalCheckRequest,
+): Promise<ReviewFinalCheckResponse> {
+  const gate = shouldUseStub();
+  if (gate.stub) {
+    return {
+      kind: "final-check",
+      issues: [],
+      provider: "stub",
+      fallbackReason: gate.reason,
+    };
+  }
+  try {
+    const issues = await generateLlmFinalCheckIssues(input.text);
+    return { kind: "final-check", issues, provider: "gemini" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      kind: "final-check",
+      issues: [],
       provider: "stub",
       fallbackReason: message,
     };

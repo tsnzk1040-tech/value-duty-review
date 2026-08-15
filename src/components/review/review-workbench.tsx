@@ -714,17 +714,38 @@ export function ReviewWorkbench() {
     setHint("各欄から投稿全文を組み立て直した。必要なら手直しして");
   }
 
-  function runFinalCheck() {
+  async function runFinalCheck() {
     const result = checkFinalReviewPost(finalText);
     setFinalCheck(result);
-    if (result.ok) {
-      setHint(
-        result.issues.length
-          ? "最終チェック: 重大な問題なし（警告あり）。通読してからコピーして"
-          : "最終チェック: OK。通読してからコピーして",
-      );
-    } else {
-      setHint("最終チェック: 直す箇所あり。下の指摘を見てからコピーして");
+    setGenerating(true);
+    setHint("最終チェック（機械＋AI照合）…");
+    try {
+      const res = await fetch("/api/review/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "final-check", text: finalText }),
+      });
+      const data = (await res.json()) as {
+        issues?: { id: string; severity: "error" | "warn"; message: string }[];
+        error?: string;
+      };
+      const extra = res.ok ? (data.issues ?? []) : [];
+      const merged = {
+        ok: result.ok,
+        issues: [...result.issues, ...extra],
+      };
+      setFinalCheck(merged);
+      if (!merged.ok) {
+        setHint("最終チェック: 直す箇所あり。下の指摘を見てからコピーして");
+      } else if (merged.issues.length) {
+        setHint("最終チェック: 重大な問題なし（警告あり）。通読してからコピーして");
+      } else {
+        setHint("最終チェック: OK。通読してからコピーして");
+      }
+    } catch {
+      setHint("AI照合はスキップした。機械チェックの結果だけ表示してる");
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -821,7 +842,7 @@ export function ReviewWorkbench() {
       <div className="sticky top-0 z-30 -mx-4 flex flex-col gap-2 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <header className="flex flex-col gap-0.5">
           <p className="text-xs text-muted-foreground">毎日レビュー</p>
-          <h1 className="text-lg font-semibold tracking-tight">段階UI</h1>
+          <h1 className="text-lg font-semibold tracking-tight">下書き</h1>
         </header>
 
         <nav
@@ -1541,8 +1562,13 @@ export function ReviewWorkbench() {
           >
             各欄から組み立て直す
           </Button>
-          <Button variant="outline" className="h-11 w-full" onClick={runFinalCheck}>
-            最終チェックを再実行
+          <Button
+            variant="outline"
+            className="h-11 w-full"
+            onClick={() => void runFinalCheck()}
+            disabled={generating}
+          >
+            {generating ? "照合中…" : "最終チェックを再実行"}
           </Button>
           {finalCheck &&
           !finalCheck.ok &&

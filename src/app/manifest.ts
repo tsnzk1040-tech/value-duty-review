@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   const base: MetadataRoute.Manifest = {
-    name: "value-duty-review",
+    name: "VDRレビュー",
     short_name: "VDRレビュー",
-    description: "通勤向け・自分専用のレビュー／ローテ Web",
+    description: "理念リレーの毎日レビューと当番ローテ",
     start_url: "/review",
     display: "standalone",
     background_color: "#ffffff",

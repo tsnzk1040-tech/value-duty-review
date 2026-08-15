@@ -19,9 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "value-duty-review",
-  description: "通勤向け・自分専用のレビュー／ローテ Web",
-  applicationName: "value-duty-review",
+  title: "VDRレビュー",
+  description: "理念リレーの毎日レビューと当番ローテ",
+  applicationName: "VDRレビュー",
   appleWebApp: {
     capable: true,
     title: "VDRレビュー",

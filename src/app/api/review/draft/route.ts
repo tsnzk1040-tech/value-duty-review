@@ -8,6 +8,7 @@ import {
   generateReviewSearchDraft,
   generateReviewSummaryDraft,
   generateReviewSummaryRevise,
+  generateReviewLlmFinalCheck,
   type ReviewDraftGenerateRequest,
 } from "@/lib/review/generate";
 
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
     instruction?: string;
     preferredProvider?: string;
     pagePaste?: string;
+    text?: string;
   };
   try {
     body = (await req.json()) as Partial<ReviewDraftGenerateRequest> & {
@@ -227,10 +229,22 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   }
 
+  if (body.kind === "final-check") {
+    const text = typeof body.text === "string" ? body.text : "";
+    if (!text.trim()) {
+      return NextResponse.json({ error: "text is required" }, { status: 400 });
+    }
+    const result = await generateReviewLlmFinalCheck({
+      kind: "final-check",
+      text,
+    });
+    return NextResponse.json(result);
+  }
+
   return NextResponse.json(
     {
       error:
-        "kind must be summary, summary-revise, keyword-suggestions, search, research-brief, leader, or closing",
+        "kind must be summary, summary-revise, keyword-suggestions, search, research-brief, leader, closing, or final-check",
     },
     { status: 400 },
   );
