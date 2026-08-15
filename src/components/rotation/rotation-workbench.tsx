@@ -176,18 +176,7 @@ export function RotationWorkbench() {
           >
             公平スキルでシャッフル
           </Button>
-          <Button
-            className="h-11 w-full sm:w-auto"
-            variant="secondary"
-            onClick={copyNotebook}
-            disabled={days.length === 0}
-          >
-            ノート用にコピー（＝前回として保存）
-          </Button>
         </div>
-        {copyHint ? (
-          <p className="text-sm text-muted-foreground">{copyHint}</p>
-        ) : null}
         {warnings.length > 0 ? (
           <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-amber-800 dark:text-amber-200">
             {warnings.map((w) => (
@@ -199,9 +188,9 @@ export function RotationWorkbench() {
 
       {days.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <Label htmlFor="notebook-preview">ノート用プレビュー（コピー用）</Label>
+          <Label htmlFor="notebook-preview">ノート用プレビュー</Label>
           <p className="text-xs text-muted-foreground">
-            各行末尾の「N営業日」が前回当番日からの間隔。上の「ノート用にコピー」で同じ内容を控える。
+            各行末尾の「N営業日」が前回当番日からの間隔。下のコピーでノートへ貼れる。コピーすると今回分が次の「前回」になる。
           </p>
           <Textarea
             id="notebook-preview"
@@ -209,6 +198,16 @@ export function RotationWorkbench() {
             value={notebookText}
             className="min-h-48 font-mono text-xs"
           />
+          <Button
+            className="h-11 w-full"
+            onClick={() => void copyNotebook()}
+            disabled={days.length === 0}
+          >
+            ノート用にコピー
+          </Button>
+          {copyHint ? (
+            <p className="text-sm text-muted-foreground">{copyHint}</p>
+          ) : null}
         </section>
       ) : null}
 
