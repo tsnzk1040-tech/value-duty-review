@@ -1,4 +1,5 @@
 export const CREED_CHART_CHANGED = "vdr-creed-chart";
+const DB_NAME = "vdr.creed";
 const STORE = "files";
 const CHART_KEY = "chart";
 
