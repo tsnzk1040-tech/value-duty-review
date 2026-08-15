@@ -25,10 +25,13 @@ export async function GET(req: Request) {
     const presenterName = searchParams.get("presenterName") ?? undefined;
     const limitRaw = searchParams.get("limit");
     const limit = limitRaw ? Number(limitRaw) : undefined;
+    const matchRaw = searchParams.get("match");
+    const match =
+      matchRaw === "and" || matchRaw === "or" ? matchRaw : undefined;
 
     const items =
       themeId || presenterName
-        ? await listRelatedReviews({ themeId, presenterName, limit })
+        ? await listRelatedReviews({ themeId, presenterName, limit, match })
         : await listRecentReviews(limit);
 
     return NextResponse.json({ configured: true, items });

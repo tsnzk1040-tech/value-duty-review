@@ -1,7 +1,4 @@
-import Link from "next/link";
-
 import { RotationWorkbench } from "@/components/rotation/rotation-workbench";
-import { Button } from "@/components/ui/button";
 
 export default function RotationPage() {
   return (
@@ -15,10 +12,6 @@ export default function RotationPage() {
       </header>
 
       <RotationWorkbench />
-
-      <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
-        ホームへ
-      </Button>
     </div>
   );
 }

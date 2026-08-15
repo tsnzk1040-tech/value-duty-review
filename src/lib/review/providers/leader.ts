@@ -32,10 +32,12 @@ export function generateLeaderStub(
 
   const leaderNote = [
     hook
-      ? `${briefHint}${linkHint}「${hook}」を自分の仕事に引きつけて実践した点が、チームの今日の一歩につながると感じます。`
-      : `${briefHint}${linkHint}今日の振り返り実践が、チームの理念浸透の一歩になっていると感じます。`,
-    "明日も一言だけ決めて動けると、リレーが続きそうです。",
-  ].join("\n");
+      ? `「${hook}」に触れた実践、共有ありがとうございます。現場でも使えそうでいいですね。`
+      : "今日の振り返り、共有ありがとうございます。具体があってわかりやすいですね。",
+    briefHint || linkHint
+      ? `${briefHint}${linkHint}明日は小さな一手だけ決めて動いてみると楽そうです。どこから試しそうですか。`
+      : "明日は小さな一手だけ決めて動いてみると楽そうです。どこから試しそうですか。",
+  ].join("");
 
   return { leaderNote, provider: "stub" };
 }
@@ -61,9 +63,10 @@ export async function generateLeaderGemini(
       buildLeaderInstructions(input),
       "",
       "【再出力指示】",
-      "直前の出力は不合格（短すぎ／お礼や要約定型の混入／ですね／薄すぎ）。",
-      "所感本文のみを150〜280字で再出力せよ。具体→引きつけ→次の一手。",
-      "お礼・Value要約・締め定型・ですねは書かない。",
+      "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ）。",
+      "所感の型で再出力せよ: ①共感・感謝 ②テーマに会話っぽく一言 ③具体1つ ④やわらかい薄い問い。",
+      "宣教師口調禁止。上司として寄り添うカジュアルなです・ます。『理念浸透』『指針の実践』連発は不可。",
+      "参照は材料まで。『皆さんでやってみませんか』は書かない。共感の「ですね」は可。",
     ].join("\n");
     const second = await callGeminiRaw(retryPrompt, model, apiKey, 0.55);
     assembled = assembleLeaderNote(second);

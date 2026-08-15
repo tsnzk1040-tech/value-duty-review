@@ -58,6 +58,24 @@ export async function ensureReviewsSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS reviews_created
         ON reviews (created_at DESC)
       `;
+      // 同じ review_date は1件だけ（古い重複を消してから UNIQUE）
+      await db`
+        DELETE FROM reviews a
+        USING reviews b
+        WHERE a.review_date = b.review_date
+          AND a.created_at < b.created_at
+      `;
+      await db`
+        DELETE FROM reviews a
+        USING reviews b
+        WHERE a.review_date = b.review_date
+          AND a.created_at = b.created_at
+          AND a.id < b.id
+      `;
+      await db`
+        CREATE UNIQUE INDEX IF NOT EXISTS reviews_review_date_unique
+        ON reviews (review_date)
+      `;
     })().catch((err) => {
       schemaReady = null;
       throw err;

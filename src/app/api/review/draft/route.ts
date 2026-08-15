@@ -86,12 +86,6 @@ export async function POST(req: Request) {
   }
 
   if (body.kind === "research-brief") {
-    if (!body.researchFocus?.trim()) {
-      return NextResponse.json(
-        { error: "researchFocus is required" },
-        { status: 400 },
-      );
-    }
     if (!body.selectedLinks?.length) {
       return NextResponse.json(
         { error: "selectedLinks are required" },
@@ -107,11 +101,13 @@ export async function POST(req: Request) {
     const result = await generateReviewResearchBrief({
       kind: "research-brief",
       keywords: body.keywords ?? "",
-      researchFocus: body.researchFocus,
+      researchFocus: body.researchFocus ?? "",
       themeLabel: body.themeLabel,
       sourcePost: body.sourcePost,
       summary: body.summary ?? "",
       selectedLinks: body.selectedLinks,
+      pagePaste:
+        typeof body.pagePaste === "string" ? body.pagePaste : undefined,
     });
     return NextResponse.json(result);
   }

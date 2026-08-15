@@ -1,5 +1,6 @@
 "use client";
 
+import { CorporateCreedPanel } from "@/components/creed/corporate-creed-panel";
 import { useEffect, useState } from "react";
 
 import { useSettings } from "@/components/settings/settings-provider";
@@ -16,6 +17,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { createSalt, hashPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
+import {
+  isWebAuthnPlatformAvailable,
+  registerPlatformPasskey,
+} from "@/lib/settings/webauthn";
 import { defaultCycleStartYmd } from "@/lib/rotation/business-days";
 import type { Member, ValueItem } from "@/lib/rotation/types";
 
@@ -33,10 +38,15 @@ export function SettingsForm() {
   const [holidayDraft, setHolidayDraft] = useState(
     settings.calendar.holidays.join("\n"),
   );
+  const [platformAuth, setPlatformAuth] = useState(false);
 
   useEffect(() => {
     setHolidayDraft(settings.calendar.holidays.join("\n"));
   }, [settings.calendar.holidays]);
+
+  useEffect(() => {
+    setPlatformAuth(isWebAuthnPlatformAvailable());
+  }, []);
 
   if (!ready) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
@@ -83,7 +93,12 @@ export function SettingsForm() {
     const passwordHash = await hashPassword(newPassword, salt);
     updateSettings((prev) => ({
       ...prev,
-      auth: { enabled: true, salt, passwordHash },
+      auth: {
+        enabled: true,
+        salt,
+        passwordHash,
+        webauthnCredentialId: prev.auth.webauthnCredentialId ?? "",
+      },
     }));
     setAuthSessionActive(true);
     setNewPassword("");
@@ -94,10 +109,37 @@ export function SettingsForm() {
   function disableAuth() {
     updateSettings((prev) => ({
       ...prev,
-      auth: { enabled: false, salt: "", passwordHash: "" },
+      auth: {
+        enabled: false,
+        salt: "",
+        passwordHash: "",
+        webauthnCredentialId: "",
+      },
     }));
     setAuthSessionActive(false);
     flash("認証をオフにした");
+  }
+
+  async function registerPasskey() {
+    try {
+      const id = await registerPlatformPasskey();
+      updateSettings((prev) => ({
+        ...prev,
+        auth: { ...prev.auth, webauthnCredentialId: id },
+      }));
+      flash("パスキーを登録した。ログインで生体解除できる");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "登録に失敗した";
+      flash(msg);
+    }
+  }
+
+  function clearPasskey() {
+    updateSettings((prev) => ({
+      ...prev,
+      auth: { ...prev.auth, webauthnCredentialId: "" },
+    }));
+    flash("パスキー登録を削除した");
   }
 
   function applyHolidaysFromDraft() {
@@ -124,11 +166,33 @@ export function SettingsForm() {
         <h2 className="text-sm font-medium">認証</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
           端末またぎはしない。パスワードは localStorage 内にハッシュ保存（平文は持たない）。
-          タブを閉じると再入力。公開URL対策の簡易ゲート。
+          タブを閉じると再入力。公開URL対策の簡易ゲート。パスキーは端末の生体（Face
+          ID／指紋）で解除できる。
         </p>
         {settings.auth.enabled ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <p className="text-sm">状態: オン</p>
+            <p className="text-sm text-muted-foreground">
+              パスキー:{" "}
+              {settings.auth.webauthnCredentialId?.trim()
+                ? "登録済み"
+                : "未登録"}
+            </p>
+            {platformAuth ? (
+              settings.auth.webauthnCredentialId?.trim() ? (
+                <Button variant="outline" onClick={clearPasskey}>
+                  パスキー登録を削除
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => void registerPasskey()}>
+                  パスキー（生体）を登録
+                </Button>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                この環境では WebAuthn を使えない（HTTPS／対応ブラウザが必要）。
+              </p>
+            )}
             <Button variant="outline" onClick={disableAuth}>
               認証をオフにする
             </Button>
@@ -223,18 +287,11 @@ export function SettingsForm() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Vision／Value（参照・改変しない）</h2>
+        <h2 className="text-sm font-medium">企業理念（参照・改変しない）</h2>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          端末内に一言一句保存。毎日テーマは下の行動指針のみ。
+          公式チャートをアプリ内参照用に同梱。毎日テーマは下の行動指針のみ。レビューはこの方向性から外れない。
         </p>
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {settings.creed.vision}
-        </p>
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
-          {settings.creed.valueHeadings.map((h) => (
-            <li key={h}>{h}</li>
-          ))}
-        </ul>
+        <CorporateCreedPanel />
       </section>
 
       <section className="flex flex-col gap-3">

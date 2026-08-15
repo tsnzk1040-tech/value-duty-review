@@ -40,7 +40,7 @@ export function summaryPrefix(themeLabel: string): string {
 }
 
 export function summarySuffix(): string {
-  return "想いを共有頂きました。";
+  return "想いを共有頂きました！";
 }
 
 /** テーマラベル本文を要約から落とす（定型で特定済みのため）。 */

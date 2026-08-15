@@ -112,54 +112,39 @@ export async function saveReviewHistory(
   const db = sql();
   const id = crypto.randomUUID();
   const links = input.links ?? [];
-  const reviewDate = input.reviewDate?.slice(0, 10) || null;
+  const reviewDate =
+    input.reviewDate?.slice(0, 10) ||
+    new Date().toISOString().slice(0, 10);
 
-  const rows = reviewDate
-    ? await db`
-        INSERT INTO reviews (
-          id, review_date, presenter_name, theme_id, theme_label,
-          source_post, opener, summary, leader_note, closing,
-          links_json, full_text, keywords, research_brief
-        ) VALUES (
-          ${id},
-          ${reviewDate}::date,
-          ${input.presenterName.trim()},
-          ${input.themeId.trim()},
-          ${input.themeLabel.trim()},
-          ${input.sourcePost},
-          ${input.opener},
-          ${input.summary},
-          ${input.leaderNote},
-          ${input.closing},
-          ${JSON.stringify(links)}::jsonb,
-          ${input.fullText},
-          ${input.keywords?.trim() ?? ""},
-          ${input.researchBrief?.trim() ?? ""}
-        )
-        RETURNING *
-      `
-    : await db`
-        INSERT INTO reviews (
-          id, presenter_name, theme_id, theme_label,
-          source_post, opener, summary, leader_note, closing,
-          links_json, full_text, keywords, research_brief
-        ) VALUES (
-          ${id},
-          ${input.presenterName.trim()},
-          ${input.themeId.trim()},
-          ${input.themeLabel.trim()},
-          ${input.sourcePost},
-          ${input.opener},
-          ${input.summary},
-          ${input.leaderNote},
-          ${input.closing},
-          ${JSON.stringify(links)}::jsonb,
-          ${input.fullText},
-          ${input.keywords?.trim() ?? ""},
-          ${input.researchBrief?.trim() ?? ""}
-        )
-        RETURNING *
-      `;
+  // 同じ投稿日（review_date）は後勝ちで上書き
+  await db`
+    DELETE FROM reviews
+    WHERE review_date = ${reviewDate}::date
+  `;
+
+  const rows = await db`
+    INSERT INTO reviews (
+      id, review_date, presenter_name, theme_id, theme_label,
+      source_post, opener, summary, leader_note, closing,
+      links_json, full_text, keywords, research_brief
+    ) VALUES (
+      ${id},
+      ${reviewDate}::date,
+      ${input.presenterName.trim()},
+      ${input.themeId.trim()},
+      ${input.themeLabel.trim()},
+      ${input.sourcePost},
+      ${input.opener},
+      ${input.summary},
+      ${input.leaderNote},
+      ${input.closing},
+      ${JSON.stringify(links)}::jsonb,
+      ${input.fullText},
+      ${input.keywords?.trim() ?? ""},
+      ${input.researchBrief?.trim() ?? ""}
+    )
+    RETURNING *
+  `;
 
   return mapRow(rows[0] as ReviewRow);
 }
@@ -172,54 +157,69 @@ export async function listRecentReviews(
   const db = sql();
   const safeLimit = Math.min(Math.max(limit, 1), 100);
   const rows = await db`
-    SELECT * FROM reviews
-    ORDER BY created_at DESC
+    SELECT DISTINCT ON (review_date) *
+    FROM reviews
+    ORDER BY review_date DESC, created_at DESC
     LIMIT ${safeLimit}
   `;
   return (rows as ReviewRow[]).map(mapRow);
 }
 
-/** 同テーマ or 同担当の直近（ソフト重複・所感一貫性の材料）。 */
+/** 同テーマ or／and 同担当の直近（ソフト重複・所感一貫性の材料／履歴検索）。 */
 export async function listRelatedReviews(input: {
   themeId?: string;
   presenterName?: string;
   limit?: number;
+  /** 両方指定時。履歴UIは and、下書き材料は or（既定） */
+  match?: "or" | "and";
 }): Promise<ReviewHistoryRecord[]> {
   if (!isDatabaseConfigured()) return [];
   await ensureReviewsSchema();
   const db = sql();
-  const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 30);
+  const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 100);
   const themeId = input.themeId?.trim() ?? "";
   const presenterName = input.presenterName?.trim() ?? "";
+  const matchAnd = input.match === "and";
 
   if (!themeId && !presenterName) {
     return listRecentReviews(safeLimit);
   }
 
   if (themeId && presenterName) {
-    const rows = await db`
-      SELECT * FROM reviews
-      WHERE theme_id = ${themeId} OR presenter_name = ${presenterName}
-      ORDER BY created_at DESC
-      LIMIT ${safeLimit}
-    `;
+    const rows = matchAnd
+      ? await db`
+          SELECT DISTINCT ON (review_date) *
+          FROM reviews
+          WHERE theme_id = ${themeId} AND presenter_name = ${presenterName}
+          ORDER BY review_date DESC, created_at DESC
+          LIMIT ${safeLimit}
+        `
+      : await db`
+          SELECT DISTINCT ON (review_date) *
+          FROM reviews
+          WHERE theme_id = ${themeId} OR presenter_name = ${presenterName}
+          ORDER BY review_date DESC, created_at DESC
+          LIMIT ${safeLimit}
+        `;
     return (rows as ReviewRow[]).map(mapRow);
   }
 
   if (themeId) {
     const rows = await db`
-      SELECT * FROM reviews
+      SELECT DISTINCT ON (review_date) *
+      FROM reviews
       WHERE theme_id = ${themeId}
-      ORDER BY created_at DESC
+      ORDER BY review_date DESC, created_at DESC
       LIMIT ${safeLimit}
     `;
     return (rows as ReviewRow[]).map(mapRow);
   }
 
   const rows = await db`
-    SELECT * FROM reviews
+    SELECT DISTINCT ON (review_date) *
+    FROM reviews
     WHERE presenter_name = ${presenterName}
-    ORDER BY created_at DESC
+    ORDER BY review_date DESC, created_at DESC
     LIMIT ${safeLimit}
   `;
   return (rows as ReviewRow[]).map(mapRow);
@@ -239,7 +239,7 @@ export function formatHistoryForPrompt(
     .map((item, i) => {
       const mid = item.summary
         .replace(/^Value[０-９0-9].*?行動指針について、/, "")
-        .replace(/想いを共有頂きました。?$/, "")
+        .replace(/想いを共有頂きました[。．！]?$/, "")
         .trim()
         .slice(0, maxSummaryChars);
       const note = item.leaderNote.trim().slice(0, 80);

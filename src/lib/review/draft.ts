@@ -1,6 +1,7 @@
 import { generateLeaderStub } from "@/lib/review/providers/leader";
 import { generateSummaryStub } from "@/lib/review/providers/summary";
-import { repairDuplicatedGuidelinePhrase } from "@/lib/review/final-check";
+import { looksLikeUrlInaccessible } from "@/lib/review/providers/research-brief";
+import { repairDuplicatedGuidelinePhrase, repairMissingOpeningKagi } from "@/lib/review/final-check";
 import { formatThanks } from "@/lib/review/thanks";
 import { DEFAULT_CLOSING } from "@/lib/review/closing";
 import { defaultReviewDateYmd } from "@/lib/rotation/business-days";
@@ -19,13 +20,16 @@ export {
   pickClosingVariation,
 } from "@/lib/review/closing";
 
-export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v5";
+export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v8";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
-  "（お名前）さん、振り返りコメント共有頂きありがとうございます";
+  "（お名前）さん、振り返りコメント共有頂きありがとうございます！";
 
 export type ReviewStep = 1 | 2 | 3 | 4 | 5;
+
+/** 調べるステップ内の段階（A: 貼り返し → 要点） */
+export type ResearchPhase = "collect" | "brief";
 
 export type LinkCandidate = {
   id: string;
@@ -57,12 +61,26 @@ export type ReviewDraft = {
   linkCandidates: LinkCandidate[];
   /** 採択後・所感向けフォーカス指示（ハーネス） */
   researchFocus: string;
+  /**
+   * 開いた参照ページの本文貼付（取得失敗時に出す）。
+   * 要点メモはここ＋フォーカスから AI が作る。
+   */
+  researchPagePaste: string;
+  /** URL本文取得失敗 → 貼付欄を出す */
+  researchNeedsPagePaste: boolean;
+  /** 調べる内段階: collect=貼り返し / brief=要点 */
+  researchPhase: ResearchPhase;
   /** 調べた要点メモ */
   researchBrief: string;
   /** 4 所感・着想 */
   leaderNote: string;
   /** 5 締め */
   closing: string;
+  /**
+   * 通読ステップで手直しした投稿全文。
+   * 空のときは formatReviewPost で組み立て。
+   */
+  assembledPost: string;
 };
 
 export const REVIEW_STEPS: {
@@ -73,33 +91,33 @@ export const REVIEW_STEPS: {
 }[] = [
   {
     step: 1,
-    title: "下書き",
+    title: "貼付",
     process: "②③",
     blurb: "対象営業日・投稿・呼び名を入れ、お礼＋要約案を出す（API／Gemini）",
   },
   {
     step: 2,
-    title: "直す",
+    title: "要約",
     process: "④",
     blurb: "お礼と要約共有を自分の言葉に直す",
   },
   {
     step: 3,
-    title: "調べる",
+    title: "検索",
     process: "⑤⑥",
-    blurb: "Googleで調べ→参照を貼り返す→フォーカス→要点（所感の前）",
+    blurb: "検索→共有でGoogle URLを1本入れる",
   },
   {
     step: 4,
     title: "所感",
     process: "⑦⑧⑨",
-    blurb: "貼り返した参照を見て所感下書き→自分のエッセンスに脚色＋締め",
+    blurb: "本文貼付→要点→フォーカス→所感下書き→脚色＋締め",
   },
   {
     step: 5,
-    title: "通読→コピー",
+    title: "出力",
     process: "⑩⑪",
-    blurb: "構成どおり1本にまとめてコピー",
+    blurb: "構成どおり1本にまとめて最終編集→コピー",
   },
 ];
 
@@ -117,9 +135,13 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     keywords: "",
     linkCandidates: [],
     researchFocus: "",
+    researchPagePaste: "",
+    researchNeedsPagePaste: false,
+    researchPhase: "collect",
     researchBrief: "",
     leaderNote: "",
     closing: DEFAULT_CLOSING,
+    assembledPost: "",
   };
 }
 
@@ -160,35 +182,59 @@ export function selectedLinkCount(draft: ReviewDraft): number {
   return draft.linkCandidates.length;
 }
 
+/** 調べる完了 → 所感ステップへ（参照が1本あればよい） */
 export function canEnterLeaderStep(draft: ReviewDraft): boolean {
+  return selectedLinkCount(draft) > 0;
+}
+
+/** 所感下書き生成（要点＋フォーカスが揃ってから） */
+export function canGenerateLeaderNote(draft: ReviewDraft): boolean {
+  const brief = draft.researchBrief.trim();
   return (
-    selectedLinkCount(draft) > 0 &&
-    Boolean(draft.researchFocus.trim()) &&
-    Boolean(draft.researchBrief.trim())
+    canEnterLeaderStep(draft) &&
+    Boolean(brief) &&
+    !looksLikeUrlInaccessible(brief) &&
+    Boolean(draft.researchFocus.trim())
   );
 }
 
-/** 構成順: お礼 → 要約 → 所感 → 任意♯リンク → 締め */
+/** 構成順: お礼 → 要約 → 所感 → 任意♯リンク → 締め（各ブロック間は空行） */
 export function formatReviewPost(draft: ReviewDraft): string {
   const links = draft.linkCandidates
+    .filter((l) => l.selected && l.url.trim())
     .map((l) => `♯${l.title}\n${l.url}`)
     .join("\n\n");
 
-  return repairDuplicatedGuidelinePhrase(
-    [
-      draft.opener.trim() || formatThanks(draft.presenterName),
-      "",
-      draft.summary.trim(),
-      "",
-      draft.leaderNote.trim(),
-      links ? `\n${links}` : "",
-      "",
-      draft.closing.trim() || DEFAULT_CLOSING,
-    ]
-      .join("\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim(),
+  const summary = repairDuplicatedGuidelinePhrase(draft.summary.trim());
+  const leader = repairMissingOpeningKagi(draft.leaderNote.trim());
+  const closing = repairMissingOpeningKagi(
+    draft.closing.trim() || DEFAULT_CLOSING,
   );
+
+  const blocks = [
+    draft.opener.trim() || formatThanks(draft.presenterName),
+    summary,
+    leader,
+    links,
+    closing,
+  ].filter((b) => Boolean(b));
+
+  return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** 通読前: 所感・締めの開き「抜けを直した下書き */
+export function withRepairedKagiQuotes(draft: ReviewDraft): ReviewDraft {
+  return {
+    ...draft,
+    leaderNote: repairMissingOpeningKagi(draft.leaderNote),
+    closing: repairMissingOpeningKagi(draft.closing),
+  };
+}
+
+/** 通読用: 手直し全文があればそれ、なければ組み立て */
+export function resolveAssembledPost(draft: ReviewDraft): string {
+  const edited = draft.assembledPost.trim();
+  return edited || formatReviewPost(draft);
 }
 
 export function loadReviewDraft(): ReviewDraft | null {
@@ -206,8 +252,13 @@ export function loadReviewDraft(): ReviewDraft | null {
           : defaultReviewDateYmd(),
       presenterName: parsed.presenterName ?? "",
       researchFocus: parsed.researchFocus ?? "",
+      researchPagePaste: parsed.researchPagePaste ?? "",
+      researchNeedsPagePaste: Boolean(parsed.researchNeedsPagePaste),
+      researchPhase:
+        parsed.researchPhase === "brief" ? "brief" : "collect",
       researchBrief: parsed.researchBrief ?? "",
       keywordSuggestions: parsed.keywordSuggestions ?? [],
+      assembledPost: parsed.assembledPost ?? "",
       step: parsed.step ?? 1,
     };
   } catch {

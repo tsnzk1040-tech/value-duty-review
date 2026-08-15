@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -10,15 +10,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { verifyPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
+import {
+  assertPlatformPasskey,
+  isWebAuthnPlatformAvailable,
+} from "@/lib/settings/webauthn";
 
 export function LoginForm() {
   const { settings, ready } = useSettings();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/";
+  const nextPath = searchParams.get("next") || "/review";
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const hasPasskey = Boolean(settings.auth.webauthnCredentialId?.trim());
+  const [platformAuth, setPlatformAuth] = useState(false);
+
+  useEffect(() => {
+    setPlatformAuth(isWebAuthnPlatformAvailable());
+  }, []);
+
+  const canBiometric = hasPasskey && platformAuth;
+
+  function goNext() {
+    setAuthSessionActive(true);
+    router.replace(nextPath.startsWith("/") ? nextPath : "/review");
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -26,7 +44,7 @@ export function LoginForm() {
     setError(null);
     try {
       if (!settings.auth.enabled) {
-        router.replace("/");
+        router.replace("/review");
         return;
       }
       const ok = await verifyPassword(
@@ -38,8 +56,22 @@ export function LoginForm() {
         setError("パスワードが違う");
         return;
       }
-      setAuthSessionActive(true);
-      router.replace(nextPath.startsWith("/") ? nextPath : "/");
+      goNext();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onBiometric() {
+    setPending(true);
+    setError(null);
+    try {
+      const id = settings.auth.webauthnCredentialId?.trim() ?? "";
+      await assertPlatformPasskey(id);
+      goNext();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "生体認証に失敗した";
+      setError(msg);
     } finally {
       setPending(false);
     }
@@ -64,6 +96,22 @@ export function LoginForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+      {canBiometric ? (
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            className="h-11"
+            disabled={pending}
+            onClick={() => void onBiometric()}
+          >
+            {pending ? "確認中…" : "生体認証で解除"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Face ID／指紋など。失敗したら下のパスワードでも解除できる。
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">パスワード</Label>
         <Input
@@ -76,11 +124,16 @@ export function LoginForm() {
         />
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={pending} className="h-11">
-        {pending ? "確認中…" : "解除する"}
+      <Button type="submit" variant="outline" disabled={pending} className="h-11">
+        {pending ? "確認中…" : "パスワードで解除"}
       </Button>
       <p className="text-xs text-muted-foreground">
         ブラウザのタブを閉じるまで有効（sessionStorage）。端末またぎはしない。
+        {!hasPasskey
+          ? " パスキーは設定から登録できる。"
+          : !platformAuth
+            ? " この環境では生体を使えない。"
+            : ""}
       </p>
     </form>
   );

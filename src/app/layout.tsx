@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AuthGate } from "@/components/auth/auth-gate";
+import { AppChrome } from "@/components/layout/app-chrome";
 import { SettingsProvider } from "@/components/settings/settings-provider";
 
 import "./globals.css";
@@ -35,7 +37,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <SettingsProvider>
-          <AuthGate>{children}</AuthGate>
+          <Suspense
+            fallback={
+              <div className="mx-auto flex w-full max-w-md flex-1 items-center px-4 py-8 text-sm text-muted-foreground">
+                読み込み中…
+              </div>
+            }
+          >
+            <AuthGate>
+              <AppChrome>{children}</AppChrome>
+            </AuthGate>
+          </Suspense>
         </SettingsProvider>
       </body>
     </html>

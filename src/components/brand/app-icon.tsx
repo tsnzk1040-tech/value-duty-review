@@ -6,14 +6,21 @@ type AppIconProps = {
   markClassName?: string;
 };
 
-/** ホーム画面・ヘッダ用。向かい合う2矢印（リレー輪）。色は shadcn セマンティックトークン。 */
+/**
+ * ホーム画面・ヘッダ用。向かい合う2矢印（リレー輪）。
+ * 背景はコーポレート青グラデ（深紺→シアン）。
+ */
 export function AppIcon({ className, markClassName }: AppIconProps) {
   return (
     <div
       className={cn(
-        "flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm",
+        "flex size-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm",
         className,
       )}
+      style={{
+        background:
+          "linear-gradient(135deg, #081870 0%, #0060b0 48%, #0090d8 100%)",
+      }}
       aria-hidden
     >
       <AppIconMark className={cn("size-7", markClassName)} />
@@ -38,7 +45,7 @@ export function AppIconMark({ className }: { className?: string }) {
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
-        strokeOpacity="0.3"
+        strokeOpacity="0.35"
       />
       <path
         d="M8.5 13.2 A8.2 8.2 0 0 1 23.5 13.2"

@@ -1,28 +1,43 @@
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
-  return {
+  const base: MetadataRoute.Manifest = {
     name: "value-duty-review",
     short_name: "VDRレビュー",
     description: "通勤向け・自分専用のレビュー／ローテ Web",
-    start_url: "/",
+    start_url: "/review",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#262626",
+    theme_color: "#0060b0",
     lang: "ja",
     icons: [
       {
-        src: "/icon.png?v=4",
+        src: "/icon.png?v=5",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.png?v=4",
+        src: "/icon.png?v=5",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
       },
     ],
   };
+
+  // share_target は Manifest 型に未定義のため拡張
+  return {
+    ...base,
+    share_target: {
+      action: "/share-target",
+      method: "GET",
+      enctype: "application/x-www-form-urlencoded",
+      params: {
+        title: "title",
+        text: "text",
+        url: "url",
+      },
+    },
+  } as MetadataRoute.Manifest;
 }

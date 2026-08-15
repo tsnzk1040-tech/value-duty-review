@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useSettings } from "@/components/settings/settings-provider";
 import { Button } from "@/components/ui/button";
@@ -15,34 +14,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CorporateCreedPanel } from "@/components/creed/corporate-creed-panel";
+import { ReviewStepLayout } from "@/components/review/review-two-pane";
 import { googleAiModeSearchUrl } from "@/lib/review/google-ai-mode";
 import {
   REVIEW_STEPS,
   canEnterLeaderStep,
+  canGenerateLeaderNote,
   createEmptyDraft,
   formatReviewPost,
   formatThanks,
   loadReviewDraft,
+  resolveAssembledPost,
   saveReviewDraft,
   selectedLinkCount,
+  withRepairedKagiQuotes,
   type ReviewDraft,
   type ReviewStep,
 } from "@/lib/review/draft";
 import {
   checkFinalReviewPost,
   repairDuplicatedGuidelinePhrase,
+  textMayMissOpeningKagi,
   type FinalCheckResult,
 } from "@/lib/review/final-check";
+import { consumePendingShare } from "@/lib/review/share-target";
+import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
 
 export function ReviewWorkbench() {
   const { settings, ready } = useSettings();
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [manualUrl, setManualUrl] = useState("");
   const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
   const [closingCandidates, setClosingCandidates] = useState<string[]>([]);
-  const [manualFocus, setManualFocus] = useState("");
+  const shareAppliedRef = useRef(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -61,6 +67,67 @@ export function ReviewWorkbench() {
   }, [ready, settings.valueItems]);
 
   useEffect(() => {
+    if (!draft || shareAppliedRef.current) return;
+    const pending = consumePendingShare();
+    if (!pending) return;
+    shareAppliedRef.current = true;
+
+    if (pending.intent === "post") {
+      const body = pending.text.trim() || pending.title.trim();
+      const hit = matchValueItemFromSourcePost(body, settings.valueItems);
+      setDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              step: 1,
+              sourcePost: body,
+              ...(hit ? { themeId: hit.id } : {}),
+            }
+          : prev,
+      );
+      setHint(
+        hit
+          ? `共有から投稿を受け取り、行動指針をセットした: ${hit.label}`
+          : "共有からメンバー投稿を受け取った",
+      );
+      return;
+    }
+
+    const url = pending.url.trim();
+    if (!url) {
+      setHint("共有にURLがなかった。Googleからもう一度共有して");
+      return;
+    }
+    const sharp =
+      (pending.title.trim() || pending.text.trim() || "共有リンク").slice(0, 40);
+    const id = `share-${Date.now()}`;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const keywords = prev.keywords.trim() || sharp;
+      return {
+        ...prev,
+        step: 3,
+        researchPhase: "collect",
+        keywords,
+        // 共有は常に参照1本に差し替え（二重防止）
+        linkCandidates: [
+          {
+            id,
+            title: keywords,
+            url,
+            selected: true,
+          },
+        ],
+        researchBrief: "",
+        researchPagePaste: "",
+        researchNeedsPagePaste: false,
+        researchFocus: "",
+      };
+    });
+    setHint("共有からGoogle参照を1本入れた。所感へ進んで要点を作って");
+  }, [draft, settings.valueItems]);
+
+  useEffect(() => {
     if (!draft) return;
     saveReviewDraft(draft);
   }, [draft]);
@@ -74,7 +141,7 @@ export function ReviewWorkbench() {
   }, [draft, settings.valueItems]);
 
   const finalText = useMemo(
-    () => (draft ? formatReviewPost(draft) : ""),
+    () => (draft ? resolveAssembledPost(draft) : ""),
     [draft],
   );
 
@@ -111,7 +178,35 @@ export function ReviewWorkbench() {
   }
 
   function go(step: ReviewStep) {
+    if (step === 5 && draft) {
+      const repaired = withRepairedKagiQuotes(draft);
+      const assembled = formatReviewPost(repaired);
+      patch({
+        step: 5,
+        leaderNote: repaired.leaderNote,
+        closing: repaired.closing,
+        assembledPost: assembled,
+      });
+      return;
+    }
     patch({ step });
+  }
+
+  /** 投稿本文から行動指針を推定してセット（Selectで直せる） */
+  function applyThemeFromSourcePost(sourcePost: string) {
+    const hit = matchValueItemFromSourcePost(
+      sourcePost,
+      settings.valueItems,
+    );
+    if (!hit) {
+      patch({ sourcePost });
+      return;
+    }
+    const changed = hit.id !== draft!.themeId;
+    patch({ sourcePost, themeId: hit.id });
+    if (changed) {
+      setHint(`投稿から行動指針をセットした: ${hit.label}（直せる）`);
+    }
   }
 
   function runDraftGenerate() {
@@ -192,6 +287,10 @@ export function ReviewWorkbench() {
           keywordSuggestions: data.suggestions ?? [],
           keywords: "",
           linkCandidates: [],
+          researchFocus: "",
+          researchPagePaste: "",
+          researchNeedsPagePaste: false,
+          researchPhase: "collect",
           researchBrief: "",
         });
         const via =
@@ -217,61 +316,39 @@ export function ReviewWorkbench() {
     }
     window.open(googleAiModeSearchUrl(q), "_blank", "noopener,noreferrer");
     setHint(
-      "Googleを開いた。OKなら URL と所感の芯コメントをセットで貼り返そう",
-    );
-  }
-
-  function addManualLink() {
-    const title = draft!.keywords.trim();
-    if (!title) {
-      setHint("先に検索ワードを選ぶか入力して（♯タイトルになる）");
-      return;
-    }
-    let url = manualUrl.trim();
-    if (!url) {
-      setHint("URLを貼ってから追加して");
-      return;
-    }
-    const focus = manualFocus.trim();
-    if (!focus) {
-      setHint("参照と一緒に、所感の芯になるコメントも貼って");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      url = `https://${url}`;
-    }
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        setHint("http(s)のURLにして");
-        return;
-      }
-    } catch {
-      setHint("URLの形式を確認して");
-      return;
-    }
-    const id = `manual-${Date.now()}`;
-    patch({
-      linkCandidates: [
-        ...draft!.linkCandidates,
-        { id, title, url, selected: true, snippet: focus },
-      ],
-      researchFocus: focus,
-      researchBrief: "",
-    });
-    setManualUrl("");
-    setManualFocus("");
-    setHint(
-      `♯${title} とフォーカスを一緒に貼り返した。続けて追加するか、要点メモへ`,
+      "Googleを開いた。OKな結果を共有→「VDRレビュー」で参照を1本入れる",
     );
   }
 
   function removeLink(id: string) {
+    const next = draft!.linkCandidates.filter((l) => l.id !== id);
     patch({
-      linkCandidates: draft!.linkCandidates.filter((l) => l.id !== id),
+      linkCandidates: next,
       researchBrief: "",
+      researchPagePaste: next.length === 0 ? "" : draft!.researchPagePaste,
+      researchNeedsPagePaste:
+        next.length === 0 ? false : draft!.researchNeedsPagePaste,
+      researchFocus: next.length === 0 ? "" : draft!.researchFocus,
     });
     setHint("参照を外した");
+  }
+
+  async function pastePageFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setHint("クリップボードが空。ページでコピーしてから再度");
+        return;
+      }
+      patch({
+        researchPagePaste: text,
+        researchBrief: "",
+        researchNeedsPagePaste: true,
+      });
+      setHint("本文を貼った。要点メモを作って");
+    } catch {
+      setHint("クリップボードを読めなかった。下の欄に直接貼って");
+    }
   }
 
   function runResearchBrief() {
@@ -281,11 +358,7 @@ export function ReviewWorkbench() {
         url: l.url,
       }));
       if (selectedLinks.length === 0) {
-        setHint("先に参照を1つ以上貼り返して（採択）");
-        return;
-      }
-      if (!draft!.researchFocus.trim()) {
-        setHint("所感向けフォーカス指示を書いてから要点を作って");
+        setHint("先に調べるで参照を1本入れて");
         return;
       }
       setGenerating(true);
@@ -302,6 +375,7 @@ export function ReviewWorkbench() {
             sourcePost: draft!.sourcePost,
             summary: draft!.summary,
             selectedLinks,
+            pagePaste: draft!.researchPagePaste,
           }),
         });
         const data = (await res.json()) as {
@@ -309,18 +383,29 @@ export function ReviewWorkbench() {
           provider?: string;
           model?: string;
           fallbackReason?: string;
+          needsPagePaste?: boolean;
           error?: string;
         };
         if (!res.ok) {
           setHint(data.error ?? "要点の生成に失敗した");
           return;
         }
-        patch({ researchBrief: data.researchBrief ?? "" });
+        if (data.needsPagePaste) {
+          patch({ researchBrief: "", researchNeedsPagePaste: true });
+          setHint(
+            "URLの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」→もう一度要点メモ",
+          );
+          return;
+        }
+        patch({
+          researchBrief: data.researchBrief ?? "",
+          researchNeedsPagePaste: false,
+        });
         const via =
           data.provider === "gemini"
             ? `Gemini${data.model ? ` (${data.model})` : ""}`
             : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
-        setHint(`要点メモを出した（${via}）。直してから所感下書きへ`);
+        setHint(`要点メモを出した（${via}）。所感向けフォーカスを書いてから下書きへ`);
       } catch {
         setHint("要点リクエストに失敗した");
       } finally {
@@ -331,8 +416,8 @@ export function ReviewWorkbench() {
 
   function runLeaderDraft() {
     void (async () => {
-      if (!canEnterLeaderStep(draft!)) {
-        setHint("調べるが未完了。参照の貼り返し・フォーカス・要点を揃えて");
+      if (!canGenerateLeaderNote(draft!)) {
+        setHint("要点と所感向けフォーカスを揃えてから下書きを出して");
         return;
       }
       setGenerating(true);
@@ -373,7 +458,13 @@ export function ReviewWorkbench() {
           data.provider === "gemini"
             ? `Gemini${data.model ? ` (${data.model})` : ""}`
             : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
-        setHint(`所感下書きを出した（${via}）。締めを本文に合わせて提案中…`);
+        const gaHint =
+          leaderNote && textMayMissOpeningKagi(leaderNote)
+            ? " 開きの「が抜けてないか見て。"
+            : "";
+        setHint(
+          `所感下書きを出した（${via}）。${gaHint}締めを本文に合わせて提案中…`,
+        );
 
         const closingRes = await fetch("/api/review/draft", {
           method: "POST",
@@ -460,6 +551,39 @@ export function ReviewWorkbench() {
         setGenerating(false);
       }
     })();
+  }
+
+  function enterReadStep() {
+    if (!draft) return;
+    const repaired = withRepairedKagiQuotes(draft);
+    const kagiFixed =
+      repaired.leaderNote !== draft.leaderNote ||
+      repaired.closing !== draft.closing;
+    const assembled = formatReviewPost(repaired);
+    patch({
+      step: 5,
+      leaderNote: repaired.leaderNote,
+      closing: repaired.closing,
+      assembledPost: assembled,
+    });
+    setHint(
+      kagiFixed
+        ? "開きの「が抜けていたので通読文で補った。最終編集してからコピーして"
+        : "通読して最終編集してからコピーして",
+    );
+  }
+
+  function rebuildAssembledFromParts() {
+    if (!draft) return;
+    const repaired = withRepairedKagiQuotes(draft);
+    const assembled = formatReviewPost(repaired);
+    patch({
+      leaderNote: repaired.leaderNote,
+      closing: repaired.closing,
+      assembledPost: assembled,
+    });
+    setFinalCheck(checkFinalReviewPost(assembled));
+    setHint("各欄から投稿全文を組み立て直した。必要なら手直しして");
   }
 
   function runFinalCheck() {
@@ -565,36 +689,61 @@ export function ReviewWorkbench() {
     Boolean(draft.reviewDate.trim());
 
   return (
-    <div className="flex flex-col gap-6">
-      <nav aria-label="レビュー段階" className="flex flex-col gap-2">
-        <ol className="flex flex-wrap gap-2">
-          {REVIEW_STEPS.map((s) => {
-            const active = s.step === draft.step;
-            const done = s.step < draft.step;
-            return (
-              <li key={s.step}>
-                <button
-                  type="button"
-                  onClick={() => go(s.step)}
-                  className={
-                    active
-                      ? "rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
-                      : done
-                        ? "rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground"
-                        : "rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground"
-                  }
-                >
-                  {s.step}.{s.title}
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="text-xs text-muted-foreground">
-          段階 {draft.step}/5 · 実プロセス {stepMeta.process} · {stepMeta.blurb}
-        </p>
-      </nav>
+    <div className="flex flex-col">
+      <div className="sticky top-0 z-30 -mx-4 flex flex-col gap-2 border-b border-border bg-background/95 px-4 pb-2.5 pt-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <header className="flex flex-col gap-0.5">
+          <p className="text-xs text-muted-foreground">毎日レビュー</p>
+          <h1 className="text-lg font-semibold tracking-tight">段階UI</h1>
+        </header>
 
+        <nav
+          aria-label="レビュー段階"
+          className="rounded-md border border-primary bg-primary p-1.5 text-primary-foreground"
+        >
+          <ol className="grid w-full grid-cols-5 gap-1">
+            {REVIEW_STEPS.map((step) => {
+              const active = step.step === draft.step;
+              const done = step.step < draft.step;
+              return (
+                <li key={step.step} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => go(step.step)}
+                    title={`${step.step}.${step.title}`}
+                    className={
+                      active
+                        ? "flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-md bg-primary-foreground px-0.5 text-primary"
+                        : done
+                          ? "flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-md bg-primary-foreground/20 px-0.5 text-primary-foreground"
+                          : "flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-md border border-primary-foreground/40 px-0.5 text-primary-foreground/90"
+                    }
+                  >
+                    <span className="text-[10px] leading-none opacity-80">
+                      {step.step}
+                    </span>
+                    <span className="max-w-full truncate text-xs font-medium leading-tight">
+                      {step.title}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+
+        <div className="rounded-md border border-border bg-card px-2.5 py-1.5">
+          <p className="text-xs font-medium text-foreground">
+            この画面の使い方 · 段階 {draft.step}/5
+          </p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            実プロセス {stepMeta.process} — {stepMeta.blurb}
+          </p>
+        </div>
+
+        <CorporateCreedPanel themeLabel={themeLabel} compact />
+      </div>
+
+      <div className="flex flex-col gap-4 pt-4">
       {hint ? (
         <p className="text-sm text-muted-foreground" role="status">
           {hint}
@@ -602,7 +751,10 @@ export function ReviewWorkbench() {
       ) : null}
 
       {draft.step === 1 ? (
-        <section className="flex flex-col gap-4" aria-label="下書き">
+        <section aria-label="貼付">
+          <ReviewStepLayout
+            work={
+              <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="review-date">コメント対象の営業日</Label>
             <Input
@@ -636,6 +788,9 @@ export function ReviewWorkbench() {
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              投稿本文から自動セットする。違ったらここで直す。
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="presenter">発表者（呼び名）</Label>
@@ -672,7 +827,7 @@ export function ReviewWorkbench() {
               id="post"
               className="min-h-36"
               value={draft.sourcePost}
-              onChange={(e) => patch({ sourcePost: e.target.value })}
+              onChange={(e) => applyThemeFromSourcePost(e.target.value)}
               placeholder="グループチャットの今日のテーマ投稿を貼る"
             />
           </div>
@@ -692,11 +847,18 @@ export function ReviewWorkbench() {
           >
             {generating ? "生成中…" : "下書きを出す（AI要約）"}
           </Button>
+              </>
+            }
+            
+          />
         </section>
       ) : null}
 
       {draft.step === 2 ? (
-        <section className="flex flex-col gap-4" aria-label="直す">
+        <section aria-label="要約">
+          <ReviewStepLayout
+            work={
+              <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="opener">お礼</Label>
             <Textarea
@@ -723,6 +885,10 @@ export function ReviewWorkbench() {
                 keywords: "",
                 keywordSuggestions: [],
                 linkCandidates: [],
+                researchFocus: "",
+                researchPagePaste: "",
+                researchNeedsPagePaste: false,
+                researchPhase: "collect",
                 researchBrief: "",
               });
               setHint("検索ワード候補を作成中…");
@@ -776,18 +942,25 @@ export function ReviewWorkbench() {
             }}
             disabled={!draft.summary.trim() || generating}
           >
-            要約できた → 調べるへ
+            要約できた → 検索へ
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(1)}>
             戻る
           </Button>
+              </>
+            }
+            
+          />
         </section>
       ) : null}
 
       {draft.step === 3 ? (
-        <section className="flex flex-col gap-4" aria-label="調べる">
+        <section aria-label="検索">
+          <ReviewStepLayout
+            work={
+              <>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Googleで調べてOKなら、参照リンクをアプリに貼り返す。その内容を見てから所感下書きへ進む。
+            検索ワードでGoogleを開き、OKな結果を共有→「VDRレビュー」で参照を1本入れる。要点は所感側。
           </p>
           <div className="flex flex-col gap-1.5">
             <Label>検索ワード候補</Label>
@@ -841,6 +1014,11 @@ export function ReviewWorkbench() {
               placeholder="候補になければ、希望のワードを入力"
             />
           </div>
+          {draft.keywords.trim() ? (
+            <p className="text-sm font-medium">
+              ♯{draft.keywords.trim()}（共有時のタイトル）
+            </p>
+          ) : null}
           <Button
             className="h-11 w-full"
             onClick={openGoogleAiMode}
@@ -848,49 +1026,9 @@ export function ReviewWorkbench() {
           >
             Googleで調べる
           </Button>
-          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">
-              OKな参照は URL と、所感の芯になるコメントをセットで貼り返す。♯は検索ワード。
-            </p>
-            {draft.keywords.trim() ? (
-              <p className="text-sm font-medium">♯{draft.keywords.trim()}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                検索ワードが空だと貼り返せない
-              </p>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="manualUrl">URL</Label>
-              <Input
-                id="manualUrl"
-                value={manualUrl}
-                onChange={(e) => setManualUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="manualFocus">所感向けコメント（フォーカス）</Label>
-              <Textarea
-                id="manualFocus"
-                className="min-h-24"
-                value={manualFocus}
-                onChange={(e) => setManualFocus(e.target.value)}
-                placeholder="例: 思考を深化させるアウトプットの3ステップ"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-11 w-full"
-              onClick={addManualLink}
-              disabled={!draft.keywords.trim()}
-            >
-              URLとコメントを貼り返す
-            </Button>
-          </div>
           {draft.linkCandidates.length > 0 ? (
             <ul className="flex flex-col gap-2">
-              <li className="text-xs text-muted-foreground">貼り返した参照</li>
+              <li className="text-xs text-muted-foreground">参照（共有で1本）</li>
               {draft.linkCandidates.map((link) => (
                 <li
                   key={link.id}
@@ -907,9 +1045,6 @@ export function ReviewWorkbench() {
                       外す
                     </Button>
                   </div>
-                  {link.snippet?.trim() ? (
-                    <p className="text-sm text-muted-foreground">{link.snippet}</p>
-                  ) : null}
                   <a
                     href={link.url}
                     target="_blank"
@@ -921,39 +1056,79 @@ export function ReviewWorkbench() {
                 </li>
               ))}
             </ul>
-          ) : null}
-          {selectedLinkCount(draft) === 0 ? (
+          ) : (
             <p className="text-xs text-muted-foreground">
-              参照を1つ以上貼り返すまで、所感へ進めない。
+              まだ参照なし。Googleから共有するとここに1本入る。
+            </p>
+          )}
+          <Button
+            className="h-11 w-full"
+            onClick={() => {
+              if (!canEnterLeaderStep(draft)) {
+                setHint("Googleから参照を共有してから所感へ");
+                return;
+              }
+              go(4);
+              setHint("本文が取れなければ貼って要点→フォーカス→所感下書き");
+            }}
+            disabled={!canEnterLeaderStep(draft)}
+          >
+            所感へ
+          </Button>
+          <Button variant="outline" className="h-11 w-full" onClick={() => go(2)}>
+            戻る
+          </Button>
+              </>
+            }
+            
+          />
+        </section>
+      ) : null}
+
+      {draft.step === 4 ? (
+        <section aria-label="所感">
+          <ReviewStepLayout
+            work={
+              <>
+          {!canEnterLeaderStep(draft) ? (
+            <p className="text-sm text-muted-foreground">
+              調べるが未完了。戻ってGoogle参照を1本入れて。
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {draft.researchFocus.trim() ? (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="researchFocus">いまのフォーカス（直せる）</Label>
-                  <Textarea
-                    id="researchFocus"
-                    className="min-h-20"
-                    value={draft.researchFocus}
-                    onChange={(e) =>
-                      patch({ researchFocus: e.target.value, researchBrief: "" })
-                    }
-                  />
-                </div>
-              ) : (
-                <p className="text-xs text-amber-800 dark:text-amber-200">
-                  フォーカスが空。上で URL とコメントをセットで貼り返して。
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="researchPagePaste">
+                  開いたページの本文（任意／取得失敗時）
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  共有はURLだけでよい。本文はページでコピーしてここへ（2回目の共有は不要）。
                 </p>
-              )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  onClick={() => void pastePageFromClipboard()}
+                >
+                  クリップボードから貼る
+                </Button>
+                <Textarea
+                  id="researchPagePaste"
+                  className="min-h-28"
+                  placeholder="ページからコピーした本文…"
+                  value={draft.researchPagePaste}
+                  onChange={(e) =>
+                    patch({
+                      researchPagePaste: e.target.value,
+                      researchBrief: "",
+                    })
+                  }
+                />
+              </div>
               <Button
                 className="h-11 w-full"
                 variant="secondary"
                 onClick={runResearchBrief}
-                disabled={
-                  generating ||
-                  !draft.researchFocus.trim() ||
-                  selectedLinkCount(draft) === 0
-                }
+                disabled={generating || selectedLinkCount(draft) === 0}
               >
                 {generating ? "生成中…" : "要点メモを作る"}
               </Button>
@@ -970,50 +1145,35 @@ export function ReviewWorkbench() {
                   />
                 </div>
               ) : null}
-            </div>
+              {draft.researchBrief.trim() ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="researchFocus">所感向けフォーカス</Label>
+                  <p className="text-xs text-muted-foreground">
+                    要点を見たうえで、所感の芯になる一文を書く。
+                  </p>
+                  <Textarea
+                    id="researchFocus"
+                    className="min-h-20"
+                    value={draft.researchFocus}
+                    onChange={(e) => patch({ researchFocus: e.target.value })}
+                    placeholder="例: 思考を深化させるアウトプットの3ステップ"
+                  />
+                </div>
+              ) : null}
+            </>
           )}
-          <Button
-            className="h-11 w-full"
-            onClick={() => {
-              if (!canEnterLeaderStep(draft)) {
-                if (selectedLinkCount(draft) === 0) {
-                  setHint("参照を貼り返すまで繰り返そう");
-                } else if (!draft.researchFocus.trim()) {
-                  setHint("上で URL と所感コメントをセットで貼り返して");
-                } else if (!draft.researchBrief.trim()) {
-                  setHint("要点メモを作ってから所感下書きへ");
-                }
-                return;
-              }
-              go(4);
-              setHint("貼り返した参照を見て、所感下書きを出して脚色して");
-            }}
-          >
-            所感下書きへ
-          </Button>
-          <Button variant="outline" className="h-11 w-full" onClick={() => go(2)}>
-            戻る
-          </Button>
-        </section>
-      ) : null}
-
-      {draft.step === 4 ? (
-        <section className="flex flex-col gap-4" aria-label="所感">
-          {!canEnterLeaderStep(draft) ? (
-            <p className="text-sm text-muted-foreground">
-              調べるが未完了。戻って参照の貼り返し・フォーカス・要点を揃えて。
-            </p>
-          ) : null}
           <Button
             className="h-11 w-full"
             onClick={runLeaderDraft}
             disabled={
-              generating || !draft.summary.trim() || !canEnterLeaderStep(draft)
+              generating ||
+              !draft.summary.trim() ||
+              !canGenerateLeaderNote(draft)
             }
           >
             {generating
               ? "生成中…"
-              : "所感下書きを出す（貼り返した参照を下地に）"}
+              : "所感下書きを出す（共感→指針→提案→薄い問い）"}
           </Button>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="leader">所感・着想（ここで脚色）</Label>
@@ -1023,6 +1183,12 @@ export function ReviewWorkbench() {
               value={draft.leaderNote}
               onChange={(e) => patch({ leaderNote: e.target.value })}
             />
+            {draft.leaderNote.trim() &&
+            textMayMissOpeningKagi(draft.leaderNote) ? (
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                鉤括弧の開き「が抜けているかも（」だけある）。文頭に「を足して。
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="closing">締めの呼びかけ（所感に対応）</Label>
@@ -1035,6 +1201,11 @@ export function ReviewWorkbench() {
               value={draft.closing}
               onChange={(e) => patch({ closing: e.target.value })}
             />
+            {draft.closing.trim() && textMayMissOpeningKagi(draft.closing) ? (
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                鉤括弧の開き「が抜けているかも（」だけある）。文頭に「を足して。
+              </p>
+            ) : null}
             {closingCandidates.length > 1 ? (
               <ul className="flex flex-col gap-2">
                 {closingCandidates.map((c) => (
@@ -1063,19 +1234,26 @@ export function ReviewWorkbench() {
           </div>
           <Button
             className="h-11 w-full"
-            onClick={() => go(5)}
+            onClick={enterReadStep}
             disabled={!draft.leaderNote.trim()}
           >
-            通読へ
+            出力へ
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(3)}>
             戻る
           </Button>
+              </>
+            }
+            
+          />
         </section>
       ) : null}
 
       {draft.step === 5 ? (
-        <section className="flex flex-col gap-4" aria-label="通読コピー">
+        <section aria-label="出力">
+          <ReviewStepLayout
+            work={
+              <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="review-date-final">コメント対象の営業日（履歴）</Label>
             <Input
@@ -1086,12 +1264,18 @@ export function ReviewWorkbench() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="final">投稿用プレビュー（構成どおり）</Label>
+            <Label htmlFor="final">投稿用プレビュー（最終編集可）</Label>
+            <p className="text-xs text-muted-foreground">
+              ここで全文を直せる。コピー・履歴保存はこの内容。
+            </p>
             <Textarea
               id="final"
-              readOnly
               className="min-h-64 font-mono text-xs"
-              value={finalText}
+              value={draft.assembledPost || finalText}
+              onChange={(e) => {
+                patch({ assembledPost: e.target.value });
+                setFinalCheck(null);
+              }}
             />
           </div>
           {finalCheck ? (
@@ -1116,11 +1300,22 @@ export function ReviewWorkbench() {
                 </ul>
               ) : (
                 <p className="mt-1 text-muted-foreground">
-                  定型の二重・ですね語尾など、機械チェック上の問題なし
+                  定型の二重・要約のですね等、機械チェック上の問題なし
                 </p>
               )}
             </div>
-          ) : null}
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              通読に入ると自動で走る。直し後は「最終チェックを再実行」。
+            </p>
+          )}
+          <Button
+            variant="outline"
+            className="h-11 w-full"
+            onClick={rebuildAssembledFromParts}
+          >
+            各欄から組み立て直す
+          </Button>
           <Button variant="outline" className="h-11 w-full" onClick={runFinalCheck}>
             最終チェックを再実行
           </Button>
@@ -1160,12 +1355,13 @@ export function ReviewWorkbench() {
           >
             新しいレビューを始める
           </Button>
+              </>
+            }
+            
+          />
         </section>
       ) : null}
-
-      <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
-        ホームへ
-      </Button>
+      </div>
     </div>
   );
 }

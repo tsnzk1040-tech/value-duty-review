@@ -80,8 +80,8 @@ export default function IconPreviewPage() {
         </div>
       </section>
 
-      <Link href="/" className="text-sm text-primary underline-offset-4 hover:underline">
-        ホームへ戻る
+      <Link href="/review" className="text-sm text-primary underline-offset-4 hover:underline">
+        レビューへ戻る
       </Link>
     </main>
   );

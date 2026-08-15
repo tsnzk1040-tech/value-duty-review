@@ -1,7 +1,4 @@
-import Link from "next/link";
-
 import { SettingsForm } from "@/components/settings/settings-form";
-import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   return (
@@ -10,15 +7,11 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground">設定</p>
         <h1 className="text-2xl font-semibold tracking-tight">マスタ／認証</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          localStorage の JSON が正本。端末またぎはしない。理念全文はリポに置かない。
+          localStorage の JSON が正本。端末またぎはしない。企業理念チャートはアプリ内参照用。
         </p>
       </header>
 
       <SettingsForm />
-
-      <Button variant="outline" render={<Link href="/" />} nativeButton={false}>
-        ホームへ
-      </Button>
     </div>
   );
 }

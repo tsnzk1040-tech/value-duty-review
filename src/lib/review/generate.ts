@@ -89,6 +89,8 @@ export type ReviewResearchBriefRequest = {
   sourcePost: string;
   summary: string;
   selectedLinks: { title: string; url: string }[];
+  /** 開いたページの本文貼付（あるときは要点の正本材料） */
+  pagePaste?: string;
 };
 
 export type ReviewClosingGenerateRequest = {
@@ -147,6 +149,7 @@ export type ReviewResearchBriefResponse = {
   provider: GenerateProviderId;
   model?: string;
   fallbackReason?: string;
+  needsPagePaste?: boolean;
 };
 
 export type ReviewClosingGenerateResponse = {
@@ -323,6 +326,7 @@ export async function generateReviewResearchBrief(
     sourcePost: input.sourcePost,
     summary: input.summary,
     selectedLinks: input.selectedLinks,
+    pagePaste: input.pagePaste,
   };
 
   const gate = shouldUseStub();
@@ -333,6 +337,7 @@ export async function generateReviewResearchBrief(
       researchBrief: stub.researchBrief,
       provider: "stub",
       fallbackReason: gate.reason,
+      needsPagePaste: stub.needsPagePaste,
     };
   }
 
@@ -343,6 +348,7 @@ export async function generateReviewResearchBrief(
       researchBrief: result.researchBrief,
       provider: result.provider,
       model: result.model,
+      needsPagePaste: result.needsPagePaste,
     };
   } catch (err) {
     const stub = generateResearchBriefStub(briefInput);
@@ -352,6 +358,7 @@ export async function generateReviewResearchBrief(
       researchBrief: stub.researchBrief,
       provider: "stub",
       fallbackReason: message,
+      needsPagePaste: stub.needsPagePaste,
     };
   }
 }

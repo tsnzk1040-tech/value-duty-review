@@ -42,6 +42,7 @@ export function createDefaultSettings(): AppSettings {
       enabled: false,
       salt: "",
       passwordHash: "",
+      webauthnCredentialId: "",
     },
     notes: "",
   };

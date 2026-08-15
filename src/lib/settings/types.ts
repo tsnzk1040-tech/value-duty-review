@@ -22,6 +22,11 @@ export type AuthSettings = {
   enabled: boolean;
   salt: string;
   passwordHash: string;
+  /**
+   * Platform authenticator credential id (base64url).
+   * Empty = パスキー未登録。パスワードと併用可。
+   */
+  webauthnCredentialId?: string;
 };
 
 export type RotationSettings = {

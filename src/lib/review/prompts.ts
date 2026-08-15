@@ -3,6 +3,7 @@ import {
   stripTrailingClosingVariation,
 } from "@/lib/review/closing";
 import { stripGuidelineCodeRestate } from "@/lib/review/final-check";
+import { buildCreedAlignmentBlock } from "@/lib/creed/corporate-creed";
 import {
   summaryPrefix,
   summarySuffix,
@@ -90,6 +91,8 @@ export function buildSummaryInstructions(input: SummaryGenerateInput): string {
     "店舗でお客様に感動を届けた素晴らしい接客だった",
     "",
     history,
+    buildCreedAlignmentBlock(input.themeLabel),
+    "",
     "【入力】",
     `今日の枠の識別用（出力に書かない）: ${input.themeLabel}`,
     `Value帯名（出力に書かない）: ${heading}`,
@@ -115,7 +118,7 @@ export function extractSummaryBody(raw: string, themeLabel: string): string {
 
   if (body.startsWith(prefix)) body = body.slice(prefix.length).trim();
   body = body.replace(new RegExp(`${escapeRegExp(suffix)}$`), "").trim();
-  body = body.replace(/想いを共有頂きました。?/g, "").trim();
+  body = body.replace(/想いを共有頂きました[。．！]?/g, "").trim();
   body = body.replace(/^Value[０-９0-9]\s*[　 ].*?について、?/g, "");
   body = body.replace(new RegExp(escapeRegExp(heading), "g"), "");
   // 定型と二重になりやすいフレーズを落とす
@@ -269,37 +272,48 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     : "";
 
   return [
-    "あなたは職場のグループチャット向けに、リーダーが返す「所感・着想」の下書きを書く助手です。",
-    "トシオが最終脚色する前提。調べた要点とフォーカス指示を下地に、言いたい事に踏み込むたたき台を出す。",
-    "要約パートでは実践の事実だけを見せた。所感では実感・引きつけ・次の一歩を書く。",
+    "あなたは職場のグループチャット向けに、リーダー（上司・同僚の先輩）が返す「所感・着想」の下書きを書く助手です。",
+    "目的は企業理念の浸透だが、布教・訓示・スローガン押しは禁止。アレルギーを呼ぶ『宣教師』口調にしない。",
+    "距離感は上司として寄り添う・一緒に考える側。カジュアルで話しやすいです・ます（堅い訓話にしない）。",
+    "トシオが最終脚色する前提。参照リンクは提案の材料まで。リンク解説が主役になってはいけない。",
     "",
     "【トーン】",
-    "- 同僚向けのやわらかいです・ます。減点・皮肉・上から目線は禁止。",
-    "- 「だね」「だよ」「ですね」「！！」は使わない。",
-    "- 大げさな賛辞より、投稿の具体と調べた材料に触れて前向きに引きつける。",
+    "- 寄り添い・共感が先。評価口調・上から目線・減点・皮肉は禁止。",
+    "- 「〜ですね」「〜ますね」は共感に使ってよい。「だね」「だよ」「！！」は使わない。",
+    "- 『理念浸透』『指針の実践』『リレー』『今日の一歩』など標語っぽい言い回しは避けるか、ごく薄く。",
+    "- 行動指針は『今日のテーマのニュアンス』で自然に触れる。コード全文・帯名の長々再掲は禁止。",
     "",
-    "【分量・中身】",
-    "- 所感本文のみ（2〜4文程度。だいたい150〜280字）。お礼・Value要約定型・締めの呼びかけは書かない。",
-    "- 必ず含める: ①投稿／要約の具体 ②調べた要点またはフォーカス指示への応答 ③チームへの引きつけ（今日の一歩）④薄い次の一手",
-    "- 問いを置くなら1つまで。必須ではない。",
-    "- 採択リンクのタイトルに軽く触れてよい（URL・♯記法は書かない。リンク掲出は別ブロック）。",
+    "【所感の型（この順・必須）】",
+    "① 投稿の具体に共感・感謝（ですね可・カジュアル）",
+    "② 今日のテーマに、会話の延長で一言つなぐ（訓示にしない）",
+    "③ 明日から使えそうな具体を1つ（調べた要点は添える程度）",
+    "④ 薄い問い（『〜してみるとどう？』『明日の一件で試せそう？』程度のやわらかさ）。",
+    "   ※『皆さんでやってみませんか』級の強い呼びかけは締め欄の仕事。所感では書かない。",
+    "",
+    "【分量】",
+    "- 所感本文のみ（だいたい160〜280字・2〜4文）。お礼・Value要約定型・締めの強い呼びかけは書かない。",
+    "- 採択リンクのタイトルに触れるなら半文まで（URL・♯記法は書かない）。",
     "",
     "【絶対に書かない】",
     "  - お礼定型（「〜さん、振り返りコメント共有…」）",
     "  - Value要約定型（「Value…のN番目…想いを共有頂きました」）",
-    "  - 締め専用の定型だけ（「皆さんと一緒にやっていきましょう」等）— 締め欄は別",
+    "  - 締め専用の強い誘い（「皆さんでやってみませんか」「一緒にやっていきましょう」等）",
+    "  - 布教調（『理念を体現』『指針を意識して』『浸透が進む』『チームの力に』など訓話フレーズの連発）",
     "  - Value帯名の長々した再掲、行動指針全文、次回テーマ／担当",
-    "  - 「ですね」、実装・POC・スキル名などのメタ",
+    "  - 参照記事の要約・解説が本文の半分以上を占めること",
+    "  - 実装・POC・スキル名などのメタ",
     "",
     "【良い例（中身は仮）】",
-    "知識だけで止まらず周囲に聞いて一次回答まで持っていった点が、間接部門でもそのまま使える一歩だと感じます。調べた「聞き方の型」も参考に、明日は自分の案件でも誰に聞くかを先に決めて動けると、リレーが続きそうです。",
+    "周囲に聞いて一次回答まで持っていったの、現場でもそのまま使えそうでいいですね。『どうすればできるか』を先に考える感じ、今日のテーマとも重なります。調べた聞き方の型を一つだけ借りて、明日は自分の案件で『誰に聞くか』を先に決めてみると動きやすそうです。小さな一手、どこから試しそうですか。",
     "",
     "【悪い例】",
-    "素晴らしい振り返りですね。",
-    "指針を意識できていて良いと思います。",
-    "皆さんと一緒にやっていきましょう。",
+    "指針の実践がチームの理念浸透の一歩につながると感じます。（宣教師・標語）",
+    "記事では〇〇の3ステップが紹介されていて…（リンク解説が主役）",
+    "皆さんでやってみませんか。（締めの仕事）",
     "",
     history,
+    buildCreedAlignmentBlock(input.themeLabel),
+    "",
     "【入力】",
     `今日の枠の識別用（所感にコード全文を書かない）: ${input.themeLabel}`,
     `Value帯名（長々再掲しない）: ${heading}`,
@@ -307,9 +321,9 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     keywords,
     focus,
     links,
-    "調べた要点メモ:",
+    "調べた要点メモ（提案の材料。主役にしない）:",
     input.researchBrief.trim() || "（なし）",
-    "要約（接続用）:",
+    "要約（共感の主材料）:",
     input.summary.trim() || "（未編集）",
     "投稿本文:",
     input.sourcePost.trim() || "（なし）",
@@ -320,12 +334,9 @@ export function polishLeaderNote(raw: string): string {
   let out = raw.replace(/\r\n/g, "\n").trim();
   out = out.replace(/^```(?:\w+)?\n?/, "").replace(/\n?```$/, "").trim();
   out = out.replace(/^["「]|["」]$/g, "").trim();
-  out = out.replace(/想いを共有頂きました。?/g, "").trim();
+  out = out.replace(/想いを共有頂きました[。．！]?/g, "").trim();
   out = out.replace(/^Value[０-９0-9]\s*[　 ].*?について、?/gm, "");
-  out = out.replace(/ていますね[。．]?/g, "ていて。");
-  out = out.replace(/していますね[。．]?/g, "していて。");
-  out = out.replace(/ますね[。．]?/g, "ます。");
-  out = out.replace(/ですね[。．]?/g, "。");
+  // 所感の共感「ですね／ますね」は残す（要約側では除去）
   out = out.replace(/ですよ[。．]?/g, "。");
   out = out.replace(/[。．]{2,}/g, "。");
   out = out.replace(
@@ -337,9 +348,10 @@ export function polishLeaderNote(raw: string): string {
 }
 
 export function isWeakLeaderNote(body: string): boolean {
-  if (body.length < 60) return true;
+  if (body.length < 80) return true;
   if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
-  if (/ですね|ますね/.test(body)) return true;
+  if (/皆さんでやってみませんか|一緒にやっていきましょう/.test(body)) return true;
+  if (/理念浸透|指針の実践|体現|チームの力になります/.test(body)) return true;
   const trimmed = body.trim();
   if (
     CLOSING_VARIATIONS.some((c) => {

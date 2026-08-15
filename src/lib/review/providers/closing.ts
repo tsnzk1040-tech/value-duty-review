@@ -24,9 +24,9 @@ export function generateClosingStub(
       .find((s) => s.length >= 8 && s.length <= 40) ?? "";
   const candidates = [
     focusBit
-      ? `${focusBit}——その感覚を、明日の一件だけ持ち越してみよう。`
-      : "考え方の引き出しが一つ増えた。小さくていいから、現場で触ってみよう。",
-    "『できない』の手前に一手ある、と思えたら今日は十分だ。また共有しよう。",
+      ? `${focusBit}——その感覚を、明日の一件だけ持ち越してみよう！`
+      : "考え方の引き出しが一つ増えた。小さくていいから、現場で触ってみよう！",
+    "『できない』の手前に一手ある、と思えたら今日は十分だ。また共有しよう！",
     pickClosingVariation(input.exclude),
   ].filter((c, i, arr) => arr.indexOf(c) === i);
   return {
