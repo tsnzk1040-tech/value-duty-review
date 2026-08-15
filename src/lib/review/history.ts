@@ -243,11 +243,13 @@ export function formatHistoryForPrompt(
         .trim()
         .slice(0, maxSummaryChars);
       const note = item.leaderNote.trim().slice(0, 80);
+      const source = item.sourcePost.replace(/\s+/g, " ").trim().slice(0, 80);
       return [
         `${i + 1}. ${item.reviewDate} · ${item.presenterName}` +
           (item.themeLabel ? ` · ${item.themeLabel}` : ""),
         mid ? `   要約要旨: ${mid}` : "",
         note ? `   所感要旨: ${note}` : "",
+        source ? `   投稿抜粋: ${source}` : "",
       ]
         .filter(Boolean)
         .join("\n");
@@ -267,6 +269,20 @@ export async function loadHistoryNotesForDraft(input: {
       limit: 5,
     });
     return formatHistoryForPrompt(items);
+  } catch {
+    return "";
+  }
+}
+
+/** 所感用。同テーマの前回だけ（担当ORは混ぜない）。無ければ空＝触れない。 */
+export async function loadSameThemeHistoryForLeader(
+  themeId?: string,
+): Promise<string> {
+  const id = themeId?.trim() ?? "";
+  if (!id || !isDatabaseConfigured()) return "";
+  try {
+    const items = await listRelatedReviews({ themeId: id, limit: 4 });
+    return formatHistoryForPrompt(items, { maxItems: 3 });
   } catch {
     return "";
   }

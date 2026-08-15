@@ -4,7 +4,7 @@ import type {
   SummaryGenerateInput,
 } from "@/lib/review/prompts";
 import type { ClosingGenerateInput } from "@/lib/review/closing";
-import { loadHistoryNotesForDraft } from "@/lib/review/history";
+import { loadHistoryNotesForDraft, loadSameThemeHistoryForLeader } from "@/lib/review/history";
 import {
   generateClosingGemini,
   generateClosingStub,
@@ -19,6 +19,7 @@ import {
   generateLeaderStub,
 } from "@/lib/review/providers/leader";
 import {
+  generateResearchBriefChatgpt,
   generateResearchBriefGemini,
   generateResearchBriefStub,
   type ResearchBriefInput,
@@ -29,11 +30,15 @@ import {
 } from "@/lib/review/providers/search";
 import { stubSearchLinks } from "@/lib/review/search-stub";
 import {
+  generateSummaryChatgpt,
   generateSummaryGemini,
   generateSummaryStub,
+  reviseSummaryWithProvider,
   type GenerateProviderId,
   type SummaryGenerateResult,
+  type SummaryModelId,
 } from "@/lib/review/providers/summary";
+import { openAiApiKey } from "@/lib/review/providers/openai";
 import type { LinkCandidate } from "@/lib/review/draft";
 
 export type {
@@ -52,12 +57,23 @@ export type ReviewSummaryGenerateRequest = {
   presenterName: string;
 };
 
+export type ReviewSummaryReviseRequest = {
+  kind: "summary-revise";
+  sourcePost: string;
+  themeLabel: string;
+  themeId?: string;
+  lens?: string;
+  presenterName: string;
+  currentSummary: string;
+  instruction: string;
+  preferredProvider: SummaryModelId;
+};
+
 export type ReviewLeaderGenerateRequest = {
   kind: "leader";
   sourcePost: string;
   themeLabel: string;
   themeId?: string;
-  lens?: string;
   keywords?: string;
   summary: string;
   selectedLinkTitles: string[];
@@ -91,6 +107,7 @@ export type ReviewResearchBriefRequest = {
   selectedLinks: { title: string; url: string }[];
   /** 開いたページの本文貼付（あるときは要点の正本材料） */
   pagePaste?: string;
+  preferredProvider?: SummaryModelId | "stub" | "";
 };
 
 export type ReviewClosingGenerateRequest = {
@@ -104,14 +121,32 @@ export type ReviewClosingGenerateRequest = {
 
 export type ReviewDraftGenerateRequest =
   | ReviewSummaryGenerateRequest
+  | ReviewSummaryReviseRequest
   | ReviewLeaderGenerateRequest
   | ReviewSearchGenerateRequest
   | ReviewKeywordSuggestRequest
   | ReviewResearchBriefRequest
   | ReviewClosingGenerateRequest;
 
+export type ReviewSummaryCandidate = {
+  provider: GenerateProviderId;
+  summary: string;
+  model?: string;
+  fallbackReason?: string;
+};
+
 export type ReviewSummaryGenerateResponse = {
   kind: "summary";
+  opener: string;
+  summary: string;
+  provider: GenerateProviderId;
+  model?: string;
+  fallbackReason?: string;
+  candidates: ReviewSummaryCandidate[];
+};
+
+export type ReviewSummaryReviseResponse = {
+  kind: "summary-revise";
   opener: string;
   summary: string;
   provider: GenerateProviderId;
@@ -163,6 +198,7 @@ export type ReviewClosingGenerateResponse = {
 
 export type ReviewDraftGenerateResponse =
   | ReviewSummaryGenerateResponse
+  | ReviewSummaryReviseResponse
   | ReviewLeaderGenerateResponse
   | ReviewSearchGenerateResponse
   | ReviewKeywordSuggestResponse
@@ -211,13 +247,113 @@ export async function generateReviewSummaryDraft(
       summary: stub.summary,
       provider: "stub",
       fallbackReason: gate.reason,
+      candidates: [
+        {
+          provider: "stub",
+          summary: stub.summary,
+          fallbackReason: gate.reason,
+        },
+      ],
+    };
+  }
+
+  const jobs: Promise<SummaryGenerateResult>[] = [];
+  if (process.env.GEMINI_API_KEY?.trim()) {
+    jobs.push(generateSummaryGemini(summaryInput));
+  }
+  if (openAiApiKey()) {
+    jobs.push(generateSummaryChatgpt(summaryInput));
+  }
+
+  if (jobs.length === 0) {
+    const stub = generateSummaryStub(summaryInput);
+    return {
+      kind: "summary",
+      opener,
+      summary: stub.summary,
+      provider: "stub",
+      fallbackReason: "no API keys",
+      candidates: [{ provider: "stub", summary: stub.summary }],
+    };
+  }
+
+  const settled = await Promise.allSettled(jobs);
+  const candidates: ReviewSummaryCandidate[] = [];
+  for (const item of settled) {
+    if (item.status === "fulfilled") {
+      candidates.push({
+        provider: item.value.provider,
+        summary: item.value.summary,
+        model: item.value.model,
+      });
+    }
+  }
+  if (candidates.length === 0) {
+    const stub = generateSummaryStub(summaryInput);
+    const reasons = settled
+      .filter((s): s is PromiseRejectedResult => s.status === "rejected")
+      .map((s) =>
+        s.reason instanceof Error ? s.reason.message : String(s.reason),
+      );
+    return {
+      kind: "summary",
+      opener,
+      summary: stub.summary,
+      provider: "stub",
+      fallbackReason: reasons.join(" / ") || "all providers failed",
+      candidates: [{ provider: "stub", summary: stub.summary }],
+    };
+  }
+
+  const picked = candidates[0]!;
+  const autoSummary = candidates.length === 1 ? picked.summary : "";
+
+  return {
+    kind: "summary",
+    opener,
+    summary: autoSummary,
+    provider: candidates.length === 1 ? picked.provider : "stub",
+    model: candidates.length === 1 ? picked.model : undefined,
+    candidates,
+  };
+}
+
+export async function generateReviewSummaryRevise(
+  input: ReviewSummaryReviseRequest,
+): Promise<ReviewSummaryReviseResponse> {
+  const opener = formatThanks(input.presenterName);
+  const historyNotes = await loadHistoryNotesForDraft({
+    themeId: input.themeId,
+    presenterName: input.presenterName,
+  });
+  const summaryInput: SummaryGenerateInput = {
+    sourcePost: input.sourcePost,
+    themeLabel: input.themeLabel,
+    lens: input.lens ?? "",
+    historyNotes,
+  };
+
+  const gate = shouldUseStub();
+  if (gate.stub) {
+    const stub = generateSummaryStub(summaryInput);
+    return {
+      kind: "summary-revise",
+      opener,
+      summary: stub.summary,
+      provider: "stub",
+      fallbackReason: gate.reason,
     };
   }
 
   try {
-    const result = await generateSummaryGemini(summaryInput);
+    const result = await reviseSummaryWithProvider(
+      summaryInput,
+      input.currentSummary,
+      input.instruction,
+      input.preferredProvider,
+    );
     return {
-      kind: "summary",
+      kind: "summary-revise",
       opener,
       summary: result.summary,
       provider: result.provider,
@@ -227,7 +363,7 @@ export async function generateReviewSummaryDraft(
     const stub = generateSummaryStub(summaryInput);
     const message = err instanceof Error ? err.message : String(err);
     return {
-      kind: "summary",
+      kind: "summary-revise",
       opener,
       summary: stub.summary,
       provider: "stub",
@@ -329,6 +465,9 @@ export async function generateReviewResearchBrief(
     pagePaste: input.pagePaste,
   };
 
+  const pref = input.preferredProvider;
+  const useChatgpt = pref === "chatgpt" && Boolean(openAiApiKey());
+
   const gate = shouldUseStub();
   if (gate.stub) {
     const stub = generateResearchBriefStub(briefInput);
@@ -342,7 +481,9 @@ export async function generateReviewResearchBrief(
   }
 
   try {
-    const result = await generateResearchBriefGemini(briefInput);
+    const result = useChatgpt
+      ? await generateResearchBriefChatgpt(briefInput)
+      : await generateResearchBriefGemini(briefInput);
     return {
       kind: "research-brief",
       researchBrief: result.researchBrief,
@@ -383,15 +524,11 @@ export async function generateReviewLeaderDraft(
     };
   }
 
-  const historyNotes = await loadHistoryNotesForDraft({
-    themeId: input.themeId,
-    presenterName: input.presenterName,
-  });
+  const historyNotes = await loadSameThemeHistoryForLeader(input.themeId);
 
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,
     themeLabel: input.themeLabel,
-    lens: input.lens ?? "",
     keywords: input.keywords ?? "",
     summary: input.summary,
     selectedLinkTitles: input.selectedLinkTitles,

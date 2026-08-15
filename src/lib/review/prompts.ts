@@ -21,8 +21,12 @@ export type SummaryGenerateInput = {
 /** Gemini には「あいだの文」だけ出させる。定型の枠はアプリが付ける。 */
 export function buildSummaryInstructions(input: SummaryGenerateInput): string {
   const lens = input.lens.trim()
-    ? `観点メモ（任意）: ${input.lens.trim()}`
-    : "観点メモ: なし";
+    ? [
+        "観点メモ（要約を厚くする指示・必ず反映）:",
+        input.lens.trim(),
+        "この観点で、投稿のどの具体を前面に出すかを厚くする。所感・提案は書かない。",
+      ].join("\n")
+    : "観点メモ: なし（投稿の実践事実を定型どおり）";
   const heading = valueHeadingForLabel(input.themeLabel);
   const history = input.historyNotes?.trim()
     ? [
@@ -230,7 +234,6 @@ export function assembleSummary(
 export type LeaderGenerateInput = {
   sourcePost: string;
   themeLabel: string;
-  lens: string;
   keywords: string;
   /** 直したあとの要約（接続用） */
   summary: string;
@@ -246,9 +249,6 @@ export type LeaderGenerateInput = {
 
 /** 所感・着想の本文だけ。締めはアプリ側の別欄。 */
 export function buildLeaderInstructions(input: LeaderGenerateInput): string {
-  const lens = input.lens.trim()
-    ? `観点メモ（要約前・任意）: ${input.lens.trim()}`
-    : "観点メモ（要約前）: なし";
   const keywords = input.keywords.trim()
     ? `検索キーワード: ${input.keywords.trim()}`
     : "検索キーワード: なし";
@@ -262,10 +262,9 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
   const heading = valueHeadingForLabel(input.themeLabel);
   const history = input.historyNotes?.trim()
     ? [
-        "【過去レビュー（同テーマ／同担当・所感の一貫性の材料）】",
-        "- 今日の投稿と調べた要点を優先。過去所感のコピペ禁止。",
-        "- 同じ担当の積み上げが見えるときだけ、連続性に薄く触れてよい。",
-        "- 同じテーマで言い方が被りそうなら、今日の固有点を前面に。",
+        "【同テーマの前回（参考・毎回軽く）】",
+        "- あるときだけ、発表者の呼び名と内容をひとこと触れる（リレーがチームの話に見えるため）。",
+        "- 前回の問いを主役にしない。コピペ禁止。無ければこのブロックごと無視。",
         input.historyNotes.trim(),
         "",
       ].join("\n")
@@ -282,34 +281,41 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     "- 「〜ですね」「〜ますね」は共感に使ってよい。「だね」「だよ」「！！」は使わない。",
     "- 『理念浸透』『指針の実践』『リレー』『今日の一歩』など標語っぽい言い回しは避けるか、ごく薄く。",
     "- 行動指針は『今日のテーマのニュアンス』で自然に触れる。コード全文・帯名の長々再掲は禁止。",
+    "- 個人宿題の『明日の案件で××してみましょう』『どこから試しそうですか』は禁止（軽薄に聞こえる）。",
     "",
     "【所感の型（この順・必須）】",
     "① 投稿の具体に共感・感謝（ですね可・カジュアル）",
-    "② 今日のテーマに、会話の延長で一言つなぐ（訓示にしない）",
-    "③ 明日から使えそうな具体を1つ（調べた要点は添える程度）",
-    "④ 薄い問い（『〜してみるとどう？』『明日の一件で試せそう？』程度のやわらかさ）。",
-    "   ※『皆さんでやってみませんか』級の強い呼びかけは締め欄の仕事。所感では書かない。",
+    "② 同テーマの前回があれば、発表者と内容を軽く一言（無ければ省略）",
+    "③ 今日のテーマに、会話の延長で一言つなぐ（訓示にしない）",
+    "④ チーム／グループ全体への『こうしたら？』を1点だけ。",
+    "   材料は今日の投稿の具体＋調べた要点メモの一点を織る。",
+    "   必ず半文で『なぜ今日のこの場面に効くか』を付ける。記事の要約にしてはいけない。",
+    "   呼びかけの宛先は投稿者ひとりではなく、読んでいるメンバー全体。",
+    "⑤ 所感では奨励の締め文を書かない（締め欄の仕事）。",
     "",
     "【分量】",
-    "- 所感本文のみ（だいたい160〜280字・2〜4文）。お礼・Value要約定型・締めの強い呼びかけは書かない。",
+    "- 所感本文のみ（だいたい200〜320字・3〜5文）。お礼・Value要約定型・締めの奨励文は書かない。",
     "- 採択リンクのタイトルに触れるなら半文まで（URL・♯記法は書かない）。",
+    "- 調べた要点は『こうしたら？』の根拠に使う。2点以上盛らない。",
     "",
     "【絶対に書かない】",
     "  - お礼定型（「〜さん、振り返りコメント共有…」）",
     "  - Value要約定型（「Value…のN番目…想いを共有頂きました」）",
-    "  - 締め専用の強い誘い（「皆さんでやってみませんか」「一緒にやっていきましょう」等）",
+    "  - 締め専用の奨励（「考えてみてください」「また共有しましょう」等の閉じ）",
+    "  - 個人向けの明日TODO（「明日は自分の一件で試して」）",
     "  - 布教調（『理念を体現』『指針を意識して』『浸透が進む』『チームの力に』など訓話フレーズの連発）",
     "  - Value帯名の長々した再掲、行動指針全文、次回テーマ／担当",
     "  - 参照記事の要約・解説が本文の半分以上を占めること",
     "  - 実装・POC・スキル名などのメタ",
     "",
     "【良い例（中身は仮）】",
-    "周囲に聞いて一次回答まで持っていったの、現場でもそのまま使えそうでいいですね。『どうすればできるか』を先に考える感じ、今日のテーマとも重なります。調べた聞き方の型を一つだけ借りて、明日は自分の案件で『誰に聞くか』を先に決めてみると動きやすそうです。小さな一手、どこから試しそうですか。",
+    "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。前回、山田さんが期限を先に切った話とも重なります。『どうすればできるか』を先に置くと、今日みたいな曖昧な依頼が減ります。調べた聞き方の型を一つ、朝会で『誰に聞くか』を先に決める、に寄せてみたらどうでしょう。",
     "",
     "【悪い例】",
     "指針の実践がチームの理念浸透の一歩につながると感じます。（宣教師・標語）",
     "記事では〇〇の3ステップが紹介されていて…（リンク解説が主役）",
-    "皆さんでやってみませんか。（締めの仕事）",
+    "明日は自分の案件で試してみると動きやすそうです。どこから試しそうですか。（個人宿題）",
+    "皆さんでやってみませんか。（空の号令）",
     "",
     history,
     buildCreedAlignmentBlock(input.themeLabel),
@@ -317,7 +323,6 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     "【入力】",
     `今日の枠の識別用（所感にコード全文を書かない）: ${input.themeLabel}`,
     `Value帯名（長々再掲しない）: ${heading}`,
-    lens,
     keywords,
     focus,
     links,
@@ -350,7 +355,7 @@ export function polishLeaderNote(raw: string): string {
 export function isWeakLeaderNote(body: string): boolean {
   if (body.length < 80) return true;
   if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
-  if (/皆さんでやってみませんか|一緒にやっていきましょう/.test(body)) return true;
+  if (/明日は自分の(案件|一件)|どこから試しそうですか|皆さんでやってみませんか/.test(body)) return true;
   if (/理念浸透|指針の実践|体現|チームの力になります/.test(body)) return true;
   const trimmed = body.trim();
   if (

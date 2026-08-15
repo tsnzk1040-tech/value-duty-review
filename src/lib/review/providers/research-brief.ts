@@ -2,7 +2,10 @@ import {
   callGeminiGenerate,
   callGeminiRaw,
 } from "@/lib/review/providers/gemini";
+import { callOpenAiRaw, openAiApiKey, openAiModel } from "@/lib/review/providers/openai";
 import type { GenerateProviderId } from "@/lib/review/providers/summary";
+
+export const PAGE_PASTE_MIN_CHARS = 80;
 
 export type ResearchBriefInput = {
   keywords: string;
@@ -35,7 +38,7 @@ function pagePasteInstruction(): string {
     "【参照の本文をまだ取得できていません】",
     "1. 上のURLを別タブで開いて内容を確認する",
     "2. 使える段落を「開いたページの本文」欄に貼る",
-    "3. もう一度「要点メモを作る」を押す",
+    "3. 貼ると要点メモが自動で出る（ボタンでも出し直せる）",
     "（要点のまとめはAIがやる。貼るだけでよい）",
   ].join("\n");
 }
@@ -44,7 +47,7 @@ export function generateResearchBriefStub(
   input: ResearchBriefInput,
 ): ResearchBriefResult {
   const paste = input.pagePaste?.trim() ?? "";
-  if (paste.length >= 80) {
+  if (paste.length >= PAGE_PASTE_MIN_CHARS) {
     const lines = input.selectedLinks.map((l, i) => {
       const excerpt = paste.slice(0, 280).replace(/\s+/g, " ");
       return `【${i + 1} ${l.title}】\n- （スタブ・貼付本文より）フォーカス「${input.researchFocus.trim() || "要点"}」に寄せた抜粋: ${excerpt}`;
@@ -130,7 +133,7 @@ export async function generateResearchBriefGemini(
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const paste = input.pagePaste?.trim() ?? "";
-  const hasPaste = paste.length >= 80;
+  const hasPaste = paste.length >= PAGE_PASTE_MIN_CHARS;
 
   if (hasPaste) {
     const prompt = buildPrompt(input, "from-paste");
@@ -171,4 +174,27 @@ export async function generateResearchBriefGemini(
   }
 
   return { researchBrief: text.trim(), provider: "gemini", model };
+}
+
+export async function generateResearchBriefChatgpt(
+  input: ResearchBriefInput,
+): Promise<ResearchBriefResult> {
+  const apiKey = openAiApiKey();
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+  const model = openAiModel();
+  const paste = input.pagePaste?.trim() ?? "";
+  if (paste.length < PAGE_PASTE_MIN_CHARS) {
+    return {
+      researchBrief: pagePasteInstruction(),
+      provider: "chatgpt",
+      model,
+      needsPagePaste: true,
+    };
+  }
+  const prompt = buildPrompt(input, "from-paste");
+  const text = await callOpenAiRaw(prompt, model, apiKey, 0.4);
+  if (!text || text.length < 40 || looksLikeUrlInaccessible(text)) {
+    throw new Error("ChatGPT research brief from paste failed");
+  }
+  return { researchBrief: text.trim(), provider: "chatgpt", model };
 }

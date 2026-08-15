@@ -20,7 +20,7 @@ export {
   pickClosingVariation,
 } from "@/lib/review/closing";
 
-export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v8";
+export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v9";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
@@ -48,8 +48,10 @@ export type ReviewDraft = {
   /** 呼び名（お礼用） */
   presenterName: string;
   themeId: string;
-  /** 要約前の薄い観点（任意） */
+  /** 要約前の観点（要約を厚くする。所感には渡さない） */
   lens: string;
+  /** 採用した要約モデル（要点メモも同じエンジン） */
+  summaryProvider: "gemini" | "chatgpt" | "stub" | "";
   /** 1 お礼 */
   opener: string;
   /** 2 要約共有 */
@@ -93,13 +95,13 @@ export const REVIEW_STEPS: {
     step: 1,
     title: "貼付",
     process: "②③",
-    blurb: "対象営業日・投稿・呼び名を入れ、お礼＋要約案を出す（API／Gemini）",
+    blurb: "対象営業日・投稿・呼び名・観点を入れ、お礼＋要約案を出す",
   },
   {
     step: 2,
     title: "要約",
     process: "④",
-    blurb: "お礼と要約共有を自分の言葉に直す",
+    blurb: "2案から選ぶ／直し指示。採用モデルは要点メモにも使う",
   },
   {
     step: 3,
@@ -111,7 +113,7 @@ export const REVIEW_STEPS: {
     step: 4,
     title: "所感",
     process: "⑦⑧⑨",
-    blurb: "本文貼付→要点→フォーカス→所感下書き→脚色＋締め",
+    blurb: "本文を貼ると要点メモ。フォーカスは所感専用",
   },
   {
     step: 5,
@@ -129,6 +131,7 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     presenterName: "",
     themeId,
     lens: "",
+    summaryProvider: "",
     opener: DEFAULT_OPENER,
     summary: "",
     keywordSuggestions: [],
@@ -159,7 +162,6 @@ export function stubDraftSummary(input: {
 export function stubLeaderNote(input: {
   themeLabel: string;
   keywords: string;
-  lens: string;
   sourcePost: string;
   summary?: string;
   selectedLinkTitles?: string[];
@@ -169,7 +171,6 @@ export function stubLeaderNote(input: {
   return generateLeaderStub({
     themeLabel: input.themeLabel,
     keywords: input.keywords,
-    lens: input.lens,
     sourcePost: input.sourcePost,
     summary: input.summary ?? "",
     selectedLinkTitles: input.selectedLinkTitles ?? [],
@@ -259,6 +260,12 @@ export function loadReviewDraft(): ReviewDraft | null {
       researchBrief: parsed.researchBrief ?? "",
       keywordSuggestions: parsed.keywordSuggestions ?? [],
       assembledPost: parsed.assembledPost ?? "",
+      summaryProvider:
+        parsed.summaryProvider === "gemini" ||
+        parsed.summaryProvider === "chatgpt" ||
+        parsed.summaryProvider === "stub"
+          ? parsed.summaryProvider
+          : "",
       step: parsed.step ?? 1,
     };
   } catch {

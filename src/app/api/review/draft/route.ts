@@ -7,13 +7,20 @@ import {
   generateReviewResearchBrief,
   generateReviewSearchDraft,
   generateReviewSummaryDraft,
+  generateReviewSummaryRevise,
   type ReviewDraftGenerateRequest,
 } from "@/lib/review/generate";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  let body: Partial<ReviewDraftGenerateRequest> & { kind?: string };
+  let body: Partial<ReviewDraftGenerateRequest> & {
+    kind?: string;
+    currentSummary?: string;
+    instruction?: string;
+    preferredProvider?: string;
+    pagePaste?: string;
+  };
   try {
     body = (await req.json()) as Partial<ReviewDraftGenerateRequest> & {
       kind?: string;
@@ -42,6 +49,41 @@ export async function POST(req: Request) {
       themeId: body.themeId,
       lens: body.lens,
       presenterName: body.presenterName,
+    });
+    return NextResponse.json(result);
+  }
+
+  if (body.kind === "summary-revise") {
+    if (!body.sourcePost?.trim() || !body.themeLabel?.trim()) {
+      return NextResponse.json(
+        { error: "sourcePost and themeLabel are required" },
+        { status: 400 },
+      );
+    }
+    if (!body.presenterName?.trim()) {
+      return NextResponse.json(
+        { error: "presenterName is required" },
+        { status: 400 },
+      );
+    }
+    if (!body.currentSummary?.trim() || !body.instruction?.trim()) {
+      return NextResponse.json(
+        { error: "currentSummary and instruction are required" },
+        { status: 400 },
+      );
+    }
+    const preferred =
+      body.preferredProvider === "chatgpt" ? "chatgpt" : "gemini";
+    const result = await generateReviewSummaryRevise({
+      kind: "summary-revise",
+      sourcePost: body.sourcePost,
+      themeLabel: body.themeLabel,
+      themeId: body.themeId,
+      lens: body.lens,
+      presenterName: body.presenterName,
+      currentSummary: body.currentSummary,
+      instruction: body.instruction,
+      preferredProvider: preferred,
     });
     return NextResponse.json(result);
   }
@@ -108,6 +150,12 @@ export async function POST(req: Request) {
       selectedLinks: body.selectedLinks,
       pagePaste:
         typeof body.pagePaste === "string" ? body.pagePaste : undefined,
+      preferredProvider:
+        body.preferredProvider === "chatgpt" ||
+        body.preferredProvider === "gemini" ||
+        body.preferredProvider === "stub"
+          ? body.preferredProvider
+          : "",
     });
     return NextResponse.json(result);
   }
@@ -145,7 +193,6 @@ export async function POST(req: Request) {
       sourcePost: body.sourcePost,
       themeLabel: body.themeLabel,
       themeId: body.themeId,
-      lens: body.lens,
       keywords: body.keywords,
       summary: body.summary,
       selectedLinkTitles: body.selectedLinkTitles,
@@ -183,7 +230,7 @@ export async function POST(req: Request) {
   return NextResponse.json(
     {
       error:
-        "kind must be summary, keyword-suggestions, search, research-brief, leader, or closing",
+        "kind must be summary, summary-revise, keyword-suggestions, search, research-brief, leader, or closing",
     },
     { status: 400 },
   );

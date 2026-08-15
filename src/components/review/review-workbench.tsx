@@ -38,8 +38,23 @@ import {
   textMayMissOpeningKagi,
   type FinalCheckResult,
 } from "@/lib/review/final-check";
+import { PAGE_PASTE_MIN_CHARS } from "@/lib/review/providers/research-brief";
 import { consumePendingShare } from "@/lib/review/share-target";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
+
+function providerLabel(
+  provider?: string,
+  model?: string,
+  fallback?: string,
+): string {
+  if (provider === "chatgpt") {
+    return `ChatGPT${model ? ` (${model})` : ""}`;
+  }
+  if (provider === "gemini") {
+    return `Gemini${model ? ` (${model})` : ""}`;
+  }
+  return `スタブ退避${fallback ? ` · ${fallback}` : ""}`;
+}
 
 export function ReviewWorkbench() {
   const { settings, ready } = useSettings();
@@ -48,6 +63,15 @@ export function ReviewWorkbench() {
   const [generating, setGenerating] = useState(false);
   const [finalCheck, setFinalCheck] = useState<FinalCheckResult | null>(null);
   const [closingCandidates, setClosingCandidates] = useState<string[]>([]);
+  const [summaryCandidates, setSummaryCandidates] = useState<
+    {
+      provider: string;
+      summary: string;
+      model?: string;
+      fallbackReason?: string;
+    }[]
+  >([]);
+  const [summaryRevise, setSummaryRevise] = useState("");
   const shareAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -233,23 +257,120 @@ export function ReviewWorkbench() {
           model?: string;
           fallbackReason?: string;
           error?: string;
+          candidates?: {
+            provider: string;
+            summary: string;
+            model?: string;
+            fallbackReason?: string;
+          }[];
         };
         if (!res.ok) {
           setHint(data.error ?? "生成に失敗した");
           return;
         }
+        const candidates = data.candidates ?? [];
+        setSummaryCandidates(candidates);
+        const opener = data.opener ?? formatThanks(draft!.presenterName);
+        if (candidates.length > 1) {
+          patch({
+            opener,
+            summary: "",
+            summaryProvider: "",
+            step: 2,
+          });
+          setHint("要約が2案出た。使うほうを選ぶ。選んだモデルであとから要点もまとめる");
+          return;
+        }
+        const only = candidates[0];
+        const provider =
+          only?.provider === "chatgpt" ||
+          only?.provider === "gemini" ||
+          only?.provider === "stub"
+            ? only.provider
+            : "stub";
         patch({
-          opener: data.opener ?? formatThanks(draft!.presenterName),
-          summary: data.summary ?? "",
+          opener,
+          summary: only?.summary ?? data.summary ?? "",
+          summaryProvider: provider === "stub" ? "" : provider,
           step: 2,
         });
-        const via =
-          data.provider === "gemini"
-            ? `Gemini${data.model ? ` (${data.model})` : ""}`
-            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
-        setHint(`お礼＋要約を出した（${via}）。自分の言葉に直して`);
+        setHint(
+          `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。必要なら直して`,
+        );
       } catch {
         setHint("生成リクエストに失敗した。ネットワークを確認して");
+      } finally {
+        setGenerating(false);
+      }
+    })();
+  }
+
+  function adoptSummaryCandidate(candidate: {
+    provider: string;
+    summary: string;
+    model?: string;
+  }) {
+    const provider =
+      candidate.provider === "chatgpt" || candidate.provider === "gemini"
+        ? candidate.provider
+        : "";
+    patch({
+      summary: candidate.summary,
+      summaryProvider: provider,
+    });
+    setHint(
+      `${providerLabel(candidate.provider, candidate.model)} を採用した。このモデルで要点メモもまとめる`,
+    );
+  }
+
+  function runSummaryRevise(instruction: string) {
+    const text = instruction.trim();
+    if (!text) {
+      setHint("直し方を書いてから押して");
+      return;
+    }
+    if (!draft!.summary.trim()) {
+      setHint("先に要約案を選ぶか、下書きを出して");
+      return;
+    }
+    void (async () => {
+      setGenerating(true);
+      setHint("要約を直してる…");
+      try {
+        const preferred =
+          draft!.summaryProvider === "chatgpt" ? "chatgpt" : "gemini";
+        const res = await fetch("/api/review/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "summary-revise",
+            sourcePost: draft!.sourcePost,
+            themeLabel,
+            themeId: draft!.themeId,
+            lens: draft!.lens,
+            presenterName: draft!.presenterName,
+            currentSummary: draft!.summary,
+            instruction: text,
+            preferredProvider: preferred,
+          }),
+        });
+        const data = (await res.json()) as {
+          summary?: string;
+          provider?: string;
+          model?: string;
+          fallbackReason?: string;
+          error?: string;
+        };
+        if (!res.ok) {
+          setHint(data.error ?? "直しに失敗した");
+          return;
+        }
+        patch({ summary: data.summary ?? "" });
+        setHint(
+          `要約を直した（${providerLabel(data.provider, data.model, data.fallbackReason)}）`,
+        );
+      } catch {
+        setHint("直しリクエストに失敗した");
       } finally {
         setGenerating(false);
       }
@@ -345,13 +466,18 @@ export function ReviewWorkbench() {
         researchBrief: "",
         researchNeedsPagePaste: true,
       });
-      setHint("本文を貼った。要点メモを作って");
+      if (text.trim().length < PAGE_PASTE_MIN_CHARS) {
+        setHint("貼ったが短い。もう少し本文を足すと要点が走る");
+        return;
+      }
+      setHint("本文を貼った。要点メモを作ってる…");
+      runResearchBrief({ pagePaste: text });
     } catch {
       setHint("クリップボードを読めなかった。下の欄に直接貼って");
     }
   }
 
-  function runResearchBrief() {
+  function runResearchBrief(overrides?: { pagePaste?: string }) {
     void (async () => {
       const selectedLinks = draft!.linkCandidates.map((l) => ({
         title: l.title,
@@ -361,6 +487,7 @@ export function ReviewWorkbench() {
         setHint("先に調べるで参照を1本入れて");
         return;
       }
+      const pagePaste = overrides?.pagePaste ?? draft!.researchPagePaste;
       setGenerating(true);
       setHint("要点メモを生成中…");
       try {
@@ -375,7 +502,8 @@ export function ReviewWorkbench() {
             sourcePost: draft!.sourcePost,
             summary: draft!.summary,
             selectedLinks,
-            pagePaste: draft!.researchPagePaste,
+            pagePaste,
+            preferredProvider: draft!.summaryProvider || "gemini",
           }),
         });
         const data = (await res.json()) as {
@@ -401,10 +529,11 @@ export function ReviewWorkbench() {
           researchBrief: data.researchBrief ?? "",
           researchNeedsPagePaste: false,
         });
-        const via =
-          data.provider === "gemini"
-            ? `Gemini${data.model ? ` (${data.model})` : ""}`
-            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        const via = providerLabel(
+          data.provider,
+          data.model,
+          data.fallbackReason,
+        );
         setHint(`要点メモを出した（${via}）。所感向けフォーカスを書いてから下書きへ`);
       } catch {
         setHint("要点リクエストに失敗した");
@@ -432,7 +561,6 @@ export function ReviewWorkbench() {
             sourcePost: draft!.sourcePost,
             themeLabel,
             themeId: draft!.themeId,
-            lens: draft!.lens,
             keywords: draft!.keywords,
             summary: draft!.summary,
             selectedLinkTitles,
@@ -832,13 +960,16 @@ export function ReviewWorkbench() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lens">観点メモ（要約前・任意）</Label>
+            <Label htmlFor="lens">観点メモ（要約を厚くする・任意）</Label>
             <Input
               id="lens"
               value={draft.lens}
               onChange={(e) => patch({ lens: e.target.value })}
-              placeholder="要約前の薄いフック"
+              placeholder="例: 調べて取り入れた具体を厚く"
             />
+            <p className="text-xs text-muted-foreground">
+              要約に効く。所感には渡さない。所感の芯はあとでフォーカスに書く。
+            </p>
           </div>
           <Button
             className="h-11 w-full"
@@ -868,6 +999,34 @@ export function ReviewWorkbench() {
               onChange={(e) => patch({ opener: e.target.value })}
             />
           </div>
+          {summaryCandidates.length > 1 ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                使う要約を選ぶ。選んだモデルで、あとの要点メモもまとめる。
+              </p>
+              {summaryCandidates.map((c) => (
+                <div
+                  key={`${c.provider}-${c.model ?? ""}`}
+                  className="flex flex-col gap-2 rounded-lg border border-border p-3"
+                >
+                  <p className="text-xs font-medium">
+                    {providerLabel(c.provider, c.model, c.fallbackReason)}
+                  </p>
+                  <p className="text-sm leading-relaxed">{c.summary}</p>
+                  <Button
+                    type="button"
+                    variant={
+                      draft.summary === c.summary ? "default" : "outline"
+                    }
+                    className="h-11 w-full"
+                    onClick={() => adoptSummaryCandidate(c)}
+                  >
+                    {draft.summary === c.summary ? "採用中" : "これを使う"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="summary">要約共有（自分の言葉へ）</Label>
             <Textarea
@@ -877,6 +1036,60 @@ export function ReviewWorkbench() {
               onChange={(e) => patch({ summary: e.target.value })}
             />
           </div>
+          {draft.summary.trim() ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="summary-revise">直し指示（任意）</Label>
+              <p className="text-xs text-muted-foreground">
+                採用したモデルで直す。定型の枠は維持する。
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  disabled={generating}
+                  onClick={() => runSummaryRevise("もう少し厚めに、実践の具体を足して")}
+                >
+                  厚めに
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  disabled={generating}
+                  onClick={() => runSummaryRevise("簡潔に。重複を削って")}
+                >
+                  簡潔に
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full"
+                  disabled={generating}
+                  onClick={() =>
+                    runSummaryRevise("カジュアル寄りに。ですますは維持。ですねは使わない")
+                  }
+                >
+                  カジュアルに
+                </Button>
+              </div>
+              <Input
+                id="summary-revise"
+                value={summaryRevise}
+                onChange={(e) => setSummaryRevise(e.target.value)}
+                placeholder="例: 調べた行為を前に出す"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-full"
+                disabled={generating || !summaryRevise.trim()}
+                onClick={() => runSummaryRevise(summaryRevise)}
+              >
+                {generating ? "直し中…" : "指示どおり直す"}
+              </Button>
+            </div>
+          ) : null}
           <Button
             className="h-11 w-full"
             onClick={() => {
@@ -1101,12 +1314,13 @@ export function ReviewWorkbench() {
                   開いたページの本文（任意／取得失敗時）
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  共有はURLだけでよい。本文はページでコピーしてここへ（2回目の共有は不要）。
+                  ページの本文を貼ると要点メモが走る。手直しは下の欄。短すぎると走らない。
                 </p>
                 <Button
                   type="button"
                   variant="outline"
                   className="h-11 w-full"
+                  disabled={generating}
                   onClick={() => void pastePageFromClipboard()}
                 >
                   クリップボードから貼る
@@ -1122,15 +1336,26 @@ export function ReviewWorkbench() {
                       researchBrief: "",
                     })
                   }
+                  onPaste={(e) => {
+                    const inserted = e.clipboardData.getData("text");
+                    window.setTimeout(() => {
+                      const el = document.getElementById(
+                        "researchPagePaste",
+                      ) as HTMLTextAreaElement | null;
+                      const next = el?.value ?? inserted;
+                      if (next.trim().length < PAGE_PASTE_MIN_CHARS) return;
+                      runResearchBrief({ pagePaste: next });
+                    }, 0);
+                  }}
                 />
               </div>
               <Button
                 className="h-11 w-full"
                 variant="secondary"
-                onClick={runResearchBrief}
+                onClick={() => runResearchBrief()}
                 disabled={generating || selectedLinkCount(draft) === 0}
               >
-                {generating ? "生成中…" : "要点メモを作る"}
+                {generating ? "生成中…" : "要点メモを出し直す"}
               </Button>
               {draft.researchBrief.trim() ? (
                 <div className="flex flex-col gap-1.5">

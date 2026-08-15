@@ -19,7 +19,6 @@ export function generateLeaderStub(
   const points = extractSummaryPoints(input.sourcePost, 2);
   const hook =
     input.researchFocus.trim() ||
-    input.lens.trim() ||
     input.keywords.trim() ||
     (points[0] ? points[0].slice(0, 40) : "");
   const linkHint =
@@ -35,8 +34,8 @@ export function generateLeaderStub(
       ? `「${hook}」に触れた実践、共有ありがとうございます。現場でも使えそうでいいですね。`
       : "今日の振り返り、共有ありがとうございます。具体があってわかりやすいですね。",
     briefHint || linkHint
-      ? `${briefHint}${linkHint}明日は小さな一手だけ決めて動いてみると楽そうです。どこから試しそうですか。`
-      : "明日は小さな一手だけ決めて動いてみると楽そうです。どこから試しそうですか。",
+      ? `${briefHint}${linkHint}同じ詰まりを減らすなら、朝の依頼の時点で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。`
+      : "同じ詰まりを減らすなら、先に『誰に聞くか』を決める、をチームの型にしてみたらどうでしょう。",
   ].join("");
 
   return { leaderNote, provider: "stub" };
