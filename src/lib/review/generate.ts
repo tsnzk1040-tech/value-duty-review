@@ -153,6 +153,7 @@ export type ReviewSummaryGenerateResponse = {
   model?: string;
   fallbackReason?: string;
   candidates: ReviewSummaryCandidate[];
+  providerFailures?: { provider: GenerateProviderId; reason: string }[];
 };
 
 export type ReviewSummaryReviseResponse = {
@@ -272,12 +273,16 @@ export async function generateReviewSummaryDraft(
     };
   }
 
-  const jobs: Promise<SummaryGenerateResult>[] = [];
+  const jobs: { provider: GenerateProviderId; run: Promise<SummaryGenerateResult> }[] =
+    [];
   if (process.env.GEMINI_API_KEY?.trim()) {
-    jobs.push(generateSummaryGemini(summaryInput));
+    jobs.push({ provider: "gemini", run: generateSummaryGemini(summaryInput) });
   }
   if (openAiApiKey()) {
-    jobs.push(generateSummaryChatgpt(summaryInput));
+    jobs.push({
+      provider: "chatgpt",
+      run: generateSummaryChatgpt(summaryInput),
+    });
   }
 
   if (jobs.length === 0) {
@@ -289,27 +294,34 @@ export async function generateReviewSummaryDraft(
       provider: "stub",
       fallbackReason: "no API keys",
       candidates: [{ provider: "stub", summary: stub.summary }],
+      providerFailures: [
+        { provider: "chatgpt", reason: "OPENAI_API_KEY is not set" },
+      ],
     };
   }
 
-  const settled = await Promise.allSettled(jobs);
+  const settled = await Promise.allSettled(jobs.map((j) => j.run));
   const candidates: ReviewSummaryCandidate[] = [];
-  for (const item of settled) {
+  const providerFailures: { provider: GenerateProviderId; reason: string }[] =
+    [];
+  settled.forEach((item, i) => {
+    const provider = jobs[i]!.provider;
     if (item.status === "fulfilled") {
       candidates.push({
         provider: item.value.provider,
         summary: item.value.summary,
         model: item.value.model,
       });
+      return;
     }
-  }
+    const reason =
+      item.reason instanceof Error ? item.reason.message : String(item.reason);
+    console.error(`summary ${provider} failed:`, reason);
+    providerFailures.push({ provider, reason });
+  });
   if (candidates.length === 0) {
     const stub = generateSummaryStub(summaryInput);
-    const reasons = settled
-      .filter((s): s is PromiseRejectedResult => s.status === "rejected")
-      .map((s) =>
-        s.reason instanceof Error ? s.reason.message : String(s.reason),
-      );
+    const reasons = providerFailures.map((f) => f.reason);
     return {
       kind: "summary",
       opener,
@@ -317,6 +329,7 @@ export async function generateReviewSummaryDraft(
       provider: "stub",
       fallbackReason: reasons.join(" / ") || "all providers failed",
       candidates: [{ provider: "stub", summary: stub.summary }],
+      providerFailures,
     };
   }
 
@@ -330,6 +343,7 @@ export async function generateReviewSummaryDraft(
     provider: candidates.length === 1 ? picked.provider : "stub",
     model: candidates.length === 1 ? picked.model : undefined,
     candidates,
+    providerFailures,
   };
 }
 

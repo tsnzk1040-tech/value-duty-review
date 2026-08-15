@@ -267,6 +267,7 @@ export function ReviewWorkbench() {
           model?: string;
           fallbackReason?: string;
           error?: string;
+          providerFailures?: { provider: string; reason: string }[];
           candidates?: {
             provider: string;
             summary: string;
@@ -281,6 +282,10 @@ export function ReviewWorkbench() {
         const candidates = data.candidates ?? [];
         setSummaryCandidates(candidates);
         const opener = data.opener ?? formatThanks(draft!.presenterName);
+        const failHint =
+          data.providerFailures
+            ?.map((f) => `${f.provider}: ${f.reason}`)
+            .join(" / ") ?? "";
         if (candidates.length > 1) {
           patch({
             opener,
@@ -305,7 +310,9 @@ export function ReviewWorkbench() {
           step: 2,
         });
         setHint(
-          `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。必要なら直して`,
+          failHint
+            ? `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。ChatGPTは出なかった（${failHint}）`
+            : `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。必要なら直して`,
         );
       } catch {
         setHint("生成リクエストに失敗した。ネットワークを確認して");
