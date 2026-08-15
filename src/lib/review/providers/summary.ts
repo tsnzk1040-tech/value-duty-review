@@ -48,14 +48,15 @@ export async function generateSummaryGemini(
   const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 
   const first = await callGeminiRaw(
-    buildSummaryInstructions(input),
+    buildSummaryInstructions(input, "close"),
     model,
     apiKey,
+    0.45,
   );
   let assembled = assembleSummary(first, input.themeLabel, input.sourcePost);
   if (!assembled) {
     const retryPrompt = [
-      buildSummaryInstructions(input),
+      buildSummaryInstructions(input, "close"),
       "",
       "【再出力指示】",
       "直前の出力は不合格（Value名の繰り返し／短すぎ／定型の混入／お礼混入／薄すぎ／調べた事実の欠落）。",
@@ -83,22 +84,23 @@ export async function generateSummaryChatgpt(
   const model = openAiModel();
 
   const first = await callOpenAiRaw(
-    buildSummaryInstructions(input),
+    buildSummaryInstructions(input, "angle"),
     model,
     apiKey,
+    0.7,
   );
   let assembled = assembleSummary(first, input.themeLabel, input.sourcePost);
   if (!assembled) {
     const retryPrompt = [
-      buildSummaryInstructions(input),
+      buildSummaryInstructions(input, "angle"),
       "",
       "【再出力指示】",
       "直前の出力は不合格（Value名の繰り返し／短すぎ／定型の混入／お礼混入／薄すぎ／調べた事実の欠落）。",
       "リーダー理解として、浸透リレー実践の事実（調べた／試した）を120〜180字で言い換え本文のみ再出力せよ。",
       "「ありがとう」「今日の振り返り」「管理本部として〜」「ですね」「一歩前進」は書かない。",
-      "調べた／試した事実があれば必ず含める。",
+      "調べた／試した事実があれば必ず含める。投稿に無いことは足さない。",
     ].join("\n");
-    const second = await callOpenAiRaw(retryPrompt, model, apiKey);
+    const second = await callOpenAiRaw(retryPrompt, model, apiKey, 0.7);
     assembled = assembleSummary(second, input.themeLabel, input.sourcePost);
   }
   if (!assembled) {

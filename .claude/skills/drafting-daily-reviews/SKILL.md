@@ -49,8 +49,8 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 
 ## アプリとの関係
 
-- 要約本線は **`POST /api/review/draft` `kind=summary`（Gemini＋ChatGPT 2案）**。採用モデルは要点メモにも使う
-- 要約直しは **`kind=summary-revise`（専用プロンプト）**。厚く≈1.2倍／簡潔≈0.8倍。初回の字数制限は適用しない
+- 要約本線は **`POST /api/review/draft` `kind=summary`（Gemini＝近い言い換え／ChatGPT＝切り口違い。2案）**。採用モデルは要点メモにも使う
+- 要約直しは **`kind=summary-revise`（専用プロンプト）**。厚く≈1.2倍（投稿に無い事実は足さない）／簡潔≈0.8倍。初回の字数制限は適用しない
 - 所感本線は **同 API `kind=leader`（Gemini）**。stub は退避のみ
 - `lens` は要約を厚くする。`researchFocus` は所感専用
 - 構成の正は structure。ローテは別スキル `rotation-fair-assign`

@@ -18,8 +18,28 @@ export type SummaryGenerateInput = {
   historyNotes?: string;
 };
 
+export type SummaryFlavor = "close" | "angle";
+
+function summaryFlavorBlock(flavor: SummaryFlavor): string {
+  if (flavor === "angle") {
+    return [
+      "【この案の味（切り口違い）】",
+      "- 投稿にある事実だけを使う。書いていない場面・行為・推測は足さない。",
+      "- 同じ事実のまま、調べた／試したのどちらを先に出すかなど、語順と切り口を変える。",
+    ].join("\n");
+  }
+  return [
+    "【この案の味（近い言い換え）】",
+    "- 投稿の語順・事実に近い言い換えにする。大きく組み替えない。",
+    "- 投稿に無い場面・推測は足さない。",
+  ].join("\n");
+}
+
 /** Gemini には「あいだの文」だけ出させる。定型の枠はアプリが付ける。 */
-export function buildSummaryInstructions(input: SummaryGenerateInput): string {
+export function buildSummaryInstructions(
+  input: SummaryGenerateInput,
+  flavor: SummaryFlavor = "close",
+): string {
   const lens = input.lens.trim()
     ? [
         "観点メモ（要約を厚くする指示・必ず反映）:",
@@ -93,6 +113,8 @@ export function buildSummaryInstructions(input: SummaryGenerateInput): string {
     "できないで終わらせず一次回答できたという実践です、調べながら進めたという気づき",
     "管理本部として現場を後方支援する立場でも信頼が大事だという整理",
     "店舗でお客様に感動を届けた素晴らしい接客だった",
+    "",
+    summaryFlavorBlock(flavor),
     "",
     history,
     buildCreedAlignmentBlock(input.themeLabel),
@@ -173,7 +195,8 @@ export function buildSummaryReviseInstructions(
       ? [
           "【分量（この直しが最優先。初回の120〜180字・短く洗練は使わない）】",
           `いまの言い換え本文は約${n}字。目安は約${thickenTarget}字（1.2倍）。`,
-          "投稿の具体を足して厚くする。所感・評価は足さない。",
+          "厚くする＝いまの要約と投稿本文に既にある事実を、言い回しで少し丁寧にするだけ。",
+          "投稿に書いていない場面・行為・推測・一般論は足さない。所感・評価も足さない。",
         ]
       : mode === "shorten"
         ? [
@@ -188,7 +211,11 @@ export function buildSummaryReviseInstructions(
           ];
 
   const lens = input.lens.trim()
-    ? ["観点メモ（材料）:", input.lens.trim(), ""].join("\n")
+    ? [
+        "観点メモ（新しい材料ではない。要約に既にある範囲だけ維持）:",
+        input.lens.trim(),
+        "",
+      ].join("\n")
     : "";
 
   return [
@@ -203,6 +230,7 @@ export function buildSummaryReviseInstructions(
     "【守る】",
     "- 落ち着いたリーダー理解。ですね・だね・だよ・！！禁止。",
     "- お礼・実感（一歩前進など）・所感・提案は書かない。",
+    "- 投稿本文といまの要約に無い事実・推測・別のエピソードは足さない。",
     `- Value帯名（${heading}）・行動指針コード・「想いを共有」は書かない。`,
     "- 文末は「〜してみた」「〜したい」「〜ていて」などで止め、です・ますで終わらない。",
     "",

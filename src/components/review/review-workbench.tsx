@@ -1024,7 +1024,7 @@ export function ReviewWorkbench() {
           {summaryCandidates.length > 1 ? (
             <div className="flex flex-col gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                使う要約を選ぶ。選んだモデルで、あとの要点メモもまとめる。
+                使う要約を選ぶ。近い言い換え（Gemini）と切り口違い（ChatGPT）。選んだモデルで、あとの要点メモもまとめる。
               </p>
               {summaryCandidates.map((c) => (
                 <div
@@ -1032,7 +1032,11 @@ export function ReviewWorkbench() {
                   className="flex flex-col gap-2 rounded-lg border border-border p-3"
                 >
                   <p className="text-xs font-medium">
-                    {providerLabel(c.provider, c.model, c.fallbackReason)}
+                    {c.provider === "chatgpt"
+                      ? `切り口違い（ChatGPT${c.model ? ` ${c.model}` : ""}）`
+                      : c.provider === "gemini"
+                        ? `近い言い換え（Gemini${c.model ? ` ${c.model}` : ""}）`
+                        : providerLabel(c.provider, c.model, c.fallbackReason)}
                   </p>
                   <p className="text-sm leading-relaxed">{c.summary}</p>
                   <Button
