@@ -1083,17 +1083,6 @@ export function ReviewWorkbench() {
                 >
                   簡潔に
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full"
-                  disabled={generating}
-                  onClick={() =>
-                    runSummaryRevise("カジュアル寄りに。ですますは維持。ですねは使わない")
-                  }
-                >
-                  カジュアルに
-                </Button>
               </div>
               <Input
                 id="summary-revise"
