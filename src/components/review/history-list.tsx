@@ -112,6 +112,7 @@ export function HistoryList() {
           value={valueGroup}
           onValueChange={(value) => {
             if (!value) return;
+            setHint(null);
             setValueGroup(value);
             if (value === ALL_GROUP) return;
             const group = Number(value);
@@ -143,6 +144,7 @@ export function HistoryList() {
           value={themeId}
           onValueChange={(value) => {
             if (!value) return;
+            setHint(null);
             setThemeId(value);
             if (value === ALL) return;
             const item = settings.valueItems.find((v) => v.id === value);
@@ -168,7 +170,10 @@ export function HistoryList() {
         <Select
           value={presenterName}
           onValueChange={(value) => {
-            if (value) setPresenterName(value);
+            if (value) {
+              setHint(null);
+              setPresenterName(value);
+            }
           }}
         >
           <SelectTrigger id="history-presenter" className="w-full">
