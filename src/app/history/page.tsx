@@ -7,7 +7,7 @@ export default function HistoryPage() {
         <p className="text-sm text-muted-foreground">企業理念リレー</p>
         <h1 className="text-2xl font-semibold tracking-tight">履歴確認</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          テーマ・担当で絞り込み。タップで本人コメントとレビュー全文を対比。
+          理念・指針・担当で実践例を探す。定型を外した要約が見える。タップで本人コメントとレビュー全文を対比。
         </p>
       </header>
 

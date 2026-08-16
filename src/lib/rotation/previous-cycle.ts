@@ -14,6 +14,20 @@ export function latestPreviousCycle(
   return withDays[withDays.length - 1];
 }
 
+/** 確定ローテ（履歴サイクル）から、その営業日の当番枠を探す。新しいサイクル優先。 */
+export function findRotationDayByDate(
+  historyCycles: RotationCycle[],
+  ymd: string,
+): RotationDay | undefined {
+  const date = ymd.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  for (let i = historyCycles.length - 1; i >= 0; i--) {
+    const hit = historyCycles[i]?.days.find((d) => d.date === date);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 /** Keep newest cycles only (fair-assign uses ~2). */
 export function appendHistoryCycle(
   historyCycles: RotationCycle[],

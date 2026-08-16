@@ -69,8 +69,9 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 
 ## アプリ組み立てとの関係
 
-- **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。`投稿用にコピー` 時にこの端末の履歴へ保存
-- **今日の行動指針**: 投稿本文の `4-③` / `4-3` 等から自動セット（Selectで修正可）。`matchValueItemFromSourcePost`
+- **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。日付を変えると確定ローテの担当・行動指針をセット。`投稿用にコピー` 時にこの端末の履歴へ保存
+- **今日の行動指針**: 日付のローテ、または投稿本文の `4-③` / `4-3` 等から自動セット（Selectで修正可）。`assignmentForReviewDate` / `matchValueItemFromSourcePost`
+- **履歴の実践例**: カードは定型枠を外した要約本文。理念（Value帯）でも絞れる
 - **定型のあと**: 行動指針コード／「行動指針3-②について」等の再掲は書かない（`extractSummaryBody`／`repairDuplicatedGuidelinePhrase` で機械除去）
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
 - 要約: `POST /api/review/draft` `kind=summary`（Gemini＝近い言い換え／ChatGPT＝切り口違い。定型枠は共通。投稿に無いことは足さない）

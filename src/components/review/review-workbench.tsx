@@ -47,6 +47,7 @@ import {
   saveReviewHistory,
 } from "@/lib/review/history";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
+import { assignmentForReviewDate } from "@/lib/review/rotation-lookup";
 
 function providerLabel(
   provider?: string,
@@ -79,22 +80,37 @@ export function ReviewWorkbench() {
   >([]);
   const [summaryRevise, setSummaryRevise] = useState("");
   const shareAppliedRef = useRef(false);
+  const draftInitRef = useRef(false);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || draftInitRef.current) return;
+    draftInitRef.current = true;
     const saved = loadReviewDraft();
     const fallbackTheme = settings.valueItems[0]?.id ?? "";
-    if (saved) {
-      setDraft({
-        ...createEmptyDraft(fallbackTheme),
-        ...saved,
-        themeId: saved.themeId || fallbackTheme,
-        presenterName: saved.presenterName ?? "",
-      });
-    } else {
-      setDraft(createEmptyDraft(fallbackTheme));
+    const base = saved
+      ? {
+          ...createEmptyDraft(fallbackTheme),
+          ...saved,
+          themeId: saved.themeId || fallbackTheme,
+          presenterName: saved.presenterName ?? "",
+        }
+      : createEmptyDraft(fallbackTheme);
+    const assignment = assignmentForReviewDate(
+      settings.rotation.historyCycles,
+      base.reviewDate,
+      settings.members,
+      settings.valueItems,
+    );
+    if (assignment) {
+      if (!base.presenterName.trim() && assignment.presenterName) {
+        base.presenterName = assignment.presenterName;
+      }
+      if (!saved && assignment.themeId) {
+        base.themeId = assignment.themeId;
+      }
     }
-  }, [ready, settings.valueItems]);
+    setDraft(base);
+  }, [ready, settings]);
 
   useEffect(() => {
     if (!draft || shareAppliedRef.current) return;
@@ -201,10 +217,33 @@ export function ReviewWorkbench() {
   }
 
   const stepMeta = REVIEW_STEPS.find((s) => s.step === draft.step)!;
+  const currentDraft = draft;
 
   function patch(p: Partial<ReviewDraft>) {
     setDraft((prev) => (prev ? { ...prev, ...p } : prev));
     setHint(null);
+  }
+
+  function applyReviewDate(ymd: string) {
+    const assignment = assignmentForReviewDate(
+      settings.rotation.historyCycles,
+      ymd,
+      settings.members,
+      settings.valueItems,
+    );
+    if (!assignment) {
+      patch({ reviewDate: ymd });
+      setHint("この日のローテが見つからない。担当と指針を選んで");
+      return;
+    }
+    patch({
+      reviewDate: ymd,
+      presenterName: assignment.presenterName || currentDraft.presenterName,
+      themeId: assignment.themeId || currentDraft.themeId,
+    });
+    setHint(
+      `ローテからセットした: ${assignment.presenterName} · ${assignment.themeLabel}`,
+    );
   }
 
   function go(step: ReviewStep) {
@@ -911,10 +950,10 @@ export function ReviewWorkbench() {
               id="review-date"
               type="date"
               value={draft.reviewDate}
-              onChange={(e) => patch({ reviewDate: e.target.value })}
+              onChange={(e) => applyReviewDate(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              履歴に残す日付。既定は今日（JST）以前の直近営業日。土日・祝なら直す。
+              履歴に残す日付。変えるとローテの担当・行動指針をセットする。土日・祝なら直す。
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -939,7 +978,7 @@ export function ReviewWorkbench() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              投稿本文から自動セットする。違ったらここで直す。
+              日付のローテでセット。投稿に 4-③ などがあれば上書き。違ったらここで直す。
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -1480,7 +1519,7 @@ export function ReviewWorkbench() {
               id="review-date-final"
               type="date"
               value={draft.reviewDate}
-              onChange={(e) => patch({ reviewDate: e.target.value })}
+              onChange={(e) => applyReviewDate(e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-1.5">
