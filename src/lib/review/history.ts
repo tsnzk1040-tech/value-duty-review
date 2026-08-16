@@ -1,5 +1,7 @@
 import type { AppSettings } from "@/lib/settings/types";
 import { latestPreviousCycle } from "@/lib/rotation/previous-cycle";
+import { valueGroupFromLabel } from "@/lib/rotation/value-group";
+import { extractSummaryBody } from "@/lib/review/prompts";
 
 export type ReviewHistoryLink = {
   title: string;
@@ -125,34 +127,54 @@ export function listRecentReviews(
 export function listRelatedReviews(input: {
   themeId?: string;
   presenterName?: string;
+  /** Value 帯 1〜6。理念の実践例を帯で見る */
+  valueGroup?: number;
   limit?: number;
   match?: "or" | "and";
 }): ReviewHistoryRecord[] {
   const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 100);
   const themeId = input.themeId?.trim() ?? "";
   const presenterName = input.presenterName?.trim() ?? "";
+  const valueGroup =
+    input.valueGroup != null &&
+    Number.isFinite(input.valueGroup) &&
+    input.valueGroup >= 1 &&
+    input.valueGroup <= 6
+      ? input.valueGroup
+      : 0;
   const matchAnd = input.match === "and";
   const all = readAll()
     .slice()
     .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
 
-  if (!themeId && !presenterName) {
+  if (!themeId && !presenterName && !valueGroup) {
     return all.slice(0, safeLimit);
   }
 
   return all
     .filter((item) => {
-      const themeOk = themeId ? item.themeId === themeId : false;
-      const presenterOk = presenterName
-        ? item.presenterName === presenterName
-        : false;
-      if (themeId && presenterName) {
-        return matchAnd ? themeOk && presenterOk : themeOk || presenterOk;
+      const checks: boolean[] = [];
+      if (themeId) checks.push(item.themeId === themeId);
+      if (presenterName) checks.push(item.presenterName === presenterName);
+      if (valueGroup) {
+        checks.push(valueGroupFromLabel(item.themeLabel) === valueGroup);
       }
-      if (themeId) return themeOk;
-      return presenterOk;
+      if (checks.length === 0) return true;
+      return matchAnd ? checks.every(Boolean) : checks.some(Boolean);
     })
     .slice(0, safeLimit);
+}
+
+/** 履歴カード用。定型枠を外した実践例本文。 */
+export function historyExamplePreview(
+  item: ReviewHistoryRecord,
+  maxChars = 160,
+): string {
+  const mid = extractSummaryBody(item.summary || "", item.themeLabel);
+  if (mid) return mid.slice(0, maxChars);
+  const source = item.sourcePost.replace(/\s+/g, " ").trim();
+  if (source) return source.slice(0, maxChars);
+  return (item.fullText || "").replace(/\s+/g, " ").trim().slice(0, maxChars);
 }
 
 export function formatHistoryForPrompt(
@@ -166,11 +188,7 @@ export function formatHistoryForPrompt(
 
   return slice
     .map((item, i) => {
-      const mid = item.summary
-        .replace(/^Value[０-９0-9].*?行動指針について、/, "")
-        .replace(/想いを共有頂きました[。．！]?$/, "")
-        .trim()
-        .slice(0, maxSummaryChars);
+      const mid = historyExamplePreview(item, maxSummaryChars);
       const note = item.leaderNote.trim().slice(0, 80);
       const source = item.sourcePost.replace(/\s+/g, " ").trim().slice(0, 80);
       return [
