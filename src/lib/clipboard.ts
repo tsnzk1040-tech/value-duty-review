@@ -1,7 +1,8 @@
 /**
- * パスキー登録済みの Android Chrome では、navigator.clipboard も
- * textarea への focus も Credential Manager（パスキーと同じシート）に
- * 繋がることがある。通勤コピーは Web Share を本線にする。
+ * ボタン1回でクリップボードへ載せる。
+ * 共有シート先行だと2操作になるので、コピーを本線にする。
+ * textarea への focus と、成功時の navigator.clipboard は使わない
+ * （パスキーシートのきっかけになることがある）。
  */
 
 export type CopyOrShareResult = "shared" | "copied" | "aborted" | "failed";
@@ -30,7 +31,7 @@ export async function shareText(
   }
 }
 
-/** PC 向け。フォーム部品・focus は使わない。スマホでは呼ばない。 */
+/** フォーム部品・focus は使わない。クリック直後のユーザー操作内で呼ぶ。 */
 export function copyText(text: string): boolean {
   if (typeof document === "undefined") return false;
   const pre = document.createElement("pre");
@@ -59,26 +60,33 @@ export function copyText(text: string): boolean {
 }
 
 /**
- * スマホ: 共有シートのみ（クリップボードに載せない）。
- * PC: 選択コピー。失敗時は呼び出し側で長押しを案内する。
+ * 本線は1クリックコピー。失敗したときだけ共有シート。
  */
 export async function copyOrShare(text: string): Promise<CopyOrShareResult> {
+  if (copyText(text)) return "copied";
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return "copied";
+    }
+  } catch {
+    // パスキーや権限で失敗したら共有へ
+  }
   if (prefersShareSheet()) {
     const result = await shareText(text);
     if (result === "shared") return "shared";
     if (result === "aborted") return "aborted";
-    return "failed";
   }
-  return copyText(text) ? "copied" : "failed";
+  return "failed";
 }
 
 export function copyOrShareHint(result: CopyOrShareResult, copiedOk: string): string {
   if (result === "shared") {
-    return "共有シートを開いた。WowTalk 等を選んで。クリップボードは使っていない";
+    return "共有シートを開いた。WowTalk 等を選んで";
   }
   if (result === "copied") return copiedOk;
   if (result === "aborted") {
-    return "共有をやめた。パスキー回避のためクリップボードには載せない。下のテキストを長押ししてコピーできる";
+    return "共有をやめた。下のテキストを長押ししてコピーできる";
   }
-  return "送れなかった。下のテキストを長押ししてコピーして";
+  return "コピーできなかった。下のテキストを長押ししてコピーして";
 }

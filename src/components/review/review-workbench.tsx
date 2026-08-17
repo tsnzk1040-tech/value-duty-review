@@ -1503,7 +1503,7 @@ export function ReviewWorkbench() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="final">投稿用プレビュー（最終編集可）</Label>
             <p className="text-xs text-muted-foreground">
-              ここで全文を直せる。コピー・履歴保存はこの内容。スマホでは共有シートを使う（クリップボードだとパスキーが出ることがある）。
+              ここで全文を直せる。コピー・履歴保存はこの内容。ボタン1回でコピーする。
             </p>
             <Textarea
               id="final"
@@ -1583,7 +1583,7 @@ export function ReviewWorkbench() {
             onClick={() => void copyFinal()}
             disabled={Boolean(finalCheck && !finalCheck.ok)}
           >
-            投稿用にコピー／共有
+            投稿用にコピー
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(4)}>
             戻る
