@@ -350,12 +350,44 @@ export type LeaderGenerateInput = {
   researchFocus: string;
   /** 調べた要点メモ */
   researchBrief: string;
-  /** 同テーマ／同担当の過去レビュー要旨（任意） */
+  /** 同テーマの前回コメント（任意） */
   historyNotes?: string;
 };
 
+export type LeaderFlavor = "close" | "angle";
+
+function leaderFlavorBlock(flavor: LeaderFlavor): string {
+  if (flavor === "angle") {
+    return [
+      "【この案の味（切り口違い）】",
+      "- 共感の入口・たとえ・『こうしたら？』の置き方を、近い言い換えとは変える。",
+      "- 前回コメントは別角度で軽く触れる（丸写し禁止）。無ければ省略。",
+      "- 投稿と要約にある事実だけ。書いていない場面は足さない。",
+    ].join("\n");
+  }
+  return [
+    "【この案の味（近い言い換え）】",
+    "- 投稿・要約の語順に近い共感から入る。大きく組み替えない。",
+    "- 前回コメントは短い橋渡しに留める。無ければ省略。",
+  ].join("\n");
+}
+
+export function leaderRetrySuffix(): string {
+  return [
+    "【再出力指示】",
+    "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ）。",
+    "所感の型で再出力せよ: ①共感・感謝 ②同テーマの前回があれば発表者と内容を軽く一言（無ければ省略） ③テーマに会話っぽく一言 ④チームへの『こうしたら？』1点。",
+    "前回の問いを主役にしない。コピペ禁止。無ければ②は省略。",
+    "宣教師口調禁止。上司として寄り添うカジュアルなです・ます。『理念浸透』『指針の実践』連発は不可。",
+    "参照は材料まで。『皆さんでやってみませんか』は書かない。共感の「ですね」は可。",
+  ].join("\n");
+}
+
 /** 所感・着想の本文だけ。締めはアプリ側の別欄。 */
-export function buildLeaderInstructions(input: LeaderGenerateInput): string {
+export function buildLeaderInstructions(
+  input: LeaderGenerateInput,
+  flavor: LeaderFlavor = "close",
+): string {
   const keywords = input.keywords.trim()
     ? `検索キーワード: ${input.keywords.trim()}`
     : "検索キーワード: なし";
@@ -417,6 +449,8 @@ export function buildLeaderInstructions(input: LeaderGenerateInput): string {
     "",
     "【良い例（中身は仮）】",
     "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。前回、山田さんが期限を先に切った話とも重なります。『どうすればできるか』を先に置くと、今日みたいな曖昧な依頼が減ります。調べた聞き方の型を一つ、朝会で『誰に聞くか』を先に決める、に寄せてみたらどうでしょう。",
+    "",
+    leaderFlavorBlock(flavor),
     "",
     "【悪い例】",
     "指針の実践がチームの理念浸透の一歩につながると感じます。（宣教師・標語）",

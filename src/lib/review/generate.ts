@@ -16,6 +16,7 @@ import {
   type KeywordSuggestInput,
 } from "@/lib/review/providers/keyword-suggestions";
 import {
+  generateLeaderChatgpt,
   generateLeaderGemini,
   generateLeaderStub,
 } from "@/lib/review/providers/leader";
@@ -84,6 +85,8 @@ export type ReviewLeaderGenerateRequest = {
   researchBrief: string;
   presenterName?: string;
   historyNotes?: string;
+  /** 要約で選んだモデルを所感にも使う */
+  preferredProvider?: SummaryModelId | "stub" | "";
 };
 
 export type ReviewSearchGenerateRequest = {
@@ -563,8 +566,10 @@ export async function generateReviewLeaderDraft(
     historyNotes,
   };
 
+  const useChatgpt =
+    input.preferredProvider === "chatgpt" && Boolean(openAiApiKey());
   const gate = shouldUseStub();
-  if (gate.stub) {
+  if (gate.stub && !useChatgpt) {
     const stub = generateLeaderStub(leaderInput);
     return {
       kind: "leader",
@@ -575,7 +580,9 @@ export async function generateReviewLeaderDraft(
   }
 
   try {
-    const result = await generateLeaderGemini(leaderInput);
+    const result = useChatgpt
+      ? await generateLeaderChatgpt(leaderInput)
+      : await generateLeaderGemini(leaderInput);
     return {
       kind: "leader",
       leaderNote: result.leaderNote,

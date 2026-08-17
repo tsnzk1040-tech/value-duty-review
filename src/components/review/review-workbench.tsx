@@ -589,6 +589,8 @@ export function ReviewWorkbench() {
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
             historyNotes: sameThemeHistoryForLeader(draft!.themeId),
+            preferredProvider:
+              draft!.summaryProvider === "chatgpt" ? "chatgpt" : "gemini",
           }),
         });
         const data = (await res.json()) as {
@@ -604,10 +606,11 @@ export function ReviewWorkbench() {
         }
         const leaderNote = data.leaderNote ?? "";
         patch({ leaderNote });
-        const via =
-          data.provider === "gemini"
-            ? `Gemini${data.model ? ` (${data.model})` : ""}`
-            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        const via = providerLabel(
+          data.provider,
+          data.model,
+          data.fallbackReason,
+        );
         const gaHint =
           leaderNote && textMayMissOpeningKagi(leaderNote)
             ? " 開きの「が抜けてないか見て。"

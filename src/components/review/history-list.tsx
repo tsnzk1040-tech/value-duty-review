@@ -17,6 +17,7 @@ import {
   listRelatedReviews,
   pruneReviewHistory,
   reviewHistoryKeepCount,
+  reviewHistoryPostedText,
   type ReviewHistoryRecord,
 } from "@/lib/review/history";
 
@@ -183,12 +184,20 @@ export function HistoryList() {
                   </span>
                   {!open ? (
                     <span className="line-clamp-2 text-sm text-muted-foreground">
-                      {item.summary || item.fullText}
+                      {reviewHistoryPostedText(item) || "（本文なし）"}
                     </span>
                   ) : null}
                 </button>
                 {open ? (
                   <div className="flex flex-col gap-3 border-t border-border pt-3">
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        レビュー投稿全文
+                      </p>
+                      <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-2 font-mono text-xs text-foreground">
+                        {reviewHistoryPostedText(item) || "（本文なし）"}
+                      </pre>
+                    </div>
                     <div className="flex flex-col gap-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
                         本人コメント
@@ -197,18 +206,10 @@ export function HistoryList() {
                         {item.sourcePost.trim() || "（未保存）"}
                       </pre>
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        レビュー投稿全文
-                      </p>
-                      <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-2 font-mono text-xs text-foreground">
-                        {item.fullText}
-                      </pre>
-                    </div>
                     <Button
                       variant="secondary"
                       className="h-11 w-full"
-                      onClick={() => void copyFullText(item.fullText)}
+                      onClick={() => void copyFullText(reviewHistoryPostedText(item))}
                     >
                       レビュー全文をコピー
                     </Button>

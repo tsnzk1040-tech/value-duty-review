@@ -42,7 +42,26 @@ export type SaveReviewHistoryInput = {
 
 export const HISTORY_STORAGE_KEY = "vdr.review.history.v1";
 
-/** 残す件数＝前回ローテ1周（日数）。無ければ当番人数。 */
+/**
+ * 画面・プロンプト用の投稿全文。
+ * 端末に残っている1周分をそのまま使う（キー変更・再保存はしない）。
+ * fullText が空の古い形だけ、保存済みパーツから組む。
+ */
+export function reviewHistoryPostedText(item: ReviewHistoryRecord): string {
+  const stored = item.fullText?.trim();
+  if (stored) return stored;
+  const links = (item.links ?? [])
+    .filter((link) => link.url?.trim())
+    .map((link) => `♯${link.title}\n${link.url}`)
+    .join("\n\n");
+  return [item.opener, item.summary, item.leaderNote, links, item.closing]
+    .map((part) => part?.trim() ?? "")
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+}
+
+/** 残す件数＝前回ローテ1周（日数）。2周分は残さない。無ければ当番人数。 */
 export function reviewHistoryKeepCount(settings: AppSettings): number {
   const prev = latestPreviousCycle(settings.rotation.historyCycles);
   if (prev && prev.days.length > 0) return prev.days.length;
@@ -157,10 +176,15 @@ export function listRelatedReviews(input: {
 
 export function formatHistoryForPrompt(
   items: ReviewHistoryRecord[],
-  opts?: { maxItems?: number; maxSummaryChars?: number },
+  opts?: {
+    maxItems?: number;
+    maxSummaryChars?: number;
+    maxCommentChars?: number;
+  },
 ): string {
   const maxItems = opts?.maxItems ?? 3;
   const maxSummaryChars = opts?.maxSummaryChars ?? 120;
+  const maxCommentChars = opts?.maxCommentChars ?? 0;
   const slice = items.slice(0, maxItems);
   if (!slice.length) return "";
 
@@ -173,11 +197,22 @@ export function formatHistoryForPrompt(
         .slice(0, maxSummaryChars);
       const note = item.leaderNote.trim().slice(0, 80);
       const source = item.sourcePost.replace(/\s+/g, " ").trim().slice(0, 80);
+      const comment =
+        maxCommentChars > 0
+          ? reviewHistoryPostedText(item)
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, maxCommentChars)
+          : "";
       return [
         `${i + 1}. ${item.reviewDate} · ${item.presenterName}` +
           (item.themeLabel ? ` · ${item.themeLabel}` : ""),
         mid ? `   要約要旨: ${mid}` : "",
-        note ? `   所感要旨: ${note}` : "",
+        comment
+          ? `   前回コメント: ${comment}`
+          : note
+            ? `   所感要旨: ${note}`
+            : "",
         source ? `   投稿抜粋: ${source}` : "",
       ]
         .filter(Boolean)
@@ -202,5 +237,5 @@ export function sameThemeHistoryForLeader(themeId?: string): string {
   const id = themeId?.trim() ?? "";
   if (!id) return "";
   const items = listRelatedReviews({ themeId: id, limit: 4 });
-  return formatHistoryForPrompt(items, { maxItems: 3 });
+  return formatHistoryForPrompt(items, { maxItems: 3, maxCommentChars: 240 });
 }

@@ -1,4 +1,4 @@
-/** OpenAI Chat Completions（要約・要点用。所感本文には使わない） */
+/** OpenAI Chat Completions（要約・要点・所感。所感は要約で選んだモデルを踏襲） */
 
 function formatOpenAiHttpError(status: number, errText: string): string {
   if (status === 429 && /quota|billing/i.test(errText)) {

@@ -204,6 +204,12 @@ export async function POST(req: Request) {
       researchBrief: body.researchBrief,
       presenterName: body.presenterName,
       historyNotes: body.historyNotes,
+      preferredProvider:
+        body.preferredProvider === "chatgpt" ||
+        body.preferredProvider === "gemini" ||
+        body.preferredProvider === "stub"
+          ? body.preferredProvider
+          : "",
     });
     return NextResponse.json(result);
   }

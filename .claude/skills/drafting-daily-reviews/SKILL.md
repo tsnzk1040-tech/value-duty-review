@@ -1,6 +1,6 @@
 ---
 name: drafting-daily-reviews
-description: メンバーの振り返り投稿へのレビューを、実運用の構成（お礼→要約→所感→任意リンク→締め）で下書きする。要約はリーダー理解の体裁で浸透リレー実践の事実を見せ、所感は共感・指針引きつけ・具体提案・薄い問い（理念浸透）。value-duty-review／Gemini ハーネス用。「レビュー要約を作って」「毎日レビューの下書き」「レビュー構成」「drafting-daily-reviews」と依頼された際に使用する。
+description: メンバーの振り返り投稿へのレビューを、実運用の構成（お礼→要約→所感→任意リンク→締め）で下書きする。要約はリーダー理解の体裁で浸透リレー実践の事実を見せ、所感は共感・指針引きつけ・具体提案・薄い問い（理念浸透）。value-duty-review／Gemini・ChatGPT ハーネス用。「レビュー要約を作って」「毎日レビューの下書き」「レビュー構成」「drafting-daily-reviews」と依頼された際に使用する。
 ---
 
 # 毎日レビュー下書き（構成＋要約／所感分担）
@@ -49,9 +49,9 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 
 ## アプリとの関係
 
-- 要約本線は **`POST /api/review/draft` `kind=summary`（Gemini＝近い言い換え／ChatGPT＝切り口違い。2案）**。採用モデルは要点メモにも使う
+- 要約本線は **`POST /api/review/draft` `kind=summary`（Gemini＝近い言い換え／ChatGPT＝切り口違い。2案）**。採用モデルは要点メモ・所感にも使う
 - 要約直しは **`kind=summary-revise`（専用プロンプト）**。厚く≈1.2倍（投稿に無い事実は足さない）／簡潔≈0.8倍。初回の字数制限は適用しない
-- 所感本線は **同 API `kind=leader`（Gemini）**。stub は退避のみ
+- 所感本線は **同 API `kind=leader`（要約で選んだモデル。Gemini＝近い／ChatGPT＝切り口違い。同テーマの前回コメントを渡す）**。stub は退避のみ
 - `lens` は要約を厚くする。`researchFocus` は所感専用
 - 構成の正は structure。ローテは別スキル `rotation-fair-assign`
 - **要約方針は本スキル＋`prompts.ts` でロック**（触るときは structure／taste と一緒に）
