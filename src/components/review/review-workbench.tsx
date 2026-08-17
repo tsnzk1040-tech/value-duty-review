@@ -46,7 +46,7 @@ import {
   sameThemeHistoryForLeader,
   saveReviewHistory,
 } from "@/lib/review/history";
-import { copyText } from "@/lib/clipboard";
+import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
 
 function providerLabel(
@@ -528,7 +528,7 @@ export function ReviewWorkbench() {
         if (data.needsPagePaste) {
           patch({ researchBrief: "", researchNeedsPagePaste: true });
           setHint(
-            "URLの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」→もう一度要点メモ",
+            "URLの本文を取れなかった。ページを開いてコピー→「本文欄に貼る（長押し）」→もう一度要点メモ",
           );
           return;
         }
@@ -775,7 +775,7 @@ export function ReviewWorkbench() {
     );
   }
 
-  function copyFinal() {
+  async function copyFinal() {
     const current = draft;
     if (!current) return;
     if (!current.reviewDate.trim()) {
@@ -788,12 +788,17 @@ export function ReviewWorkbench() {
       setHint("コピー前チェックで問題あり。指摘を直してからもう一度");
       return;
     }
-    if (!copyText(finalText)) {
-      setHint("コピーに失敗した。下のテキストを手動選択して");
+    const sent = await copyOrShare(finalText);
+    if (sent === "aborted" || sent === "failed") {
+      setHint(copyOrShareHint(sent, ""));
       return;
     }
 
-    setHint("投稿用テキストをコピーした。履歴へ保存中…");
+    setHint(
+      sent === "shared"
+        ? "共有シートを開いた。履歴へ保存中…"
+        : "投稿用テキストをコピーした。履歴へ保存中…",
+    );
     try {
       saveReviewHistory({
         reviewDate: current.reviewDate.slice(0, 10),
@@ -812,10 +817,16 @@ export function ReviewWorkbench() {
         keywords: current.keywords,
         researchBrief: current.researchBrief,
       }, reviewHistoryKeepCount(settings));
-      setHint("コピーした＋この端末の履歴に保存した。グループチャットへ貼って");
+      setHint(
+        sent === "shared"
+          ? "共有した＋この端末の履歴に保存した。シートからグループチャットを選んで"
+          : "コピーした＋この端末の履歴に保存した。グループチャットへ貼って",
+      );
     } catch {
       setHint(
-        "コピーした。履歴保存に失敗した。投稿は手元のコピーで続行可",
+        sent === "shared"
+          ? "共有した。履歴保存に失敗した。投稿は共有シートで続行可"
+          : "コピーした。履歴保存に失敗した。投稿は手元のコピーで続行可",
       );
     }
   }
@@ -1473,10 +1484,13 @@ export function ReviewWorkbench() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="final">投稿用プレビュー（最終編集可）</Label>
             <p className="text-xs text-muted-foreground">
-              ここで全文を直せる。コピー・履歴保存はこの内容。
+              ここで全文を直せる。コピー・履歴保存はこの内容。スマホでは共有シートを使う（クリップボードだとパスキーが出ることがある）。
             </p>
             <Textarea
               id="final"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore="true"
               className="min-h-64 font-mono text-xs"
               value={draft.assembledPost || finalText}
               onChange={(e) => {
@@ -1547,10 +1561,10 @@ export function ReviewWorkbench() {
           ) : null}
           <Button
             className="h-11 w-full"
-            onClick={copyFinal}
+            onClick={() => void copyFinal()}
             disabled={Boolean(finalCheck && !finalCheck.ok)}
           >
-            投稿用にコピー
+            投稿用にコピー／共有
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(4)}>
             戻る

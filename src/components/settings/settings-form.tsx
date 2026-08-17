@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { copyText } from "@/lib/clipboard";
+import { copyOrShare } from "@/lib/clipboard";
 import { createSalt, hashPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
 import {
@@ -622,9 +622,14 @@ export function SettingsForm() {
           <Button
             variant="secondary"
             onClick={() => {
-              const text = exportJson();
-              if (copyText(text)) flash("設定JSONをコピーした");
-              else flash("コピーに失敗した。選択して手動コピーして");
+              void (async () => {
+                const text = exportJson();
+                const sent = await copyOrShare(text);
+                if (sent === "shared") flash("設定JSONを共有シートへ送った");
+                else if (sent === "copied") flash("設定JSONをコピーした");
+                else if (sent === "aborted") flash("共有をやめた");
+                else flash("送れなかった。長押しでコピーして");
+              })();
             }}
           >
             JSONをコピー

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { copyText } from "@/lib/clipboard";
+import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import {
   listRecentReviews,
   listRelatedReviews,
@@ -66,12 +66,9 @@ export function HistoryList() {
     load();
   }, [ready, load]);
 
-  function copyFullText(text: string) {
-    if (copyText(text)) {
-      setHint("レビュー全文をコピーした");
-    } else {
-      setHint("コピーに失敗した");
-    }
+  async function copyFullText(text: string) {
+    const sent = await copyOrShare(text);
+    setHint(copyOrShareHint(sent, "レビュー全文をコピーした"));
   }
 
   const filters = (
@@ -209,7 +206,7 @@ export function HistoryList() {
                     <Button
                       variant="secondary"
                       className="h-11 w-full"
-                      onClick={() => copyFullText(reviewHistoryPostedText(item))}
+                      onClick={() => void copyFullText(reviewHistoryPostedText(item))}
                     >
                       レビュー全文をコピー
                     </Button>

@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { copyText } from "@/lib/clipboard";
+import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import { fairAssign } from "@/lib/rotation/fair-assign";
 import { formatNotebookCopy } from "@/lib/rotation/format-notebook";
 import {
@@ -107,13 +107,14 @@ export function RotationWorkbench() {
     setWarnings([]);
   }
 
-  function copyNotebook() {
+  async function copyNotebook() {
     if (days.length === 0) {
       setCopyHint("コピーする日別ローテがない");
       return;
     }
-    if (!copyText(notebookText)) {
-      setCopyHint("コピーに失敗した。下のテキストを手動選択してコピーして");
+    const sent = await copyOrShare(notebookText);
+    if (sent === "aborted" || sent === "failed") {
+      setCopyHint(copyOrShareHint(sent, ""));
       return;
     }
     const assignedIds = new Set(days.map((d) => d.memberId));
@@ -132,7 +133,9 @@ export function RotationWorkbench() {
       },
     }));
     setCopyHint(
-      "ノート用にコピーし、このサイクルを「前回」として保存した（次の生成に使う）",
+      sent === "shared"
+        ? "共有した。このサイクルを「前回」として保存した（次の生成に使う）"
+        : "ノート用にコピーし、このサイクルを「前回」として保存した（次の生成に使う）",
     );
   }
 
