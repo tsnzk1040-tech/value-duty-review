@@ -12,12 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import {
-  listRecentReviews,
+  exportReviewHistoryJson,
+  importReviewHistory,
   listRelatedReviews,
-  pruneReviewHistory,
-  reviewHistoryKeepCount,
+  listStoredReviews,
   reviewHistoryPostedText,
   type ReviewHistoryRecord,
 } from "@/lib/review/history";
@@ -31,6 +32,7 @@ export function HistoryList() {
   const [hint, setHint] = useState<string | null>(null);
   const [themeId, setThemeId] = useState(ALL);
   const [presenterName, setPresenterName] = useState(ALL);
+  const [importText, setImportText] = useState("");
 
   const activeMembers = useMemo(
     () => settings.members.filter((m) => m.active !== false),
@@ -46,20 +48,18 @@ export function HistoryList() {
 
   const load = useCallback(() => {
     setOpenId(null);
-    const keep = reviewHistoryKeepCount(settings);
-    pruneReviewHistory(keep);
     const next =
       themeId !== ALL || presenterName !== ALL
         ? listRelatedReviews({
             themeId: themeId === ALL ? undefined : themeId,
             presenterName:
               presenterName === ALL ? undefined : presenterName,
-            limit: keep,
+            limit: 200,
             match: "and",
           })
-        : listRecentReviews(keep);
+        : listStoredReviews();
     setItems(next);
-  }, [themeId, presenterName, settings]);
+  }, [themeId, presenterName]);
 
   useEffect(() => {
     if (!ready) return;
@@ -69,6 +69,30 @@ export function HistoryList() {
   async function copyFullText(text: string) {
     const sent = await copyOrShare(text);
     setHint(copyOrShareHint(sent, "レビュー全文をコピーした"));
+  }
+
+  async function exportHistory() {
+    const text = exportReviewHistoryJson();
+    if (listStoredReviews().length === 0) {
+      setHint("書き出す履歴がない");
+      return;
+    }
+    const sent = await copyOrShare(text);
+    if (sent === "shared") setHint("履歴JSONを共有シートへ送った");
+    else if (sent === "copied") setHint("履歴JSONをコピーした。ノート等に退避して");
+    else if (sent === "aborted") setHint("共有をやめた");
+    else setHint("送れなかった。下の欄に出して長押しして");
+  }
+
+  function importHistory() {
+    try {
+      const n = importReviewHistory(importText);
+      setImportText("");
+      load();
+      setHint(`履歴JSONを取り込んだ（${n}件）。同じ営業日は上書き`);
+    } catch {
+      setHint("取り込みに失敗した。履歴JSONか確認して");
+    }
   }
 
   const filters = (
@@ -227,6 +251,38 @@ export function HistoryList() {
       <Button variant="outline" className="h-11 w-full" onClick={load}>
         再読み込み
       </Button>
+      <section className="flex flex-col gap-3 rounded-lg border border-border p-3">
+        <h2 className="text-sm font-medium">履歴JSONバックアップ</h2>
+        <p className="text-xs text-muted-foreground">
+          見るだけでは消さない。1周への間引きは投稿用コピー／共有の保存時だけ。設定JSONとは別。
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-11 w-full"
+          onClick={() => void exportHistory()}
+        >
+          履歴JSONをコピー／共有
+        </Button>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="import-history-json">履歴JSONを貼って取り込み</Label>
+          <Textarea
+            id="import-history-json"
+            className="min-h-32 font-mono text-xs"
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder='[{"reviewDate":"2026-08-17",...}]'
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full"
+          onClick={importHistory}
+        >
+          取り込む
+        </Button>
+      </section>
     </div>
   );
 }

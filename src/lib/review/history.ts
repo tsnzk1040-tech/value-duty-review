@@ -44,7 +44,7 @@ export const HISTORY_STORAGE_KEY = "vdr.review.history.v1";
 
 /**
  * 画面・プロンプト用の投稿全文。
- * 端末に残っている1周分をそのまま使う（キー変更・再保存はしない）。
+ * 端末に残っている履歴をそのまま使う（キー変更・再保存はしない）。
  * fullText が空の古い形だけ、保存済みパーツから組む。
  */
 export function reviewHistoryPostedText(item: ReviewHistoryRecord): string {
@@ -85,20 +85,18 @@ function readAll(): ReviewHistoryRecord[] {
   }
 }
 
-function writeAll(items: ReviewHistoryRecord[], keep: number) {
+function persist(items: ReviewHistoryRecord[], keep?: number) {
   if (!isBrowser()) return;
-  const cap = Math.max(keep, 1);
-  const capped = items
+  const sorted = items
     .slice()
-    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate))
-    .slice(0, cap);
-  window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(capped));
+    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
+  const next =
+    keep == null ? sorted : sorted.slice(0, Math.max(keep, 1));
+  window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
 }
 
-export function pruneReviewHistory(keep: number): ReviewHistoryRecord[] {
-  const items = readAll();
-  writeAll(items, keep);
-  return readAll();
+function writeAll(items: ReviewHistoryRecord[], keep: number) {
+  persist(items, keep);
 }
 
 export function saveReviewHistory(
@@ -131,6 +129,90 @@ export function saveReviewHistory(
   return record;
 }
 
+export function listStoredReviews(): ReviewHistoryRecord[] {
+  return readAll()
+    .slice()
+    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
+}
+
+export function exportReviewHistoryJson(): string {
+  return `${JSON.stringify(listStoredReviews(), null, 2)}\n`;
+}
+
+function asHistoryLink(raw: unknown): ReviewHistoryLink | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as { title?: unknown; url?: unknown };
+  if (typeof o.url !== "string" || !o.url.trim()) return null;
+  return {
+    title: typeof o.title === "string" ? o.title : "",
+    url: o.url,
+  };
+}
+
+function asHistoryRecord(raw: unknown): ReviewHistoryRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Partial<ReviewHistoryRecord>;
+  if (typeof o.reviewDate !== "string" || !o.reviewDate.trim()) return null;
+  const links = Array.isArray(o.links)
+    ? o.links.map(asHistoryLink).filter((link): link is ReviewHistoryLink => Boolean(link))
+    : [];
+  return {
+    id: typeof o.id === "string" && o.id.trim() ? o.id : crypto.randomUUID(),
+    createdAt:
+      typeof o.createdAt === "string" && o.createdAt.trim()
+        ? o.createdAt
+        : new Date().toISOString(),
+    reviewDate: o.reviewDate.slice(0, 10),
+    presenterName: typeof o.presenterName === "string" ? o.presenterName : "",
+    themeId: typeof o.themeId === "string" ? o.themeId : "",
+    themeLabel: typeof o.themeLabel === "string" ? o.themeLabel : "",
+    sourcePost: typeof o.sourcePost === "string" ? o.sourcePost : "",
+    opener: typeof o.opener === "string" ? o.opener : "",
+    summary: typeof o.summary === "string" ? o.summary : "",
+    leaderNote: typeof o.leaderNote === "string" ? o.leaderNote : "",
+    closing: typeof o.closing === "string" ? o.closing : "",
+    links,
+    fullText: typeof o.fullText === "string" ? o.fullText : "",
+    keywords: typeof o.keywords === "string" ? o.keywords : "",
+    researchBrief: typeof o.researchBrief === "string" ? o.researchBrief : "",
+  };
+}
+
+export function parseReviewHistoryJson(text: string): ReviewHistoryRecord[] {
+  const parsed = JSON.parse(text) as unknown;
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : parsed &&
+        typeof parsed === "object" &&
+        Array.isArray((parsed as { records?: unknown }).records)
+      ? (parsed as { records: unknown[] }).records
+      : null;
+  if (!rows) {
+    throw new Error("履歴JSONの形が不正です");
+  }
+  const records = rows
+    .map(asHistoryRecord)
+    .filter((item): item is ReviewHistoryRecord => Boolean(item));
+  if (records.length === 0) {
+    throw new Error("履歴が1件も読めなかった");
+  }
+  return records;
+}
+
+/** 同じ営業日は取り込み側で上書き。見るときと同じく件数は切らない。 */
+export function importReviewHistory(text: string): number {
+  const incoming = parseReviewHistoryJson(text);
+  const byDate = new Map<string, ReviewHistoryRecord>();
+  for (const item of listStoredReviews()) {
+    byDate.set(item.reviewDate, item);
+  }
+  for (const item of incoming) {
+    byDate.set(item.reviewDate, item);
+  }
+  persist([...byDate.values()]);
+  return incoming.length;
+}
+
 export function listRecentReviews(
   limit: number,
 ): ReviewHistoryRecord[] {
@@ -147,7 +229,7 @@ export function listRelatedReviews(input: {
   limit?: number;
   match?: "or" | "and";
 }): ReviewHistoryRecord[] {
-  const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 100);
+  const safeLimit = Math.min(Math.max(input.limit ?? 10, 1), 200);
   const themeId = input.themeId?.trim() ?? "";
   const presenterName = input.presenterName?.trim() ?? "";
   const matchAnd = input.match === "and";

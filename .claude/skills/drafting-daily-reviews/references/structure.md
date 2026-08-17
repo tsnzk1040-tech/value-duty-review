@@ -70,6 +70,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 ## アプリ組み立てとの関係
 
 - **コメント対象営業日**: 下書きで入力（既定＝今日JST以前の直近営業日）。`投稿用にコピー／共有` 時にこの端末の履歴へ保存
+- **履歴**: 正本はこの端末の localStorage。履歴確認は読むだけ（間引きしない）。1周への揃えは `投稿用にコピー／共有` の保存時。履歴JSONで退避・取り込み可（設定JSONとは別）
 - **今日の行動指針**: 投稿本文の `4-③` / `4-3` 等から自動セット（Selectで修正可）。`matchValueItemFromSourcePost`
 - **定型のあと**: 行動指針コード／「行動指針3-②について」等の再掲は書かない（`extractSummaryBody`／`repairDuplicatedGuidelinePhrase` で機械除去）
 - お礼: `formatThanks`（`src/lib/review/thanks.ts`）
