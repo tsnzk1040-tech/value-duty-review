@@ -28,7 +28,7 @@ export function generateLeaderStub(
       ? `「${input.selectedLinkTitles[0]}」も参考にしつつ、`
       : "";
   const briefHint = input.researchBrief.trim()
-    ? "調べた要点を踏まえ、"
+    ? "検索して調べた結果を踏まえ、"
     : "";
 
   const leaderNote = [
