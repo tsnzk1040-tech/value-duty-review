@@ -46,6 +46,7 @@ import {
   sameThemeHistoryForLeader,
   saveReviewHistory,
 } from "@/lib/review/history";
+import { copyText } from "@/lib/clipboard";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
 
 function providerLabel(
@@ -475,27 +476,12 @@ export function ReviewWorkbench() {
     setHint("参照を外した");
   }
 
-  async function pastePageFromClipboard() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text.trim()) {
-        setHint("クリップボードが空。ページでコピーしてから再度");
-        return;
-      }
-      patch({
-        researchPagePaste: text,
-        researchBrief: "",
-        researchNeedsPagePaste: true,
-      });
-      if (text.trim().length < PAGE_PASTE_MIN_CHARS) {
-        setHint("貼ったが短い。もう少し本文を足すと要点が走る");
-        return;
-      }
-      setHint("本文を貼った。要点メモを作ってる…");
-      runResearchBrief({ pagePaste: text });
-    } catch {
-      setHint("クリップボードを読めなかった。下の欄に直接貼って");
-    }
+  function pastePageFromClipboard() {
+    setHint(
+      "下の欄を長押しして貼って。クリップボード自動読みはパスキーシートが出るので使わない",
+    );
+    const field = document.getElementById("researchPagePaste");
+    field?.focus();
   }
 
   function runResearchBrief(overrides?: { pagePaste?: string }) {
@@ -789,7 +775,7 @@ export function ReviewWorkbench() {
     );
   }
 
-  async function copyFinal() {
+  function copyFinal() {
     const current = draft;
     if (!current) return;
     if (!current.reviewDate.trim()) {
@@ -802,9 +788,7 @@ export function ReviewWorkbench() {
       setHint("コピー前チェックで問題あり。指摘を直してからもう一度");
       return;
     }
-    try {
-      await navigator.clipboard.writeText(finalText);
-    } catch {
+    if (!copyText(finalText)) {
       setHint("コピーに失敗した。下のテキストを手動選択して");
       return;
     }
@@ -1319,9 +1303,9 @@ export function ReviewWorkbench() {
                   variant="outline"
                   className="h-11 w-full"
                   disabled={generating}
-                  onClick={() => void pastePageFromClipboard()}
+                  onClick={pastePageFromClipboard}
                 >
-                  クリップボードから貼る
+                  本文欄に貼る（長押し）
                 </Button>
                 <Textarea
                   id="researchPagePaste"

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { copyText } from "@/lib/clipboard";
 import { fairAssign } from "@/lib/rotation/fair-assign";
 import { formatNotebookCopy } from "@/lib/rotation/format-notebook";
 import {
@@ -106,34 +107,33 @@ export function RotationWorkbench() {
     setWarnings([]);
   }
 
-  async function copyNotebook() {
+  function copyNotebook() {
     if (days.length === 0) {
       setCopyHint("コピーする日別ローテがない");
       return;
     }
-    try {
-      await navigator.clipboard.writeText(notebookText);
-      const assignedIds = new Set(days.map((d) => d.memberId));
-      const cycle = cycleFromDays(days, "確定サイクル");
-      updateSettings((prev) => ({
-        ...prev,
-        members: prev.members.map((m) =>
-          m.newcomer && assignedIds.has(m.id) ? { ...m, newcomer: false } : m,
-        ),
-        rotation: {
-          ...prev.rotation,
-          historyCycles: appendHistoryCycle(
-            prev.rotation.historyCycles,
-            cycle,
-          ),
-        },
-      }));
-      setCopyHint(
-        "ノート用にコピーし、このサイクルを「前回」として保存した（次の生成に使う）",
-      );
-    } catch {
+    if (!copyText(notebookText)) {
       setCopyHint("コピーに失敗した。下のテキストを手動選択してコピーして");
+      return;
     }
+    const assignedIds = new Set(days.map((d) => d.memberId));
+    const cycle = cycleFromDays(days, "確定サイクル");
+    updateSettings((prev) => ({
+      ...prev,
+      members: prev.members.map((m) =>
+        m.newcomer && assignedIds.has(m.id) ? { ...m, newcomer: false } : m,
+      ),
+      rotation: {
+        ...prev.rotation,
+        historyCycles: appendHistoryCycle(
+          prev.rotation.historyCycles,
+          cycle,
+        ),
+      },
+    }));
+    setCopyHint(
+      "ノート用にコピーし、このサイクルを「前回」として保存した（次の生成に使う）",
+    );
   }
 
   if (!ready) {

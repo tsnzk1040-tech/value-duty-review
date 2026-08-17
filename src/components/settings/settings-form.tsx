@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { copyText } from "@/lib/clipboard";
 import { createSalt, hashPassword } from "@/lib/settings/password";
 import { setAuthSessionActive } from "@/lib/settings/session";
 import {
@@ -620,10 +621,10 @@ export function SettingsForm() {
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             variant="secondary"
-            onClick={async () => {
+            onClick={() => {
               const text = exportJson();
-              await navigator.clipboard.writeText(text);
-              flash("設定JSONをコピーした");
+              if (copyText(text)) flash("設定JSONをコピーした");
+              else flash("コピーに失敗した。選択して手動コピーして");
             }}
           >
             JSONをコピー
