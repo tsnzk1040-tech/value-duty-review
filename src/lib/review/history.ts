@@ -1,4 +1,5 @@
 import type { AppSettings } from "@/lib/settings/types";
+import { themeCodeFromLabel } from "@/lib/rotation/format-notebook";
 
 export type ReviewHistoryLink = {
   title: string;
@@ -43,7 +44,7 @@ export const HISTORY_STORAGE_KEY = "vdr.review.history.v1";
 
 /**
  * 画面・プロンプト用の投稿全文。
- * 端末に残っている履歴をそのまま使う（キー変更・再保存はしない）。
+ * キーは変えない。起動・履歴確認は既存LSを読むだけで書き戻さない。
  * fullText が空の古い形だけ、保存済みパーツから組む。
  */
 export function reviewHistoryPostedText(item: ReviewHistoryRecord): string {
@@ -60,12 +61,53 @@ export function reviewHistoryPostedText(item: ReviewHistoryRecord): string {
     .trim();
 }
 
-/** 残す件数＝前回分＋テーマ1周（カタログ件数×2）。ローテ人数ではない。 */
+/** 残す件数の目安＝各テーマ 今回＋前回（カタログ件数×2）。ローテ人数ではない。 */
 export function reviewHistoryKeepCount(settings: AppSettings): number {
   const themeCount = settings.valueItems.length;
   if (themeCount > 0) return themeCount * 2;
   const active = settings.members.filter((m) => m.active !== false).length;
   return Math.max(active * 2, 1);
+}
+
+/**
+ * 日付の新しい順で、同じ行動指針は最大 `perTheme` 件。
+ * 2＝周の途中の保険（今回＋前回）。1＝6-④で1周閉じたあと（当該周だけ残し前回周を外す）。
+ * 起動・履歴確認では呼ばない（既存LSを読むだけ）。
+ */
+export function retainThemeLaps(
+  items: ReviewHistoryRecord[],
+  perTheme: 1 | 2,
+): ReviewHistoryRecord[] {
+  const cap = perTheme < 1 ? 1 : perTheme;
+  const sorted = items.slice().sort((a, b) => {
+    const byDate = b.reviewDate.localeCompare(a.reviewDate);
+    if (byDate !== 0) return byDate;
+    return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+  });
+  const counts = new Map<string, number>();
+  const kept: ReviewHistoryRecord[] = [];
+  for (const item of sorted) {
+    const key = item.themeId.trim() || "__none__";
+    const n = counts.get(key) ?? 0;
+    if (n >= cap) continue;
+    kept.push(item);
+    counts.set(key, n + 1);
+  }
+  return kept.sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
+}
+
+/** カタログ末尾（既定は 6-④）の記録＝テーマ1周の閉じ。 */
+export function isThemeLapEnd(
+  themeId: string,
+  themeLabel: string,
+  valueItems: { id: string; label: string }[],
+): boolean {
+  const last = valueItems[valueItems.length - 1];
+  if (!last) return false;
+  if (themeId.trim() && themeId.trim() === last.id) return true;
+  const got = themeCodeFromLabel(themeLabel);
+  const end = themeCodeFromLabel(last.label);
+  return Boolean(got) && got === end;
 }
 
 function isBrowser(): boolean {
@@ -84,24 +126,16 @@ function readAll(): ReviewHistoryRecord[] {
   }
 }
 
-function persist(items: ReviewHistoryRecord[], keep?: number) {
+function persist(items: ReviewHistoryRecord[], perTheme: 1 | 2) {
   if (!isBrowser()) return;
-  const sorted = items
-    .slice()
-    .sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
-  const next =
-    keep == null ? sorted : sorted.slice(0, Math.max(keep, 1));
+  const next = retainThemeLaps(items, perTheme);
   window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
-}
-
-function writeAll(items: ReviewHistoryRecord[], keep: number) {
-  persist(items, keep);
 }
 
 export function saveReviewHistory(
   input: SaveReviewHistoryInput,
-  keep: number,
-): ReviewHistoryRecord {
+  valueItems: { id: string; label: string }[],
+): { record: ReviewHistoryRecord; closedThemeLap: boolean } {
   const reviewDate =
     input.reviewDate?.slice(0, 10) ||
     new Date().toISOString().slice(0, 10);
@@ -124,8 +158,13 @@ export function saveReviewHistory(
   };
   const next = readAll().filter((item) => item.reviewDate !== reviewDate);
   next.unshift(record);
-  writeAll(next, keep);
-  return record;
+  const closedThemeLap = isThemeLapEnd(
+    record.themeId,
+    record.themeLabel,
+    valueItems,
+  );
+  persist(next, closedThemeLap ? 1 : 2);
+  return { record, closedThemeLap };
 }
 
 export function listStoredReviews(): ReviewHistoryRecord[] {
@@ -198,7 +237,7 @@ export function parseReviewHistoryJson(text: string): ReviewHistoryRecord[] {
   return records;
 }
 
-/** 同じ営業日は取り込み側で上書き。見るときと同じく件数は切らない。 */
+/** 同じ営業日は取り込み側で上書き。各テーマは今回＋前回を残す（1-①追加でも前回の1-②〜6-④は残る）。 */
 export function importReviewHistory(text: string): number {
   const incoming = parseReviewHistoryJson(text);
   const byDate = new Map<string, ReviewHistoryRecord>();
@@ -208,7 +247,7 @@ export function importReviewHistory(text: string): number {
   for (const item of incoming) {
     byDate.set(item.reviewDate, item);
   }
-  persist([...byDate.values()]);
+  persist([...byDate.values()], 2);
   return incoming.length;
 }
 

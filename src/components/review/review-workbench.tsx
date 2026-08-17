@@ -42,7 +42,6 @@ import { PAGE_PASTE_MIN_CHARS } from "@/lib/review/providers/research-brief";
 import { consumePendingShare } from "@/lib/review/share-target";
 import {
   historyNotesForDraft,
-  reviewHistoryKeepCount,
   sameThemeHistoryForLeader,
   saveReviewHistory,
 } from "@/lib/review/history";
@@ -815,7 +814,7 @@ export function ReviewWorkbench() {
         : "投稿用テキストをコピーした。履歴へ保存中…",
     );
     try {
-      saveReviewHistory({
+      const saved = saveReviewHistory({
         reviewDate: current.reviewDate.slice(0, 10),
         presenterName: current.presenterName,
         themeId: current.themeId,
@@ -831,11 +830,15 @@ export function ReviewWorkbench() {
         fullText: finalText,
         keywords: current.keywords,
         researchBrief: current.researchBrief,
-      }, reviewHistoryKeepCount(settings));
+      }, settings.valueItems);
       setHint(
-        sent === "shared"
-          ? "共有した＋この端末の履歴に保存した。シートからグループチャットを選んで"
-          : "コピーした＋この端末の履歴に保存した。グループチャットへ貼って",
+        saved.closedThemeLap
+          ? sent === "shared"
+            ? "共有した＋テーマ1周を揃えた。前回の1周は履歴から外した"
+            : "コピーした＋テーマ1周を揃えた。前回の1周は履歴から外した"
+          : sent === "shared"
+            ? "共有した＋この端末の履歴に保存した。シートからグループチャットを選んで"
+            : "コピーした＋この端末の履歴に保存した。グループチャットへ貼って",
       );
     } catch {
       setHint(
