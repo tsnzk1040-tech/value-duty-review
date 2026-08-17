@@ -476,12 +476,27 @@ export function ReviewWorkbench() {
     setHint("参照を外した");
   }
 
-  function pastePageFromClipboard() {
-    setHint(
-      "下の欄を長押しして貼って。クリップボード自動読みはパスキーシートが出るので使わない",
-    );
-    const field = document.getElementById("researchPagePaste");
-    field?.focus();
+  async function pastePageFromClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setHint("クリップボードが空。ページでコピーしてから再度");
+        return;
+      }
+      patch({
+        researchPagePaste: text,
+        researchBrief: "",
+        researchNeedsPagePaste: true,
+      });
+      if (text.trim().length < PAGE_PASTE_MIN_CHARS) {
+        setHint("貼ったが短い。もう少し本文を足すと要点が走る");
+        return;
+      }
+      setHint("本文を貼った。要点メモを作って");
+      runResearchBrief({ pagePaste: text });
+    } catch {
+      setHint("クリップボードを読めなかった。下の欄を長押しして貼って");
+    }
   }
 
   function runResearchBrief(overrides?: { pagePaste?: string }) {
@@ -528,7 +543,7 @@ export function ReviewWorkbench() {
         if (data.needsPagePaste) {
           patch({ researchBrief: "", researchNeedsPagePaste: true });
           setHint(
-            "URLの本文を取れなかった。ページを開いてコピー→「本文欄に貼る（長押し）」→もう一度要点メモ",
+            "URLの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」→もう一度要点メモ",
           );
           return;
         }
@@ -1314,12 +1329,13 @@ export function ReviewWorkbench() {
                   variant="outline"
                   className="h-11 w-full"
                   disabled={generating}
-                  onClick={pastePageFromClipboard}
+                  onClick={() => void pastePageFromClipboard()}
                 >
-                  本文欄に貼る（長押し）
+                  クリップボードから貼る
                 </Button>
                 <Textarea
                   id="researchPagePaste"
+                  autoComplete="off"
                   className="min-h-28"
                   placeholder="ページからコピーした本文…"
                   value={draft.researchPagePaste}
