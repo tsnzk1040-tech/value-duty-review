@@ -209,7 +209,7 @@ export function formatHistoryForPrompt(
           (item.themeLabel ? ` · ${item.themeLabel}` : ""),
         mid ? `   要約要旨: ${mid}` : "",
         comment
-          ? `   前回コメント: ${comment}`
+          ? `   同テーマ前回のコメント: ${comment}`
           : note
             ? `   所感要旨: ${note}`
             : "",
