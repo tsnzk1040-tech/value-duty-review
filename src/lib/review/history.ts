@@ -1,5 +1,4 @@
 import type { AppSettings } from "@/lib/settings/types";
-import { latestPreviousCycle } from "@/lib/rotation/previous-cycle";
 
 export type ReviewHistoryLink = {
   title: string;
@@ -61,12 +60,12 @@ export function reviewHistoryPostedText(item: ReviewHistoryRecord): string {
     .trim();
 }
 
-/** 残す件数＝前回ローテ1周（日数）。2周分は残さない。無ければ当番人数。 */
+/** 残す件数＝前回分＋テーマ1周（カタログ件数×2）。ローテ人数ではない。 */
 export function reviewHistoryKeepCount(settings: AppSettings): number {
-  const prev = latestPreviousCycle(settings.rotation.historyCycles);
-  if (prev && prev.days.length > 0) return prev.days.length;
+  const themeCount = settings.valueItems.length;
+  if (themeCount > 0) return themeCount * 2;
   const active = settings.members.filter((m) => m.active !== false).length;
-  return Math.max(settings.rotation.businessDayCount || 0, active, 1);
+  return Math.max(active * 2, 1);
 }
 
 function isBrowser(): boolean {

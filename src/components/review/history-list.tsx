@@ -254,7 +254,7 @@ export function HistoryList() {
       <section className="flex flex-col gap-3 rounded-lg border border-border p-3">
         <h2 className="text-sm font-medium">履歴JSONバックアップ</h2>
         <p className="text-xs text-muted-foreground">
-          見るだけでは消さない。1周への間引きは投稿用コピー／共有の保存時だけ。設定JSONとは別。
+          見るだけでは消さない。保存時の上限は前回＋テーマ1周（指針の本数×2）。設定JSONとは別。
         </p>
         <Button
           type="button"
