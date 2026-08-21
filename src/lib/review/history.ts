@@ -341,6 +341,89 @@ export function formatHistoryForPrompt(
     .join("\n");
 }
 
+/** 呼び名を『〇〇さん』形に揃える（重複さん防止）。 */
+export function presenterCallName(name: string): string {
+  const raw = name.trim().replace(/\s+/g, "");
+  if (!raw) return "（名前不明）さん";
+  if (/さん$/.test(raw)) return raw;
+  return `${raw}さん`;
+}
+
+/**
+ * 所感で引用する「言っていたこと」の核。
+ * 前回所感の中身を優先し、無ければ要約のあいだの文。
+ */
+export function extractSameThemeQuoteCore(
+  item: ReviewHistoryRecord,
+  maxChars = 72,
+): string {
+  const fromLeader = item.leaderNote
+    .replace(/\r\n/g, "\n")
+    .replace(/同テーマ前回の[^\s、。]{1,12}さん[^\n。．]{0,80}[。．]?/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const pickSentence = (text: string): string => {
+    if (!text) return "";
+    const parts = text
+      .split(/[。．！？\n]/)
+      .map((p) => p.trim())
+      .filter((p) => p.length >= 12);
+    // 共感の入口や提案の核になりやすい文を優先（短い形式的つなぎは避ける）
+    const preferred =
+      parts.find((p) => /してみ|していて|考え|置|先に|型|聞き|期限|曖昧|一次/.test(p)) ??
+      parts[0] ??
+      text.trim();
+    return preferred.slice(0, maxChars).replace(/[、,]$/, "").trim();
+  };
+
+  const leaderCore = pickSentence(fromLeader);
+  if (leaderCore.length >= 12) return leaderCore;
+
+  const mid = item.summary
+    .replace(/^Value[０-９0-9].*?行動指針について、/, "")
+    .replace(/想いを共有頂きました[。．！]?$/, "")
+    .trim();
+  const summaryCore = pickSentence(mid);
+  if (summaryCore.length >= 12) return summaryCore;
+
+  const source = item.sourcePost.replace(/\s+/g, " ").trim();
+  return pickSentence(source).slice(0, maxChars);
+}
+
+/** 所感生成用。同テーマの直近1件を、必須引用の材料として渡す。 */
+export function sameThemeHistoryForLeader(themeId?: string): string {
+  const id = themeId?.trim() ?? "";
+  if (!id) return "";
+  const items = listRelatedReviews({ themeId: id, limit: 4 }).filter((item) => {
+    const quote = extractSameThemeQuoteCore(item);
+    return quote.length >= 12 && item.presenterName.trim().length > 0;
+  });
+  const primary = items[0];
+  if (!primary) return "";
+
+  const callName = presenterCallName(primary.presenterName);
+  const quote = extractSameThemeQuoteCore(primary, 72);
+  const extras = items.slice(1, 3).map((item, i) => {
+    const name = presenterCallName(item.presenterName);
+    const q = extractSameThemeQuoteCore(item, 48);
+    return `${i + 2}. ${item.reviewDate} · ${name} · 参考核: ${q}`;
+  });
+
+  return [
+    "【必須・同テーマ前回の1件】",
+    `日付: ${primary.reviewDate}`,
+    `呼び名（このまま使う）: ${callName}`,
+    `引用核（『』に入れる短い言い切り・言い換え可だが意味は変えない）: ${quote}`,
+    "必須の文型:",
+    `同テーマ前回の${callName}は、『（引用核）』といっていて、＋今日の投稿の具体や次の提案へ自然につなぐ。`,
+    "不合格のつなぎ: 「とも重なります。」だけで終わる／名前だけ出して中身なし／形式的な並列。",
+    "合格のつなぎ例: 〜といっていて、今日の（投稿の具体）にも通じますね。／〜といっていて、だからこそ次の『こうしたら？』が効きます。",
+    extras.length ? ["", "【同テーマのさらに前（触れてよいが主役にしない）】", ...extras].join("\n") : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function historyNotesForDraft(input: {
   themeId?: string;
   presenterName?: string;
@@ -351,11 +434,4 @@ export function historyNotesForDraft(input: {
     limit: 5,
   });
   return formatHistoryForPrompt(items);
-}
-
-export function sameThemeHistoryForLeader(themeId?: string): string {
-  const id = themeId?.trim() ?? "";
-  if (!id) return "";
-  const items = listRelatedReviews({ themeId: id, limit: 4 });
-  return formatHistoryForPrompt(items, { maxItems: 3, maxCommentChars: 240 });
 }

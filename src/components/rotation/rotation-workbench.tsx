@@ -34,6 +34,15 @@ export function RotationWorkbench() {
   const hasPrevious = hasPreviousRotation(settings.rotation.historyCycles);
   const previous = latestPreviousCycle(settings.rotation.historyCycles);
 
+  const previousNotebookText = useMemo(() => {
+    if (!previous) return "";
+    return formatNotebookCopy(
+      previous.days,
+      settings.members,
+      settings.valueItems,
+    );
+  }, [previous, settings.members, settings.valueItems]);
+
   useEffect(() => {
     if (!ready) return;
     if (!hasPreviousRotation(settings.rotation.historyCycles)) {
@@ -163,9 +172,18 @@ export function RotationWorkbench() {
             : "・開始日自動"}
         </p>
         {previous ? (
-          <p className="text-xs text-muted-foreground">
-            前回: {previous.label}（{previous.days.length}日）
-          </p>
+          <section className="flex flex-col gap-2" aria-label="現状のローテ">
+            <Label htmlFor="current-rotation">現状のローテ（前回として保存中）</Label>
+            <p className="text-xs text-muted-foreground">
+              {previous.label}（{previous.days.length}日）。シャッフル前に内容を確認できる。コピー対象ではない。
+            </p>
+            <Textarea
+              id="current-rotation"
+              readOnly
+              value={previousNotebookText}
+              className="min-h-40 font-mono text-xs"
+            />
+          </section>
         ) : (
           <p className="text-sm text-amber-800 dark:text-amber-200">
             前回ローテが無いため生成できない。ノート用コピーで前回を残すか、設定の履歴を確認する。

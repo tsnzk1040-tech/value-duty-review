@@ -2,7 +2,6 @@ import {
   callGeminiGenerate,
   callGeminiRaw,
 } from "@/lib/review/providers/gemini";
-import { callOpenAiRaw, openAiApiKey, openAiModel } from "@/lib/review/providers/openai";
 import type { GenerateProviderId } from "@/lib/review/providers/summary";
 
 export const PAGE_PASTE_MIN_CHARS = 80;
@@ -174,27 +173,4 @@ export async function generateResearchBriefGemini(
   }
 
   return { researchBrief: text.trim(), provider: "gemini", model };
-}
-
-export async function generateResearchBriefChatgpt(
-  input: ResearchBriefInput,
-): Promise<ResearchBriefResult> {
-  const apiKey = openAiApiKey();
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
-  const model = openAiModel();
-  const paste = input.pagePaste?.trim() ?? "";
-  if (paste.length < PAGE_PASTE_MIN_CHARS) {
-    return {
-      researchBrief: pagePasteInstruction(),
-      provider: "chatgpt",
-      model,
-      needsPagePaste: true,
-    };
-  }
-  const prompt = buildPrompt(input, "from-paste");
-  const text = await callOpenAiRaw(prompt, model, apiKey, 0.4);
-  if (!text || text.length < 40 || looksLikeUrlInaccessible(text)) {
-    throw new Error("ChatGPT research brief from paste failed");
-  }
-  return { researchBrief: text.trim(), provider: "chatgpt", model };
 }

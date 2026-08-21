@@ -52,14 +52,25 @@ function providerLabel(
   provider?: string,
   model?: string,
   fallback?: string,
+  variant?: string,
 ): string {
-  if (provider === "chatgpt") {
-    return `ChatGPT${model ? ` (${model})` : ""}`;
-  }
   if (provider === "gemini") {
-    return `Gemini${model ? ` (${model})` : ""}`;
+    const flavor =
+      variant === "light" ? "あっさり" : variant === "rich" ? "こってり" : "";
+    const base = flavor ? `Gemini・${flavor}` : "Gemini";
+    return `${base}${model ? ` (${model})` : ""}`;
   }
   return `スタブ退避${fallback ? ` · ${fallback}` : ""}`;
+}
+
+function summaryVariantLabel(variant?: string, model?: string): string {
+  if (variant === "light") {
+    return `あっさり版（Gemini${model ? ` ${model}` : ""}）`;
+  }
+  if (variant === "rich") {
+    return `こってり版（Gemini${model ? ` ${model}` : ""}）`;
+  }
+  return providerLabel("gemini", model);
 }
 
 export function ReviewWorkbench() {
@@ -74,6 +85,7 @@ export function ReviewWorkbench() {
       provider: string;
       summary: string;
       model?: string;
+      variant?: string;
       fallbackReason?: string;
     }[]
   >([]);
@@ -272,6 +284,7 @@ export function ReviewWorkbench() {
             provider: string;
             summary: string;
             model?: string;
+            variant?: string;
             fallbackReason?: string;
           }[];
         };
@@ -293,14 +306,12 @@ export function ReviewWorkbench() {
             summaryProvider: "",
             step: 2,
           });
-          setHint("要約が2案出た。使うほうを選ぶ。選んだモデルであとから要点もまとめる");
+          setHint("要約が2案出た。あっさり／こってりから使うほうを選ぶ");
           return;
         }
         const only = candidates[0];
         const provider =
-          only?.provider === "chatgpt" ||
-          only?.provider === "gemini" ||
-          only?.provider === "stub"
+          only?.provider === "gemini" || only?.provider === "stub"
             ? only.provider
             : "stub";
         patch({
@@ -311,8 +322,8 @@ export function ReviewWorkbench() {
         });
         setHint(
           failHint
-            ? `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。ChatGPTは出なかった（${failHint}）`
-            : `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason)}）。必要なら直して`,
+            ? `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason, only?.variant)}）。片方は出なかった（${failHint}）`
+            : `お礼＋要約を出した（${providerLabel(provider, only?.model, data.fallbackReason, only?.variant)}）。必要なら直して`,
         );
       } catch {
         setHint("生成リクエストに失敗した。ネットワークを確認して");
@@ -326,17 +337,15 @@ export function ReviewWorkbench() {
     provider: string;
     summary: string;
     model?: string;
+    variant?: string;
   }) {
-    const provider =
-      candidate.provider === "chatgpt" || candidate.provider === "gemini"
-        ? candidate.provider
-        : "";
+    const provider = candidate.provider === "gemini" ? "gemini" : "";
     patch({
       summary: candidate.summary,
       summaryProvider: provider,
     });
     setHint(
-      `${providerLabel(candidate.provider, candidate.model)} を採用した。このモデルで要点メモもまとめる`,
+      `${summaryVariantLabel(candidate.variant, candidate.model)} を採用した`,
     );
   }
 
@@ -354,8 +363,6 @@ export function ReviewWorkbench() {
       setGenerating(true);
       setHint("要約を直してる…");
       try {
-        const preferred =
-          draft!.summaryProvider === "chatgpt" ? "chatgpt" : "gemini";
         const res = await fetch("/api/review/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -368,7 +375,7 @@ export function ReviewWorkbench() {
             presenterName: draft!.presenterName,
             currentSummary: draft!.summary,
             instruction: text,
-            preferredProvider: preferred,
+            preferredProvider: "gemini",
             historyNotes: historyNotesForDraft({
               themeId: draft!.themeId,
               presenterName: draft!.presenterName,
@@ -524,7 +531,7 @@ export function ReviewWorkbench() {
             summary: draft!.summary,
             selectedLinks,
             pagePaste,
-            preferredProvider: draft!.summaryProvider || "gemini",
+            preferredProvider: "gemini",
           }),
         });
         const data = (await res.json()) as {
@@ -589,8 +596,7 @@ export function ReviewWorkbench() {
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
             historyNotes: sameThemeHistoryForLeader(draft!.themeId),
-            preferredProvider:
-              draft!.summaryProvider === "chatgpt" ? "chatgpt" : "gemini",
+            preferredProvider: "gemini",
           }),
         });
         const data = (await res.json()) as {
@@ -1040,19 +1046,17 @@ export function ReviewWorkbench() {
           {summaryCandidates.length > 1 ? (
             <div className="flex flex-col gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                使う要約を選ぶ。近い言い換え（Gemini）と切り口違い（ChatGPT）。選んだモデルで、あとの要点メモもまとめる。
+                使う要約を選ぶ。あっさり版とこってり版（どちらも Gemini）。直し指示はそのまま使える。
               </p>
               {summaryCandidates.map((c) => (
                 <div
-                  key={`${c.provider}-${c.model ?? ""}`}
+                  key={`${c.variant ?? c.provider}-${c.model ?? ""}-${c.summary.slice(0, 24)}`}
                   className="flex flex-col gap-2 rounded-lg border border-border p-3"
                 >
                   <p className="text-xs font-medium">
-                    {c.provider === "chatgpt"
-                      ? `切り口違い（ChatGPT${c.model ? ` ${c.model}` : ""}）`
-                      : c.provider === "gemini"
-                        ? `近い言い換え（Gemini${c.model ? ` ${c.model}` : ""}）`
-                        : providerLabel(c.provider, c.model, c.fallbackReason)}
+                    {c.provider === "gemini"
+                      ? summaryVariantLabel(c.variant, c.model)
+                      : providerLabel(c.provider, c.model, c.fallbackReason, c.variant)}
                   </p>
                   <p className="text-sm leading-relaxed">{c.summary}</p>
                   <Button
@@ -1082,7 +1086,7 @@ export function ReviewWorkbench() {
             <div className="flex flex-col gap-2">
               <Label htmlFor="summary-revise">直し指示（任意）</Label>
               <p className="text-xs text-muted-foreground">
-                採用したモデルで直す。定型の枠は維持する。
+                Gemini で直す。定型の枠は維持する。
               </p>
               <Input
                 id="summary-revise"

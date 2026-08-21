@@ -75,8 +75,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const preferred =
-      body.preferredProvider === "chatgpt" ? "chatgpt" : "gemini";
+    const preferred = "gemini";
     const result = await generateReviewSummaryRevise({
       kind: "summary-revise",
       sourcePost: body.sourcePost,
@@ -155,7 +154,6 @@ export async function POST(req: Request) {
       pagePaste:
         typeof body.pagePaste === "string" ? body.pagePaste : undefined,
       preferredProvider:
-        body.preferredProvider === "chatgpt" ||
         body.preferredProvider === "gemini" ||
         body.preferredProvider === "stub"
           ? body.preferredProvider
@@ -205,7 +203,6 @@ export async function POST(req: Request) {
       presenterName: body.presenterName,
       historyNotes: body.historyNotes,
       preferredProvider:
-        body.preferredProvider === "chatgpt" ||
         body.preferredProvider === "gemini" ||
         body.preferredProvider === "stub"
           ? body.preferredProvider

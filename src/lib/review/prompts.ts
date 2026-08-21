@@ -18,27 +18,53 @@ export type SummaryGenerateInput = {
   historyNotes?: string;
 };
 
-export type SummaryFlavor = "close" | "angle";
+/** 要約2案の密度。あっさり＝短く／こってり＝同じ事実を厚く。 */
+export type SummaryFlavor = "light" | "rich";
 
-function summaryFlavorBlock(flavor: SummaryFlavor): string {
-  if (flavor === "angle") {
+export function summaryFlavorLabel(flavor: SummaryFlavor): string {
+  return flavor === "light" ? "あっさり" : "こってり";
+}
+
+function summaryLengthBlock(flavor: SummaryFlavor): string {
+  if (flavor === "light") {
     return [
-      "【この案の味（切り口違い）】",
-      "- 投稿にある事実だけを使う。書いていない場面・行為・推測は足さない。",
-      "- 同じ事実のまま、調べた／試したのどちらを先に出すかなど、語順と切り口を変える。",
+      "【分量・中身（あっさり版）】",
+      "- 出力は言い換え本文のみ。1〜2文相当、だいたい70〜110字（日本語）。短く事実だけ。",
+      "- できれば次を含める: ①理解を深めたポイント ②取り入れた／試した具体（次に試したいことは薄くで可）",
+      "- 文末は「〜してみた」「〜したい」「〜ていて」などで止め、です・ます・ね・だね・ですねで終わらない。",
+      "- 文末に「共有」「想いを共有」「のが伝わる」「という気づき」「という実践です」を自分で書かない。",
+      "- 短すぎ（目安70字未満）や薄い抽象は不合格。所感めいた解説を足すのも不合格。",
     ].join("\n");
   }
   return [
-    "【この案の味（近い言い換え）】",
-    "- 投稿の語順・事実に近い言い換えにする。大きく組み替えない。",
-    "- 投稿に無い場面・推測は足さない。",
+    "【分量・中身（こってり版）】",
+    "- 出力は言い換え本文のみ。2〜3文相当、だいたい140〜200字（日本語）。同じ事実を場面まで厚く。",
+    "- できれば次を含める: ①理解を深めたポイント ②取り入れた／試した具体（必要なら次に試したいこと）",
+    "- 文末は「〜してみた」「〜したい」「〜ていて」などで止め、です・ます・ね・だね・ですねで終わらない。",
+    "- 文末に「共有」「想いを共有」「のが伝わる」「という気づき」「という実践です」を自分で書かない。",
+    "- 短すぎ（目安140字未満）や薄い抽象は不合格。投稿に無いことを足して伸ばすのも不合格。",
+  ].join("\n");
+}
+
+function summaryFlavorBlock(flavor: SummaryFlavor): string {
+  if (flavor === "light") {
+    return [
+      "【この案の味（あっさり）】",
+      "- 投稿にある事実だけを、最短で言い換える。語順は投稿に近づけてよい。",
+      "- 飾り・重複・一般論は削る。投稿に無い場面・推測は足さない。",
+    ].join("\n");
+  }
+  return [
+    "【この案の味（こってり）】",
+    "- 投稿にある事実だけを使う。書いていない場面・行為・推測は足さない。",
+    "- 同じ事実のまま、調べた／試したの場面や行為を丁寧に厚くする（盛り・評価はしない）。",
   ].join("\n");
 }
 
 /** Gemini には「あいだの文」だけ出させる。定型の枠はアプリが付ける。 */
 export function buildSummaryInstructions(
   input: SummaryGenerateInput,
-  flavor: SummaryFlavor = "close",
+  flavor: SummaryFlavor = "rich",
 ): string {
   const lens = input.lens.trim()
     ? [
@@ -71,12 +97,7 @@ export function buildSummaryInstructions(
     "- 「考察した」「定義した」より、「〜と捉えて」「〜してみた」「〜したい」を優先。",
     "- 「調べた」「試した」などの事実は省略しない（評価は薄く、事実は残す）。",
     "",
-    "【分量・中身】",
-    "- 出力は言い換え本文のみ。2〜3文相当、だいたい120〜180字（日本語）。短く洗練させる。",
-    "- できれば次を含める: ①理解を深めたポイント ②自分に取り入れた／試した具体（必要なら次に試したいことを薄く）",
-    "- 文末は「〜してみた」「〜したい」「〜ていて」などで止め、です・ます・ね・だね・ですねで終わらない。",
-    "- 文末に「共有」「想いを共有」「のが伝わる」「という気づき」「という実践です」を自分で書かない。",
-    "- 短すぎ（目安120字未満）や薄い抽象は不合格。長すぎて所感めいた解説を足すのも不合格。",
+    summaryLengthBlock(flavor),
     "",
     "【読み手・現場の前提（出力には書かない）】",
     "- 書き手・読み手は管理本部。お客様と直接接点がある現場ではなく、専門性で現場に寄り添い後方支援するのがミッション。",
@@ -177,7 +198,7 @@ export function summaryReviseLengthMode(
   return "keep";
 }
 
-/** 直し専用。初回の120〜180字制限は載せない。 */
+/** 直し専用。初回のあっさり／こってり字数制限は載せない。 */
 export function buildSummaryReviseInstructions(
   input: SummaryGenerateInput,
   currentSummary: string,
@@ -193,19 +214,19 @@ export function buildSummaryReviseInstructions(
   const lengthLines =
     mode === "thicken"
       ? [
-          "【分量（この直しが最優先。初回の120〜180字・短く洗練は使わない）】",
+          "【分量（この直しが最優先。初回のあっさり／こってり字数は使わない）】",
           `いまの言い換え本文は約${n}字。目安は約${thickenTarget}字（1.2倍）。`,
           "厚くする＝いまの要約と投稿本文に既にある事実を、言い回しで少し丁寧にするだけ。",
           "投稿に書いていない場面・行為・推測・一般論は足さない。所感・評価も足さない。",
         ]
       : mode === "shorten"
         ? [
-            "【分量（この直しが最優先。初回の120〜180字制限は使わない）】",
+            "【分量（この直しが最優先。初回のあっさり／こってり字数は使わない）】",
             `いまの言い換え本文は約${n}字。目安は約${shortenTarget}字（0.8倍）。`,
             "重複と飾りを削る。調べた／試した事実は落とさない。",
           ]
         : [
-            "【分量（初回の120〜180字制限は使わない）】",
+            "【分量（初回のあっさり／こってり字数は使わない）】",
             `いまの言い換え本文は約${n}字。指示が分量に触れていないので、字数は大きく変えない。`,
             "指示の軸だけ直す。",
           ];
@@ -361,23 +382,26 @@ function leaderFlavorBlock(flavor: LeaderFlavor): string {
     return [
       "【この案の味（切り口違い）】",
       "- 共感の入口・たとえ・『こうしたら？』の置き方を、近い言い換えとは変える。",
-      "- 同テーマ前回のコメントは別角度で軽く触れる（丸写し禁止）。無ければ省略。",
+      "- 同テーマ前回があるときは必須で引用し、今日の具体へ会話としてつなぐ。",
       "- 投稿と要約にある事実だけ。書いていない場面は足さない。",
     ].join("\n");
   }
   return [
     "【この案の味（近い言い換え）】",
     "- 投稿・要約の語順に近い共感から入る。大きく組み替えない。",
-    "- 同テーマ前回のコメントは短い橋渡しに留める。無ければ省略。",
+    "- 同テーマ前回があるときは必須で引用し、今日の具体へ会話としてつなぐ。",
   ].join("\n");
 }
 
-export function leaderRetrySuffix(): string {
+export function leaderRetrySuffix(requireSameThemeQuote = false): string {
+  const quoteLine = requireSameThemeQuote
+    ? "同テーマ前回は必須。『同テーマ前回の〇〇さんは、『…』といっていて、』のあと今日の具体や提案へ自然につなぐ。形式的な『とも重なります』だけで終わるのは不合格。『前回の〇〇さん』だけは禁止。"
+    : "同テーマ前回が入力にあれば必須で引用。無ければ②は省略。『前回の〇〇さん』だけは前日と読めるので禁止。";
   return [
     "【再出力指示】",
-    "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ／要点メモ等のアプリ用語）。",
-    "所感の型で再出力せよ: ①共感・感謝 ②同テーマ前回があれば『同テーマ前回の〇〇さん』で軽く一言（無ければ省略） ③テーマに会話っぽく一言 ④チームへの『こうしたら？』1点。",
-    "同テーマ前回の問いを主役にしない。コピペ禁止。無ければ②は省略。『前回の〇〇さん』だけは前日と読めるので禁止。",
+    "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ／要点メモ等のアプリ用語／同テーマ前回の欠落や形式的つなぎ）。",
+    "所感の型で再出力せよ: ①共感・感謝 ②同テーマ前回があれば『同テーマ前回の〇〇さんは、『…』といっていて、』で引用＋接続 ③テーマに会話っぽく一言 ④チームへの『こうしたら？』1点。",
+    quoteLine,
     "検索に触れるなら『検索して調べた結果』と書く。『調べた要点』『要点メモ』は書かない。",
     "宣教師口調禁止。上司として寄り添うカジュアルなです・ます。『理念浸透』『指針の実践』連発は不可。",
     "参照は材料まで。『皆さんでやってみませんか』は書かない。共感の「ですね」は可。",
@@ -400,12 +424,15 @@ export function buildLeaderInstructions(
       ? `採択した参考（タイトルのみ・URLは書かない）: ${input.selectedLinkTitles.join(" / ")}`
       : "採択リンク: なし（不合格）";
   const heading = valueHeadingForLabel(input.themeLabel);
-  const history = input.historyNotes?.trim()
+  const hasSameTheme = Boolean(input.historyNotes?.trim());
+  const history = hasSameTheme
     ? [
-        "【同テーマ前回（参考・毎回軽く）】",
-        "- あるときだけ、『同テーマ前回の〇〇さん』と内容をひとこと触れる（リレーがチームの話に見えるため。『前回の〇〇さん』だけだと前日と誤解される）。",
-        "- 同テーマ前回の問いを主役にしない。コピペ禁止。無ければこのブロックごと無視。",
-        input.historyNotes.trim(),
+        "【同テーマ前回（入力あり＝引用必須）】",
+        "- 必ず本文に入れる。文型: 同テーマ前回の〇〇さんは、『…』といっていて、＋今日の投稿の具体や『こうしたら？』へ自然につなぐ。",
+        "- 引用核は言い回しを少し整えてよいが、意味は変えない。コピペの長文は不可。",
+        "- 不合格: 名前だけ／『とも重なります』だけで終わる／今日の話と無関係な並列。",
+        "- 『前回の〇〇さん』だけは前日と誤解されるので禁止。",
+        input.historyNotes!.trim(),
         "",
       ].join("\n")
     : "";
@@ -425,7 +452,9 @@ export function buildLeaderInstructions(
     "",
     "【所感の型（この順・必須）】",
     "① 投稿の具体に共感・感謝（ですね可・カジュアル）",
-    "② 同テーマ前回があれば、『同テーマ前回の〇〇さん』と内容を軽く一言（無ければ省略。『前回の〇〇さん』だけは禁止）",
+    hasSameTheme
+      ? "② 同テーマ前回を必ず引用する: 『同テーマ前回の〇〇さんは、『…』といっていて、』のあと、今日の具体や次の提案へ会話としてつなぐ（省略禁止）"
+      : "② 同テーマ前回の入力が無いときだけ省略。入力があるときは②必須",
     "③ 今日のテーマに、会話の延長で一言つなぐ（訓示にしない）",
     "④ チーム／グループ全体への『こうしたら？』を1点だけ。",
     "   材料は今日の投稿の具体＋検索して調べた結果の一点を織る。",
@@ -452,7 +481,7 @@ export function buildLeaderInstructions(
     "  - 『前回の〇〇さん』『前回、〇〇さん』（前日のコメントと読める。同テーマ前回と書く）",
     "",
     "【良い例（中身は仮）】",
-    "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。同テーマ前回の山田さんが期限を先に切った話とも重なります。『どうすればできるか』を先に置くと、今日みたいな曖昧な依頼が減ります。調べた聞き方の型を一つ、朝会で『誰に聞くか』を先に決める、に寄せてみたらどうでしょう。",
+    "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。同テーマ前回の山田さんは、『期限を先に切ると曖昧な依頼が減る』といっていて、今日の聞き方の整理にも通じますね。『どうすればできるか』を先に置くと、同じ詰まりが減ります。検索して調べた結果も踏まえ、朝会で『誰に聞くか』を先に決める、に寄せてみたらどうでしょう。",
     "",
     leaderFlavorBlock(flavor),
     "",
@@ -463,6 +492,7 @@ export function buildLeaderInstructions(
     "皆さんでやってみませんか。（空の号令）",
     "調べた要点を踏まえ、朝会で型を揃えましょう。（アプリ用語が本文に出る）",
     "前回の山田さんが期限を先に切った話とも重なります。（前日のコメントと読める）",
+    "同テーマ前回の山田さんの話とも重なります。（引用の中身がなく形式的）",
     "",
     history,
     buildCreedAlignmentBlock(input.themeLabel),
@@ -507,11 +537,29 @@ export function polishLeaderNote(raw: string): string {
   return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export function isWeakLeaderNote(body: string): boolean {
+export function isWeakLeaderNote(
+  body: string,
+  opts?: { requireSameThemeQuote?: boolean },
+): boolean {
   if (body.length < 80) return true;
   if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
   if (/明日は自分の(案件|一件)|どこから試しそうですか|皆さんでやってみませんか/.test(body)) return true;
   if (/理念浸透|指針の実践|体現|チームの力になります/.test(body)) return true;
+  if (opts?.requireSameThemeQuote) {
+    if (!/同テーマ前回の[^\s、。]{1,16}さん/.test(body)) return true;
+    // 『…』といっていて、 を基本。言い回しゆれは許容しつつ、中身のない「とも重なります」だけは不合格
+    const hasQuoteVerb = /といって(いて|いました|いた)|と言って(いて|いました|いた)/.test(
+      body,
+    );
+    const hasQuotedChunk = /『[^』]{8,}』|「[^」]{8,}」/.test(body);
+    if (!hasQuoteVerb && !hasQuotedChunk) return true;
+    if (
+      /同テーマ前回の[^\s、。]{1,16}さん[^。．]{0,40}とも重なります[。．]?/.test(body) &&
+      !hasQuoteVerb
+    ) {
+      return true;
+    }
+  }
   const trimmed = body.trim();
   if (
     CLOSING_VARIATIONS.some((c) => {
@@ -524,8 +572,11 @@ export function isWeakLeaderNote(body: string): boolean {
   return false;
 }
 
-export function assembleLeaderNote(raw: string): string | null {
+export function assembleLeaderNote(
+  raw: string,
+  opts?: { requireSameThemeQuote?: boolean },
+): string | null {
   const body = polishLeaderNote(raw);
-  if (isWeakLeaderNote(body)) return null;
+  if (isWeakLeaderNote(body, opts)) return null;
   return body;
 }

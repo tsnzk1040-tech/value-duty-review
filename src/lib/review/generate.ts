@@ -16,12 +16,10 @@ import {
   type KeywordSuggestInput,
 } from "@/lib/review/providers/keyword-suggestions";
 import {
-  generateLeaderChatgpt,
   generateLeaderGemini,
   generateLeaderStub,
 } from "@/lib/review/providers/leader";
 import {
-  generateResearchBriefChatgpt,
   generateResearchBriefGemini,
   generateResearchBriefStub,
   type ResearchBriefInput,
@@ -32,15 +30,14 @@ import {
 } from "@/lib/review/providers/search";
 import { stubSearchLinks } from "@/lib/review/search-stub";
 import {
-  generateSummaryChatgpt,
   generateSummaryGemini,
   generateSummaryStub,
   reviseSummaryWithProvider,
   type GenerateProviderId,
   type SummaryGenerateResult,
   type SummaryModelId,
+  type SummaryVariantId,
 } from "@/lib/review/providers/summary";
-import { openAiApiKey } from "@/lib/review/providers/openai";
 import type { LinkCandidate } from "@/lib/review/draft";
 
 export type {
@@ -48,6 +45,7 @@ export type {
   SummaryGenerateResult,
   SummaryGenerateInput,
   LeaderGenerateInput,
+  SummaryVariantId,
 };
 
 export type ReviewSummaryGenerateRequest = {
@@ -69,7 +67,8 @@ export type ReviewSummaryReviseRequest = {
   presenterName: string;
   currentSummary: string;
   instruction: string;
-  preferredProvider: SummaryModelId;
+  /** 互換用。常に Gemini */
+  preferredProvider?: SummaryModelId;
   historyNotes?: string;
 };
 
@@ -85,7 +84,7 @@ export type ReviewLeaderGenerateRequest = {
   researchBrief: string;
   presenterName?: string;
   historyNotes?: string;
-  /** 要約で選んだモデルを所感にも使う */
+  /** 互換用。常に Gemini */
   preferredProvider?: SummaryModelId | "stub" | "";
 };
 
@@ -114,6 +113,7 @@ export type ReviewResearchBriefRequest = {
   selectedLinks: { title: string; url: string }[];
   /** 開いたページの本文貼付（あるときは要点の正本材料） */
   pagePaste?: string;
+  /** 互換用。常に Gemini */
   preferredProvider?: SummaryModelId | "stub" | "";
 };
 
@@ -145,6 +145,7 @@ export type ReviewSummaryCandidate = {
   provider: GenerateProviderId;
   summary: string;
   model?: string;
+  variant?: SummaryVariantId;
   fallbackReason?: string;
 };
 
@@ -276,51 +277,33 @@ export async function generateReviewSummaryDraft(
     };
   }
 
-  const jobs: { provider: GenerateProviderId; run: Promise<SummaryGenerateResult> }[] =
-    [];
-  if (process.env.GEMINI_API_KEY?.trim()) {
-    jobs.push({ provider: "gemini", run: generateSummaryGemini(summaryInput) });
-  }
-  if (openAiApiKey()) {
-    jobs.push({
-      provider: "chatgpt",
-      run: generateSummaryChatgpt(summaryInput),
-    });
-  }
-
-  if (jobs.length === 0) {
-    const stub = generateSummaryStub(summaryInput);
-    return {
-      kind: "summary",
-      opener,
-      summary: stub.summary,
-      provider: "stub",
-      fallbackReason: "no API keys",
-      candidates: [{ provider: "stub", summary: stub.summary }],
-      providerFailures: [
-        { provider: "chatgpt", reason: "OPENAI_API_KEY is not set" },
-      ],
-    };
-  }
+  const jobs: {
+    variant: SummaryVariantId;
+    run: Promise<SummaryGenerateResult>;
+  }[] = [
+    { variant: "light", run: generateSummaryGemini(summaryInput, "light") },
+    { variant: "rich", run: generateSummaryGemini(summaryInput, "rich") },
+  ];
 
   const settled = await Promise.allSettled(jobs.map((j) => j.run));
   const candidates: ReviewSummaryCandidate[] = [];
   const providerFailures: { provider: GenerateProviderId; reason: string }[] =
     [];
   settled.forEach((item, i) => {
-    const provider = jobs[i]!.provider;
+    const variant = jobs[i]!.variant;
     if (item.status === "fulfilled") {
       candidates.push({
         provider: item.value.provider,
         summary: item.value.summary,
         model: item.value.model,
+        variant: item.value.variant ?? variant,
       });
       return;
     }
     const reason =
       item.reason instanceof Error ? item.reason.message : String(item.reason);
-    console.error(`summary ${provider} failed:`, reason);
-    providerFailures.push({ provider, reason });
+    console.error(`summary ${variant} failed:`, reason);
+    providerFailures.push({ provider: "gemini", reason: `${variant}: ${reason}` });
   });
   if (candidates.length === 0) {
     const stub = generateSummaryStub(summaryInput);
@@ -330,7 +313,7 @@ export async function generateReviewSummaryDraft(
       opener,
       summary: stub.summary,
       provider: "stub",
-      fallbackReason: reasons.join(" / ") || "all providers failed",
+      fallbackReason: reasons.join(" / ") || "all variants failed",
       candidates: [{ provider: "stub", summary: stub.summary }],
       providerFailures,
     };
@@ -379,7 +362,6 @@ export async function generateReviewSummaryRevise(
       summaryInput,
       input.currentSummary,
       input.instruction,
-      input.preferredProvider,
     );
     return {
       kind: "summary-revise",
@@ -494,9 +476,6 @@ export async function generateReviewResearchBrief(
     pagePaste: input.pagePaste,
   };
 
-  const pref = input.preferredProvider;
-  const useChatgpt = pref === "chatgpt" && Boolean(openAiApiKey());
-
   const gate = shouldUseStub();
   if (gate.stub) {
     const stub = generateResearchBriefStub(briefInput);
@@ -510,9 +489,7 @@ export async function generateReviewResearchBrief(
   }
 
   try {
-    const result = useChatgpt
-      ? await generateResearchBriefChatgpt(briefInput)
-      : await generateResearchBriefGemini(briefInput);
+    const result = await generateResearchBriefGemini(briefInput);
     return {
       kind: "research-brief",
       researchBrief: result.researchBrief,
@@ -566,10 +543,8 @@ export async function generateReviewLeaderDraft(
     historyNotes,
   };
 
-  const useChatgpt =
-    input.preferredProvider === "chatgpt" && Boolean(openAiApiKey());
   const gate = shouldUseStub();
-  if (gate.stub && !useChatgpt) {
+  if (gate.stub) {
     const stub = generateLeaderStub(leaderInput);
     return {
       kind: "leader",
@@ -580,9 +555,7 @@ export async function generateReviewLeaderDraft(
   }
 
   try {
-    const result = useChatgpt
-      ? await generateLeaderChatgpt(leaderInput)
-      : await generateLeaderGemini(leaderInput);
+    const result = await generateLeaderGemini(leaderInput);
     return {
       kind: "leader",
       leaderNote: result.leaderNote,

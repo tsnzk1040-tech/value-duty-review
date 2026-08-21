@@ -51,7 +51,7 @@ export type ReviewDraft = {
   /** 要約前の観点（要約を厚くする。所感には渡さない） */
   lens: string;
   /** 採用した要約モデル（要点メモも同じエンジン） */
-  summaryProvider: "gemini" | "chatgpt" | "stub" | "";
+  summaryProvider: "gemini" | "stub" | "";
   /** 1 お礼 */
   opener: string;
   /** 2 要約共有 */
@@ -101,7 +101,7 @@ export const REVIEW_STEPS: {
     step: 2,
     title: "要約",
     process: "④",
-    blurb: "2案から選ぶ／直し指示。採用モデルは要点メモにも使う",
+    blurb: "あっさり／こってり2案から選ぶ／直し指示",
   },
   {
     step: 3,
@@ -260,12 +260,12 @@ export function loadReviewDraft(): ReviewDraft | null {
       researchBrief: parsed.researchBrief ?? "",
       keywordSuggestions: parsed.keywordSuggestions ?? [],
       assembledPost: parsed.assembledPost ?? "",
-      summaryProvider:
-        parsed.summaryProvider === "gemini" ||
-        parsed.summaryProvider === "chatgpt" ||
-        parsed.summaryProvider === "stub"
-          ? parsed.summaryProvider
-          : "",
+      summaryProvider: (() => {
+        const p = (parsed as { summaryProvider?: string }).summaryProvider;
+        if (p === "gemini" || p === "stub") return p;
+        if (p === "chatgpt") return "gemini";
+        return "";
+      })(),
       step: parsed.step ?? 1,
     };
   } catch {
