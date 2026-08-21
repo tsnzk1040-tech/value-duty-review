@@ -33,7 +33,7 @@ export function generateLeaderStub(
   const historyBlock = input.historyNotes?.trim() ?? "";
   const nameMatch = historyBlock.match(/呼び名（このまま使う）:\s*([^\n]+)/);
   const quoteMatch = historyBlock.match(
-    /引用核（[^）]*）:\s*([^\n]+)/,
+    /本人コメントの引用核（[^）]*）:\s*([^\n]+)/,
   );
   const callName = nameMatch?.[1]?.trim() || "同僚さん";
   const quote =

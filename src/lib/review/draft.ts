@@ -101,7 +101,7 @@ export const REVIEW_STEPS: {
     step: 2,
     title: "要約",
     process: "④",
-    blurb: "あっさり／こってり2案から選ぶ／直し指示",
+    blurb: "あっさり（一点寄り）／こってり（厚め）から選ぶ／直し指示",
   },
   {
     step: 3,

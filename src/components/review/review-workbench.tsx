@@ -47,6 +47,7 @@ import {
 } from "@/lib/review/history";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
+import { extractSummaryBody } from "@/lib/review/prompts";
 
 function providerLabel(
   provider?: string,
@@ -63,14 +64,29 @@ function providerLabel(
   return `スタブ退避${fallback ? ` · ${fallback}` : ""}`;
 }
 
-function summaryVariantLabel(variant?: string, model?: string): string {
+function summaryVariantMeta(variant?: string): {
+  title: string;
+  blurb: string;
+} {
   if (variant === "light") {
-    return `あっさり版（Gemini${model ? ` ${model}` : ""}）`;
+    return {
+      title: "あっさり版",
+      blurb: "核を一点寄り・短め",
+    };
   }
   if (variant === "rich") {
-    return `こってり版（Gemini${model ? ` ${model}` : ""}）`;
+    return {
+      title: "こってり版",
+      blurb: "場面が追える・厚め",
+    };
   }
-  return providerLabel("gemini", model);
+  return { title: "要約案", blurb: "" };
+}
+
+function summaryVariantLabel(variant?: string, model?: string): string {
+  const meta = summaryVariantMeta(variant);
+  const modelBit = model ? ` · Gemini ${model}` : " · Gemini";
+  return `${meta.title}${modelBit}`;
 }
 
 export function ReviewWorkbench() {
@@ -1046,31 +1062,49 @@ export function ReviewWorkbench() {
           {summaryCandidates.length > 1 ? (
             <div className="flex flex-col gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                使う要約を選ぶ。あっさり版とこってり版（どちらも Gemini）。直し指示はそのまま使える。
+                使う要約を選ぶ。あっさりは一点寄り・短め、こってりは場面が追える厚め（どちらも
+                Gemini）。直し指示はそのまま使える。
               </p>
-              {summaryCandidates.map((c) => (
-                <div
-                  key={`${c.variant ?? c.provider}-${c.model ?? ""}-${c.summary.slice(0, 24)}`}
-                  className="flex flex-col gap-2 rounded-lg border border-border p-3"
-                >
-                  <p className="text-xs font-medium">
-                    {c.provider === "gemini"
-                      ? summaryVariantLabel(c.variant, c.model)
-                      : providerLabel(c.provider, c.model, c.fallbackReason, c.variant)}
-                  </p>
-                  <p className="text-sm leading-relaxed">{c.summary}</p>
-                  <Button
-                    type="button"
-                    variant={
-                      draft.summary === c.summary ? "default" : "outline"
-                    }
-                    className="h-11 w-full"
-                    onClick={() => adoptSummaryCandidate(c)}
+              {summaryCandidates.map((c) => {
+                const meta = summaryVariantMeta(c.variant);
+                const midLen = extractSummaryBody(c.summary, themeLabel).length;
+                return (
+                  <div
+                    key={`${c.variant ?? c.provider}-${c.model ?? ""}-${c.summary.slice(0, 24)}`}
+                    className="flex flex-col gap-2 rounded-lg border border-border p-3"
                   >
-                    {draft.summary === c.summary ? "採用中" : "これを使う"}
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-sm font-medium">
+                        {c.provider === "gemini"
+                          ? meta.title
+                          : providerLabel(
+                              c.provider,
+                              c.model,
+                              c.fallbackReason,
+                              c.variant,
+                            )}
+                      </p>
+                      {c.provider === "gemini" && meta.blurb ? (
+                        <p className="text-xs text-muted-foreground">
+                          {meta.blurb}
+                          {midLen > 0 ? ` · 本文およそ${midLen}字` : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className="text-sm leading-relaxed">{c.summary}</p>
+                    <Button
+                      type="button"
+                      variant={
+                        draft.summary === c.summary ? "default" : "outline"
+                      }
+                      className="h-11 w-full"
+                      onClick={() => adoptSummaryCandidate(c)}
+                    >
+                      {draft.summary === c.summary ? "採用中" : "これを使う"}
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
           <div className="flex flex-col gap-1.5">

@@ -24,8 +24,8 @@ export type SummaryGenerateResult = {
 };
 
 const VARIANT_MIN_BODY: Record<SummaryVariantId, number> = {
-  light: 50,
-  rich: 90,
+  light: 55,
+  rich: 100,
 };
 
 /** キー無し・失敗時。定型は守るが言い換えは弱い（AI本線の退避）。 */
@@ -48,7 +48,7 @@ export function generateSummaryStub(
 
 function retrySuffix(flavor: SummaryFlavor): string {
   const label = summaryFlavorLabel(flavor);
-  const range = flavor === "light" ? "70〜110字" : "140〜200字";
+  const range = flavor === "light" ? "70〜100字" : "150〜210字";
   return [
     "【再出力指示】",
     `直前の出力は不合格（Value名の繰り返し／短すぎ／定型の混入／お礼混入／薄すぎ／調べた事実の欠落）。`,
