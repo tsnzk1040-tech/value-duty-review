@@ -40,7 +40,7 @@ export function generateLeaderStub(
     quoteMatch?.[1]?.trim() ||
     (points[0] ? points[0].slice(0, 40) : "具体を先に置く");
   const sameTheme = historyBlock
-    ? `同テーマ前回の${callName}は、『${quote}』といっていて、今日の共有にも通じますね。`
+    ? `同テーマ前回の${callName}は、『${quote}』と振り返っていましたね。`
     : "";
 
   const leaderNote = [

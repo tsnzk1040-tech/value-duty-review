@@ -349,31 +349,82 @@ export function presenterCallName(name: string): string {
   return `${raw}さん`;
 }
 
+/** テーマラベルから照合用の短語を拾う（コード・記号は落とす）。 */
+function themeMatchTokens(themeLabel: string): string[] {
+  const raw = themeLabel
+    .replace(/^\d+\s*[-－]\s*[①-⑩]\s*/u, "")
+    .replace(/Value[０-９0-9]/gi, "")
+    .replace(/[　\s]+/g, " ")
+    .trim();
+  if (!raw) return [];
+  const chunks = raw
+    .split(/[・、,，／/\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 2);
+  // 2〜8字程度の連続も足す（短いテーマ語）
+  const extras: string[] = [];
+  if (raw.length >= 2 && raw.length <= 12) extras.push(raw);
+  return [...new Set([...chunks, ...extras])].slice(0, 8);
+}
+
+function scoreMemberQuoteSentence(
+  sentence: string,
+  themeTokens: string[],
+): number {
+  let score = 0;
+  if (/ありがとう|振り返りコメント|共有頂き|本日の振り返り|今日の振り返り/.test(sentence)) {
+    return -100;
+  }
+  // 実践・試した・調べた（紹介時に優先したい核）
+  if (/試してみ|やってみた|実践|取り組|意識して|取り入れ/.test(sentence)) score += 8;
+  if (/調べ|検索|意味を|定義を|捉えて/.test(sentence)) score += 6;
+  if (/してみ|していて|考え|置|先に|聞き|期限|曖昧|一次/.test(sentence)) score += 4;
+  for (const token of themeTokens) {
+    if (token && sentence.includes(token)) score += 5;
+  }
+  // 適度な長さをやや優遇
+  if (sentence.length >= 20 && sentence.length <= 80) score += 1;
+  if (sentence.length > 120) score -= 2;
+  return score;
+}
+
 /**
  * 所感で引用する「言っていたこと」の核。
- * **本人コメント（投稿）を正**。リーダー所感・要約は見ない（トシオ側のレビューを引用しない）。
+ * **本人コメント（投稿）を正**。リーダー所感は見ない。
+ * 優先: テーマに近い実践・試したこと → 調べたこと → その他の具体。
  */
 export function extractSameThemeQuoteCore(
   item: ReviewHistoryRecord,
   maxChars = 72,
 ): string {
+  const themeTokens = themeMatchTokens(item.themeLabel ?? "");
+
   const pickSentence = (text: string): string => {
     if (!text) return "";
     const parts = text
       .split(/[。．！？\n]/)
       .map((p) => p.trim())
       .filter((p) => p.length >= 12);
-    // 実践・気づきの文を優先（挨拶・定型は避ける）
-    const preferred =
-      parts.find(
-        (p) =>
-          !/ありがとう|振り返りコメント|共有頂き/.test(p) &&
-          /してみ|していて|考え|調べ|試|置|先に|聞き|期限|曖昧|一次|捉|意識/.test(p),
-      ) ??
-      parts.find((p) => !/ありがとう|振り返りコメント|共有頂き/.test(p)) ??
-      parts[0] ??
-      text.trim();
-    return preferred.slice(0, maxChars).replace(/[、,]$/, "").trim();
+    if (!parts.length) {
+      return text.trim().slice(0, maxChars).replace(/[、,]$/, "").trim();
+    }
+    let best = parts[0]!;
+    let bestScore = scoreMemberQuoteSentence(best, themeTokens);
+    for (const part of parts.slice(1)) {
+      const s = scoreMemberQuoteSentence(part, themeTokens);
+      if (s > bestScore) {
+        best = part;
+        bestScore = s;
+      }
+    }
+    // 全部定型でマイナスなら、定型以外の先頭
+    if (bestScore < 0) {
+      best =
+        parts.find(
+          (p) => !/ありがとう|振り返りコメント|共有頂き/.test(p),
+        ) ?? parts[0]!;
+    }
+    return best.slice(0, maxChars).replace(/[、,]$/, "").trim();
   };
 
   const source = item.sourcePost.replace(/\s+/g, " ").trim();
@@ -410,13 +461,15 @@ export function sameThemeHistoryForLeader(themeId?: string): string {
   return [
     "【必須・同テーマ前回の1件】",
     `日付: ${primary.reviewDate}`,
+    `テーマ: ${primary.themeLabel || "（なし）"}`,
     `呼び名（このまま使う）: ${callName}`,
     "引用の正本: 本人の振り返りコメント（投稿）。リーダー所感・要約は引用しない。",
+    "引用核の選び方: 今日のテーマに一番近い発言、または実践した／試したことの一文を優先（挨拶・感想だけの文は避ける）。",
     `本人コメントの引用核（『』に入れる短い言い切り・言い換え可だが意味は変えない）: ${quote}`,
-    "必須の文型:",
-    `同テーマ前回の${callName}は、『（本人コメントの引用核）』といっていて、＋今日の投稿の具体や次の提案へ自然につなぐ。`,
-    "不合格のつなぎ: 「とも重なります。」だけで終わる／名前だけ出して中身なし／形式的な並列／リーダー所感の言い回しを本人の発言として使う。",
-    "合格のつなぎ例: 〜といっていて、今日の（投稿の具体）にも通じますね。／〜といっていて、だからこそ次の『こうしたら？』が効きます。",
+    "出し方（どちらか）:",
+    "A. 自然につながるときだけ: 同テーマ前回の〇〇さんは、『…』といっていて、＋今日の具体や提案へ短い接続",
+    "B. 無理につながるとき: 紹介だけ。『』にはテーマに近い実践・試したこと（なければ調べたこと）を入れる。例: 同テーマ前回の〇〇さんは、『…』と実践していましたね。→ そのあと今日の話・提案へ進む（無理な因果は作らない）",
+    "不合格: 名前だけ／『とも重なります』だけで中身なし／リーダー所感の転用／つながらないのに無理な因果でつなぐ／テーマと無関係な一文の紹介",
     extras.length
       ? ["", "【同テーマのさらに前（触れてよいが主役にしない）】", ...extras].join(
           "\n",
