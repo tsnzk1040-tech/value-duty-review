@@ -388,7 +388,7 @@ export type LeaderGenerateInput = {
   researchBrief: string;
   /** 同テーマの参考メモ（任意） */
   historyNotes?: string;
-  /** アプリが②に差し込む固定文（本人コメント由来） */
+  /** アプリが②に差し込む固定文（前回レビュー要約の一言） */
   sameThemeFixedSentence?: string;
 };
 
@@ -416,9 +416,10 @@ export function leaderRetrySuffix(hasSameThemeFixed = false): string {
     : "同テーマ前回の入力が無いので②は省略。";
   return [
     "【再出力指示】",
-    "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ／要点メモ等のアプリ用語）。",
+    "直前の出力は不合格（短すぎ／お礼や要約定型の混入／リンク解説が主役／締めの強い誘い／布教・標語調／薄すぎ／要点メモ等のアプリ用語／前置きや見出し）。",
     "所感の型で再出力せよ: ①共感・感謝 ③テーマに会話っぽく一言 ④チームへの『こうしたら？』1点。同テーマ前回は書かない。",
     quoteLine,
+    "出力は所感本文だけ。『以下』『下書きです』『承知しました』『【所感】』『注』は書かない。",
     "検索に触れるなら『検索して調べた結果』と書く。『調べた要点』『要点メモ』は書かない。",
     "宣教師口調禁止。上司として寄り添うカジュアルなです・ます。『理念浸透』『指針の実践』連発は不可。",
     "参照は材料まで。『皆さんでやってみませんか』は書かない。共感の「ですね」は可。",
@@ -443,20 +444,14 @@ export function buildLeaderInstructions(
   const heading = valueHeadingForLabel(input.themeLabel);
   const fixed = input.sameThemeFixedSentence?.trim() ?? "";
   const hasSameTheme = Boolean(fixed || input.historyNotes?.trim());
+  // 固定文の中身はプロンプトに出さない（モデルが本文外コメントに写すため）。有無だけ伝える。
   const history = hasSameTheme
     ? [
         "【同テーマ前回】",
-        "- ②の文はアプリが固定文で後から入れる。所感本文に『同テーマ前回の…』を自分で書かない。",
-        fixed ? `- 入る固定文（参考・書かない）: ${fixed}` : "",
-        input.historyNotes?.trim() && !fixed
-          ? input.historyNotes.trim()
-          : input.historyNotes?.trim() && fixed
-            ? `本人コメント核などの参考:\n${input.historyNotes.trim()}`
-            : "",
+        "- ②の文はアプリが所感本文へ後から差し込む。所感本文にも注釈にも『同テーマ前回の…』を自分で書かない。",
+        "- 『固定文幹』『参考』『メモ』として引用文を出力しない。",
         "",
-      ]
-        .filter(Boolean)
-        .join("\n")
+      ].join("\n")
     : "";
 
   return [
@@ -487,6 +482,7 @@ export function buildLeaderInstructions(
     "",
     "【分量】",
     "- 所感本文のみ（だいたい160〜280字・2〜4文）。お礼・Value要約定型・締めの奨励文は書かない。",
+    "- 出力は所感本文の連続テキストだけ。前置き・見出し・番号・『以下に示します』『下書きです』『承知しました』『注』は禁止。",
     "- 採択リンクのタイトルに触れるなら半文まで（URL・♯記法は書かない）。",
     "- 検索して調べた結果は『こうしたら？』の根拠に使う。2点以上盛らない。",
     "",
@@ -501,6 +497,7 @@ export function buildLeaderInstructions(
     "  - 実装・POC・スキル名などのメタ",
     "  - アプリ内部の呼び方（『要点メモ』『調べた要点』『フォーカス指示』『所感向け』）",
     "  - 『同テーマ前回の〇〇さん』『前回の〇〇さん』（②はアプリ担当）",
+    "  - 前置き・メタ（『以下が下書き』『所感：』『再出力します』『ご確認ください』『【所感】』『企業理念の方向性』）",
     "",
     "【良い例（中身は仮・②なし）】",
     "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。曖昧な依頼を減らすなら、朝会で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。",
@@ -513,7 +510,7 @@ export function buildLeaderInstructions(
     "明日は自分の案件で試してみると動きやすそうです。どこから試しそうですか。（個人宿題）",
     "皆さんでやってみませんか。（空の号令）",
     "調べた要点を踏まえ、朝会で型を揃えましょう。（アプリ用語が本文に出る）",
-    "同テーマ前回の山田さんは、『期限を先に切る』といっていて…（②はアプリが入れるので書かない）",
+    "同テーマ前回の山田さんの要約では、「期限を先に切る」と通じるものがありますね。（②はアプリが入れるので書かない）",
     "",
     history,
     buildCreedAlignmentBlock(input.themeLabel),
@@ -537,6 +534,7 @@ export function polishLeaderNote(raw: string): string {
   let out = raw.replace(/\r\n/g, "\n").trim();
   out = out.replace(/^```(?:\w+)?\n?/, "").replace(/\n?```$/, "").trim();
   out = out.replace(/^["「]|["」]$/g, "").trim();
+  out = stripLeaderPreambleAndMeta(out);
   out = out.replace(/想いを共有頂きました[。．！]?/g, "").trim();
   out = out.replace(/^Value[０-９0-9]\s*[　 ].*?について、?/gm, "");
   // 所感の共感「ですね／ますね」は残す（要約側では除去）
@@ -555,7 +553,59 @@ export function polishLeaderNote(raw: string): string {
   out = out.replace(/(?<!同テーマ)前回の([^\s、。]{1,12}さん)/g, "同テーマ前回の$1");
   out = out.replace(/(?<!同テーマ)前回、([^\s、。]{1,12}さん)/g, "同テーマ前回の$1");
   out = out.replace(/(?<!同テーマ)前回は([^\s、。]{1,12}さん)/g, "同テーマ前回の$1");
+  out = stripLeaderPreambleAndMeta(out);
   return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * 再生成時に増えやすい前置き・注釈・見出しだけ落とす（所感本文は残す）。
+ */
+export function stripLeaderPreambleAndMeta(text: string): string {
+  let out = text.replace(/\r\n/g, "\n").trim();
+  if (!out) return "";
+
+  // 先頭の括弧注釈・ラベル
+  out = out.replace(/^[（(][^）\n]{0,100}[）)]\s*/u, "");
+  out = out.replace(
+    /^(?:所感(?:・着想)?(?:の下書き)?|下書き|出力)[：:\s]*/u,
+    "",
+  );
+
+  const preambleLine =
+    /^(?:以下に?|こちらが?|下記が?|次が?|所感|下書き|了解|承知|かしこまり|再出力|出力|はい[。．]?$|注[：:]|※|【[^】]{0,40}】|#+\s|[-*・]\s*(?:注|参考|メモ)|(?:①|1[．.、)])\s*(?:共感|所感|型)|Here\b|Sure\b|Okay\b|Got it|企業理念|Vision\b|Mission\b|Value\b|固定文|参考[：:]|メモ[：:]|アプリが|トシオ|脚色)/iu;
+
+  const lines = out.split("\n");
+  let start = 0;
+  while (start < lines.length) {
+    const line = lines[start]!.trim();
+    if (!line) {
+      start += 1;
+      continue;
+    }
+    if (preambleLine.test(line)) {
+      start += 1;
+      continue;
+    }
+    // 「〜下書きです。」だけの短い前置き
+    if (
+      line.length <= 40 &&
+      /下書きです|示します|お示しします|作成しました|出力します/.test(line)
+    ) {
+      start += 1;
+      continue;
+    }
+    break;
+  }
+  out = lines.slice(start).join("\n").trim();
+
+  // 末尾のメタ締め
+  out = out.replace(
+    /\n+(?:以上です|いかがでしょう|ご確認ください|ご検討ください|必要なら直します)[。．！]?\s*$/u,
+    "",
+  );
+  // 行末の（注：…）
+  out = out.replace(/[（(](?:注|参考|メモ)[^）\n]{0,80}[）)]\s*$/gu, "").trim();
+  return out;
 }
 
 export function isWeakLeaderNote(
@@ -566,12 +616,19 @@ export function isWeakLeaderNote(
   if (/振り返りコメント共有頂き|想いを共有頂きました/.test(body)) return true;
   if (/明日は自分の(案件|一件)|どこから試しそうですか|皆さんでやってみませんか/.test(body)) return true;
   if (/理念浸透|指針の実践|体現|チームの力になります/.test(body)) return true;
+  // 前置き・メタが本文に残っている
+  if (
+    /^(?:以下|こちら|承知|了解|かしこまり|再出力|所感の下書き|下書きです)/m.test(
+      body,
+    )
+  ) {
+    return true;
+  }
+  if (/企業理念の方向性|固定文幹|【所感】|【入力】/.test(body)) return true;
   if (opts?.requireSameThemeQuote) {
     if (!/同テーマ前回の[^\s、。]{1,16}さん/.test(body)) return true;
-    // 接続でも紹介だけでも、本人コメントの中身（『』／「」）が必要
-    const hasQuotedChunk = /『[^』]{8,}』|「[^」]{8,}」/.test(body);
+    const hasQuotedChunk = /『[^』]{6,}』|「[^」]{6,}」/.test(body);
     if (!hasQuotedChunk) return true;
-    // 中身のない「とも重なります」だけは不合格
     if (
       /同テーマ前回の[^\s、。]{1,16}さん[^。．]{0,40}とも重なります[。．]?/.test(
         body,

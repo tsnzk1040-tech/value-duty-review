@@ -46,20 +46,22 @@ export function generateResearchBriefStub(
   input: ResearchBriefInput,
 ): ResearchBriefResult {
   const paste = input.pagePaste?.trim() ?? "";
+  const focusNote = input.researchFocus.trim()
+    ? `（フォーカス「${input.researchFocus.trim()}」に寄せた）`
+    : "";
   if (paste.length >= PAGE_PASTE_MIN_CHARS) {
     const lines = input.selectedLinks.map((l, i) => {
       const excerpt = paste.slice(0, 280).replace(/\s+/g, " ");
-      return `【${i + 1} ${l.title}】\n- （スタブ・貼付本文より）フォーカス「${input.researchFocus.trim() || "要点"}」に寄せた抜粋: ${excerpt}`;
+      return `【${i + 1} ${l.title}】\n- ${focusNote}貼付本文より: ${excerpt}`;
     });
-    const hint = `フォーカスへのヒント: 「${input.researchFocus.trim() || "明日の一手"}」を所感の一文の芯にする。`;
     return {
-      researchBrief: [...lines, "", hint].join("\n"),
+      researchBrief: lines.join("\n"),
       provider: "stub",
     };
   }
   const lines = input.selectedLinks.map(
     (l, i) =>
-      `【${i + 1} ${l.title}】\n- URLを開き、フォーカス「${input.researchFocus.trim() || "要点"}」に関連する段落を本文欄へ貼ってから再生成してください\n- ${l.url}`,
+      `【${i + 1} ${l.title}】\n- URLを開き、所感に使える段落を本文欄へ貼ってから再生成してください\n- ${l.url}`,
   );
   return {
     researchBrief: [...lines, "", pagePasteInstruction()].join("\n"),
@@ -78,8 +80,8 @@ function buildPrompt(
   const paste = input.pagePaste?.trim() ?? "";
 
   const focusLine = input.researchFocus.trim()
-    ? `所感向けフォーカス指示（任意）: ${input.researchFocus.trim()}`
-    : "所感向けフォーカス指示: （まだ無し。リンク内容から所感の下地になる要点を出す）";
+    ? `所感向けフォーカス指示（任意）: ${input.researchFocus.trim()}（要点の選び方に反映）`
+    : "所感向けフォーカス指示: （まだ無し。所感の『こうしたら？』に使える事実・手順・言い回しを要点に含める）";
 
   const common = [
     "あなたは職場の理念浸透レビュー用に、採択した参考リンクの要点メモを書く助手です。",
@@ -88,9 +90,10 @@ function buildPrompt(
     "【出力形式（厳守）】",
     "各採択リンクについて:",
     "【N タイトル】",
-    "- 要点（2〜4行。フォーカスがあれば寄せる。無ければ所感に使える事実・示唆）",
-    "最後に1行:",
-    "フォーカスへのヒント: …",
+    "- 要点（2〜4行）",
+    "  ・事実・手順・言い回しなど、所感の提案に直結するものを優先",
+    "  ・フォーカス指示があればそれに寄せる",
+    "  ・末尾に『フォーカスへのヒント:』行は書かない（要点に織り込む）",
     "",
     "URLは本文に書かない（タイトルで識別）。「ですね」禁止。",
     "英語のエラーメッセージや「URL is not accessible」は絶対に書かない。",
@@ -125,6 +128,17 @@ function buildPrompt(
   ].join("\n");
 }
 
+/** 旧形式の末尾ヒント行を落とす（要点へ吸収後の掃除）。 */
+export function stripFocusHintLines(brief: string): string {
+  return brief
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !/^\s*フォーカスへのヒント\s*[:：]/u.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function generateResearchBriefGemini(
   input: ResearchBriefInput,
 ): Promise<ResearchBriefResult> {
@@ -148,7 +162,11 @@ export async function generateResearchBriefGemini(
     if (!text || text.length < 40 || looksLikeUrlInaccessible(text)) {
       throw new Error("Gemini research brief from paste failed");
     }
-    return { researchBrief: text.trim(), provider: "gemini", model };
+    return {
+      researchBrief: stripFocusHintLines(text),
+      provider: "gemini",
+      model,
+    };
   }
 
   const prompt = buildPrompt(input, "with-url-tools");
@@ -172,5 +190,9 @@ export async function generateResearchBriefGemini(
     };
   }
 
-  return { researchBrief: text.trim(), provider: "gemini", model };
+  return {
+    researchBrief: stripFocusHintLines(text),
+    provider: "gemini",
+    model,
+  };
 }

@@ -43,6 +43,7 @@ import { consumePendingShare } from "@/lib/review/share-target";
 import {
   historyNotesForDraft,
   getSameThemeLeaderQuote,
+  applySameThemeFixedSentence,
   saveReviewHistory,
 } from "@/lib/review/history";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
@@ -597,7 +598,12 @@ export function ReviewWorkbench() {
       setHint("所感を生成中…");
       try {
         const selectedLinkTitles = draft!.linkCandidates.map((l) => l.title);
-        const sameTheme = getSameThemeLeaderQuote(draft!.themeId);
+        const sameTheme = getSameThemeLeaderQuote(draft!.themeId, {
+          themeLabel,
+          excludeReviewDate: draft!.reviewDate,
+          todaySummary: draft!.summary,
+          todaySourcePost: draft!.sourcePost,
+        });
         const res = await fetch("/api/review/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -612,7 +618,7 @@ export function ReviewWorkbench() {
             researchFocus: draft!.researchFocus,
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
-            historyNotes: sameTheme.notes,
+            historyNotes: sameTheme.fixedSentence ? "" : sameTheme.notes,
             sameThemeFixedSentence: sameTheme.fixedSentence,
             preferredProvider: "gemini",
           }),
@@ -628,7 +634,16 @@ export function ReviewWorkbench() {
           setHint(data.error ?? "所感の生成に失敗した");
           return;
         }
-        const leaderNote = data.leaderNote ?? "";
+        const leaderNoteRaw = data.leaderNote ?? "";
+        // サーバ差し込み漏れ時の保険（本文へ必ず入れる）
+        const leaderNote =
+          sameTheme.fixedSentence &&
+          !/同テーマ前回の/.test(leaderNoteRaw)
+            ? applySameThemeFixedSentence(
+                leaderNoteRaw,
+                sameTheme.fixedSentence,
+              )
+            : leaderNoteRaw;
         patch({ leaderNote });
         const via = providerLabel(
           data.provider,
@@ -639,8 +654,13 @@ export function ReviewWorkbench() {
           leaderNote && textMayMissOpeningKagi(leaderNote)
             ? " 開きの「が抜けてないか見て。"
             : "";
+        const sameThemeStatus = /同テーマ前回の/.test(leaderNote)
+          ? "同テーマ前回を本文に差し込んだ。"
+          : sameTheme.fixedSentence
+            ? "同テーマ前回の差し込みに失敗した。"
+            : `${sameTheme.reasonIfEmpty}。`;
         setHint(
-          `所感下書きを出した（${via}）。${gaHint}締めを本文に合わせて提案中…`,
+          `所感下書きを出した（${via}）。${sameThemeStatus}${gaHint}締めを本文に合わせて提案中…`,
         );
 
         const closingRes = await fetch("/api/review/draft", {
@@ -1426,7 +1446,7 @@ export function ReviewWorkbench() {
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="researchFocus">所感向けフォーカス</Label>
                   <p className="text-xs text-muted-foreground">
-                    要点を見たうえで、所感の芯になる一文を書く。
+                    要点メモを見たうえで、所感の芯になる一文を書く。
                   </p>
                   <Textarea
                     id="researchFocus"
