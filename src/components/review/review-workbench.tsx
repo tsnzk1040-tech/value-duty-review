@@ -42,7 +42,7 @@ import { PAGE_PASTE_MIN_CHARS } from "@/lib/review/providers/research-brief";
 import { consumePendingShare } from "@/lib/review/share-target";
 import {
   historyNotesForDraft,
-  sameThemeHistoryForLeader,
+  getSameThemeLeaderQuote,
   saveReviewHistory,
 } from "@/lib/review/history";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
@@ -597,6 +597,7 @@ export function ReviewWorkbench() {
       setHint("所感を生成中…");
       try {
         const selectedLinkTitles = draft!.linkCandidates.map((l) => l.title);
+        const sameTheme = getSameThemeLeaderQuote(draft!.themeId);
         const res = await fetch("/api/review/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -611,7 +612,8 @@ export function ReviewWorkbench() {
             researchFocus: draft!.researchFocus,
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
-            historyNotes: sameThemeHistoryForLeader(draft!.themeId),
+            historyNotes: sameTheme.notes,
+            sameThemeFixedSentence: sameTheme.fixedSentence,
             preferredProvider: "gemini",
           }),
         });

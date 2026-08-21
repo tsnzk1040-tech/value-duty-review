@@ -84,6 +84,8 @@ export type ReviewLeaderGenerateRequest = {
   researchBrief: string;
   presenterName?: string;
   historyNotes?: string;
+  /** アプリが②に差し込む同テーマ前回の固定文 */
+  sameThemeFixedSentence?: string;
   /** 互換用。常に Gemini */
   preferredProvider?: SummaryModelId | "stub" | "";
 };
@@ -531,6 +533,7 @@ export async function generateReviewLeaderDraft(
   }
 
   const historyNotes = input.historyNotes?.trim() ?? "";
+  const sameThemeFixedSentence = input.sameThemeFixedSentence?.trim() ?? "";
 
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,
@@ -541,6 +544,7 @@ export async function generateReviewLeaderDraft(
     researchFocus: input.researchFocus,
     researchBrief: input.researchBrief,
     historyNotes,
+    sameThemeFixedSentence,
   };
 
   const gate = shouldUseStub();

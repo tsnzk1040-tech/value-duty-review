@@ -439,37 +439,89 @@ export function extractSameThemeQuoteCore(
   return pickSentence(mid).slice(0, maxChars);
 }
 
-/** 所感生成用。同テーマの直近1件を、必須引用の材料として渡す。 */
-export function sameThemeHistoryForLeader(themeId?: string): string {
+/**
+ * 所感②用の固定文。本人コメント核を「」に入れ、口語の『といっていて』は使わない。
+ */
+export function buildSameThemeFixedSentence(
+  item: ReviewHistoryRecord,
+): string {
+  const callName = presenterCallName(item.presenterName);
+  let quote = extractSameThemeQuoteCore(item, 64);
+  quote = quote.replace(/[「」『』]/g, "").trim();
+  if (quote.length < 8) return "";
+
+  const looksResearch =
+    /調べ|検索|意味を|定義を|捉えて/.test(quote) &&
+    !/試|実践|してみ|やってみた|取り組/.test(quote);
+  if (looksResearch) {
+    return `同テーマ前回の${callName}のコメントでは、「${quote}」と調べていた。`;
+  }
+  return `同テーマ前回の${callName}のコメントでは、「${quote}」という実践があった。`;
+}
+
+/**
+ * モデルが書いた同テーマ前回の文を外し、固定文を①の直後に差し込む（A+C）。
+ */
+export function applySameThemeFixedSentence(
+  body: string,
+  fixedSentence: string,
+): string {
+  const fixed = fixedSentence.trim();
+  if (!fixed) return body.trim();
+
+  let out = body
+    .replace(/\r\n/g, "\n")
+    .replace(/同テーマ前回の[^\n。．]*[。．]?/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^[、,。．\s]+/u, "")
+    .replace(/[、,]{2,}/g, "、")
+    .trim();
+
+  const m = out.match(/^([\s\S]*?[。．])([\s\S]*)$/u);
+  if (m) {
+    const rest = m[2]!.replace(/^[、,\s]+/u, "");
+    return `${m[1]}${fixed}${rest}`.trim();
+  }
+  if (!out) return fixed;
+  return `${out}${/[。．]$/u.test(out) ? "" : "。"}${fixed}`.trim();
+}
+
+/** 所感生成用。固定文＋参考メモ（履歴は端末 localStorage）。 */
+export function getSameThemeLeaderQuote(themeId?: string): {
+  fixedSentence: string;
+  notes: string;
+} {
   const id = themeId?.trim() ?? "";
-  if (!id) return "";
+  if (!id) return { fixedSentence: "", notes: "" };
+
   const items = listRelatedReviews({ themeId: id, limit: 4 }).filter((item) => {
     const quote = extractSameThemeQuoteCore(item);
     return quote.length >= 12 && item.presenterName.trim().length > 0;
   });
   const primary = items[0];
-  if (!primary) return "";
+  if (!primary) return { fixedSentence: "", notes: "" };
 
-  const callName = presenterCallName(primary.presenterName);
-  const quote = extractSameThemeQuoteCore(primary, 72);
+  const fixedSentence = buildSameThemeFixedSentence(primary);
+  if (!fixedSentence) return { fixedSentence: "", notes: "" };
+
+  const quote = extractSameThemeQuoteCore(primary, 64).replace(
+    /[「」『』]/g,
+    "",
+  );
   const extras = items.slice(1, 3).map((item, i) => {
     const name = presenterCallName(item.presenterName);
     const q = extractSameThemeQuoteCore(item, 48);
     return `${i + 2}. ${item.reviewDate} · ${name} · 本人コメント核: ${q}`;
   });
 
-  return [
-    "【必須・同テーマ前回の1件】",
+  const notes = [
+    "【同テーマ前回】",
+    "②の文はアプリが固定文で入れる。所感本文に同テーマ前回を自分で書かない（書いても差し替え）。",
+    `固定文: ${fixedSentence}`,
     `日付: ${primary.reviewDate}`,
     `テーマ: ${primary.themeLabel || "（なし）"}`,
-    `呼び名（このまま使う）: ${callName}`,
-    "引用の正本: 本人の振り返りコメント（投稿）。リーダー所感・要約は引用しない。",
-    "引用核の選び方: 今日のテーマに一番近い発言、または実践した／試したことの一文を優先（挨拶・感想だけの文は避ける）。",
-    `本人コメントの引用核（『』に入れる短い言い切り・言い換え可だが意味は変えない）: ${quote}`,
-    "出し方（どちらか）:",
-    "A. 自然につながるときだけ: 同テーマ前回の〇〇さんは、『…』といっていて、＋今日の具体や提案へ短い接続",
-    "B. 無理につながるとき: 紹介だけ。『』にはテーマに近い実践・試したこと（なければ調べたこと）を入れる。例: 同テーマ前回の〇〇さんは、『…』と実践していましたね。→ そのあと今日の話・提案へ進む（無理な因果は作らない）",
-    "不合格: 名前だけ／『とも重なります』だけで中身なし／リーダー所感の転用／つながらないのに無理な因果でつなぐ／テーマと無関係な一文の紹介",
+    `本人コメント核（参考）: ${quote}`,
     extras.length
       ? ["", "【同テーマのさらに前（触れてよいが主役にしない）】", ...extras].join(
           "\n",
@@ -478,6 +530,13 @@ export function sameThemeHistoryForLeader(themeId?: string): string {
   ]
     .filter(Boolean)
     .join("\n");
+
+  return { fixedSentence, notes };
+}
+
+/** @deprecated getSameThemeLeaderQuote を使う */
+export function sameThemeHistoryForLeader(themeId?: string): string {
+  return getSameThemeLeaderQuote(themeId).notes;
 }
 
 export function historyNotesForDraft(input: {

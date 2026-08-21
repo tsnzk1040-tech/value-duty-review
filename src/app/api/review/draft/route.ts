@@ -20,12 +20,14 @@ export async function POST(req: Request) {
     currentSummary?: string;
     instruction?: string;
     preferredProvider?: string;
+    sameThemeFixedSentence?: string;
     pagePaste?: string;
     text?: string;
   };
   try {
     body = (await req.json()) as Partial<ReviewDraftGenerateRequest> & {
       kind?: string;
+      sameThemeFixedSentence?: string;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -202,6 +204,10 @@ export async function POST(req: Request) {
       researchBrief: body.researchBrief,
       presenterName: body.presenterName,
       historyNotes: body.historyNotes,
+      sameThemeFixedSentence:
+        typeof body.sameThemeFixedSentence === "string"
+          ? body.sameThemeFixedSentence
+          : undefined,
       preferredProvider:
         body.preferredProvider === "gemini" ||
         body.preferredProvider === "stub"
