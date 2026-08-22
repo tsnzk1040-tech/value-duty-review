@@ -121,40 +121,37 @@ function themeAt(index: number): string {
 }
 
 /**
- * 新ローテーション（7/29〜）のテーマ開始オフセット。
- * 8/24（18枠目・index 17）が 4-① になるよう 4-③ から連番。
+ * 新ローテーション第1周（2026-07-29〜08-27）。トシオ提供のノート出力どおり。
  */
-const SHIN_CYCLE_THEME_START_INDEX = 11;
-
 const SHIN_CYCLE_SCHEDULE = [
-  { date: "2026-07-29", memberId: "m-amakawa" },
-  { date: "2026-07-30", memberId: "m-makishima" },
-  { date: "2026-07-31", memberId: "m-kato" },
-  { date: "2026-08-03", memberId: "m-shinohara" },
-  { date: "2026-08-04", memberId: "m-sakuma" },
-  { date: "2026-08-05", memberId: "m-chigira" },
-  { date: "2026-08-06", memberId: "m-kobayashi-megumi" },
-  { date: "2026-08-07", memberId: "m-arita" },
-  { date: "2026-08-10", memberId: "m-tanaka" },
-  { date: "2026-08-12", memberId: "m-sakurai" },
-  { date: "2026-08-13", memberId: "m-nakajo" },
-  { date: "2026-08-14", memberId: "m-susuga" },
-  { date: "2026-08-17", memberId: "m-furutaka" },
-  { date: "2026-08-18", memberId: "m-takeya" },
-  { date: "2026-08-19", memberId: "m-tamada" },
-  { date: "2026-08-20", memberId: "m-tateishi" },
-  { date: "2026-08-21", memberId: "m-matsumoto" },
-  { date: "2026-08-24", memberId: "m-kobayashi-taku" },
-  { date: "2026-08-25", memberId: "m-tagawa" },
-  { date: "2026-08-26", memberId: "m-susuga" },
-  { date: "2026-08-27", memberId: "m-tsunezuka" },
+  { date: "2026-07-29", memberId: "m-amakawa", valueItemId: "v4-3" },
+  { date: "2026-07-30", memberId: "m-makishima", valueItemId: "v5-1" },
+  { date: "2026-07-31", memberId: "m-kato", valueItemId: "v5-2" },
+  { date: "2026-08-03", memberId: "m-shinohara", valueItemId: "v5-3" },
+  { date: "2026-08-04", memberId: "m-sakuma", valueItemId: "v6-1" },
+  { date: "2026-08-05", memberId: "m-chigira", valueItemId: "v6-2" },
+  { date: "2026-08-06", memberId: "m-kobayashi-megumi", valueItemId: "v6-3" },
+  { date: "2026-08-07", memberId: "m-arita", valueItemId: "v6-4" },
+  { date: "2026-08-10", memberId: "m-tanaka", valueItemId: "v1-1" },
+  { date: "2026-08-12", memberId: "m-sakurai", valueItemId: "v1-2" },
+  { date: "2026-08-13", memberId: "m-nakajo", valueItemId: "v1-3" },
+  { date: "2026-08-14", memberId: "m-susuga", valueItemId: "v1-4" },
+  { date: "2026-08-17", memberId: "m-furutaka", valueItemId: "v2-1" },
+  { date: "2026-08-18", memberId: "m-takeya", valueItemId: "v2-2" },
+  { date: "2026-08-19", memberId: "m-tamada", valueItemId: "v3-1" },
+  { date: "2026-08-20", memberId: "m-tateishi", valueItemId: "v3-2" },
+  { date: "2026-08-21", memberId: "m-matsumoto", valueItemId: "v3-3" },
+  { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: "v4-1" },
+  { date: "2026-08-25", memberId: "m-tagawa", valueItemId: "v4-2" },
+  { date: "2026-08-26", memberId: "m-susuga", valueItemId: "v4-3" },
+  { date: "2026-08-27", memberId: "m-tsunezuka", valueItemId: "v5-1" },
 ] as const;
 
 function shinCycleDays() {
-  return SHIN_CYCLE_SCHEDULE.map((row, i) => ({
+  return SHIN_CYCLE_SCHEDULE.map((row) => ({
     date: row.date,
     memberId: row.memberId,
-    valueItemId: themeAt(SHIN_CYCLE_THEME_START_INDEX + i),
+    valueItemId: row.valueItemId,
   }));
 }
 
