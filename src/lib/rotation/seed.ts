@@ -158,6 +158,38 @@ function shinCycleDays() {
   }));
 }
 
+/** 新ローテーション第2周（2026-08-28〜）。トシオ提供の fairAssign 出力どおり。 */
+const NEXT_CYCLE_SCHEDULE = [
+  { date: "2026-08-28", memberId: "m-arita", valueItemId: "v5-2" },
+  { date: "2026-08-31", memberId: "m-tanaka", valueItemId: "v5-3" },
+  { date: "2026-09-01", memberId: "m-takeya", valueItemId: "v6-1" },
+  { date: "2026-09-02", memberId: "m-tamada", valueItemId: "v6-2" },
+  { date: "2026-09-03", memberId: "m-tagawa", valueItemId: "v6-3" },
+  { date: "2026-09-04", memberId: "m-furutaka", valueItemId: "v6-4" },
+  { date: "2026-09-07", memberId: "m-kobayashi-taku", valueItemId: "v1-1" },
+  { date: "2026-09-08", memberId: "m-kobayashi-megumi", valueItemId: "v1-2" },
+  { date: "2026-09-09", memberId: "m-tateishi", valueItemId: "v1-3" },
+  { date: "2026-09-10", memberId: "m-matsumoto", valueItemId: "v1-4" },
+  { date: "2026-09-11", memberId: "m-nakajo", valueItemId: "v2-1" },
+  { date: "2026-09-14", memberId: "m-susuga", valueItemId: "v2-2" },
+  { date: "2026-09-15", memberId: "m-chigira", valueItemId: "v3-1" },
+  { date: "2026-09-16", memberId: "m-sakuma", valueItemId: "v3-2" },
+  { date: "2026-09-17", memberId: "m-shinohara", valueItemId: "v3-3" },
+  { date: "2026-09-18", memberId: "m-kato", valueItemId: "v4-1" },
+  { date: "2026-09-24", memberId: "m-sakurai", valueItemId: "v4-2" },
+  { date: "2026-09-25", memberId: "m-makishima", valueItemId: "v4-3" },
+  { date: "2026-09-28", memberId: "m-amakawa", valueItemId: "v5-1" },
+  { date: "2026-09-29", memberId: "m-tsunezuka", valueItemId: "v5-2" },
+] as const;
+
+function nextCycleDays() {
+  return NEXT_CYCLE_SCHEDULE.map((row) => ({
+    date: row.date,
+    memberId: row.memberId,
+    valueItemId: row.valueItemId,
+  }));
+}
+
 /**
  * Prior cycles for fair-assign.
  * Latest = トシオ提供の「新ローテーション」（data/local/members-and-rotation.json と同内容）。
@@ -193,6 +225,11 @@ export const POC_HISTORY_CYCLES: RotationCycle[] = [
     id: "cycle-shin-2026-07-29",
     label: "新ローテーション",
     days: shinCycleDays(),
+  },
+  {
+    id: "cycle-shin-2026-08-28",
+    label: "新ローテーション（2026-08-28〜）",
+    days: nextCycleDays(),
   },
 ];
 
