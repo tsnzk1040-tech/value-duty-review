@@ -42,6 +42,18 @@ export type SaveReviewHistoryInput = {
 };
 
 export const HISTORY_STORAGE_KEY = "vdr.review.history.v1";
+export const HISTORY_BACKUP_STORAGE_KEY = "vdr.review.history.backup.v1";
+
+export type ReviewHistoryBackupMeta = {
+  savedAt: string;
+  recordCount: number;
+  trigger: "6-4-lap-close";
+};
+
+type ReviewHistoryBackupPayload = {
+  meta: ReviewHistoryBackupMeta;
+  records: ReviewHistoryRecord[];
+};
 
 /**
  * 画面・プロンプト用の投稿全文。
@@ -133,6 +145,77 @@ function persist(items: ReviewHistoryRecord[], perTheme: 1 | 2) {
   window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
 }
 
+function readHistoryBackupPayload(): ReviewHistoryBackupPayload | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = window.localStorage.getItem(HISTORY_BACKUP_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ReviewHistoryBackupPayload>;
+    if (!parsed || !Array.isArray(parsed.records)) return null;
+    const records = parsed.records
+      .map(asHistoryRecord)
+      .filter((item): item is ReviewHistoryRecord => Boolean(item));
+    if (records.length === 0) return null;
+    const meta = parsed.meta;
+    return {
+      meta: {
+        savedAt:
+          typeof meta?.savedAt === "string" && meta.savedAt.trim()
+            ? meta.savedAt
+            : new Date().toISOString(),
+        recordCount: records.length,
+        trigger: "6-4-lap-close",
+      },
+      records,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeHistoryBackup(items: ReviewHistoryRecord[]): void {
+  if (!isBrowser()) return;
+  const payload: ReviewHistoryBackupPayload = {
+    meta: {
+      savedAt: new Date().toISOString(),
+      recordCount: items.length,
+      trigger: "6-4-lap-close",
+    },
+    records: items,
+  };
+  window.localStorage.setItem(
+    HISTORY_BACKUP_STORAGE_KEY,
+    JSON.stringify(payload),
+  );
+}
+
+export function hasReviewHistoryBackup(): boolean {
+  return readHistoryBackupPayload() !== null;
+}
+
+/** 6-④保存時の退避。再読み込みで復元する。 */
+export function reviewHistoryBackupSummary(): {
+  savedAt: string;
+  recordCount: number;
+} | null {
+  const payload = readHistoryBackupPayload();
+  if (!payload) return null;
+  return {
+    savedAt: payload.meta.savedAt,
+    recordCount: payload.meta.recordCount,
+  };
+}
+
+/** 6-④保存時のJSONバックアップで、いまの履歴を上書き復元する。 */
+export function restoreReviewHistoryFromBackup(): number {
+  const payload = readHistoryBackupPayload();
+  if (!payload) {
+    throw new Error("6-④保存時のバックアップがない");
+  }
+  persist(payload.records, 2);
+  return payload.records.length;
+}
+
 export function saveReviewHistory(
   input: SaveReviewHistoryInput,
   valueItems: { id: string; label: string }[],
@@ -164,6 +247,9 @@ export function saveReviewHistory(
     record.themeLabel,
     valueItems,
   );
+  if (closedThemeLap) {
+    writeHistoryBackup(retainThemeLaps(next, 2));
+  }
   persist(next, closedThemeLap ? 1 : 2);
   return { record, closedThemeLap };
 }

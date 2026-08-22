@@ -12,18 +12,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import {
-  exportReviewHistoryJson,
-  importReviewHistory,
+  hasReviewHistoryBackup,
   listRelatedReviews,
   listStoredReviews,
+  restoreReviewHistoryFromBackup,
+  reviewHistoryBackupSummary,
   reviewHistoryPostedText,
   type ReviewHistoryRecord,
 } from "@/lib/review/history";
 
 const ALL = "__all__";
+
+function formatBackupSavedAt(iso: string): string {
+  const d = iso.slice(0, 10);
+  return d || iso;
+}
 
 export function HistoryList() {
   const { settings, ready } = useSettings();
@@ -32,7 +37,6 @@ export function HistoryList() {
   const [hint, setHint] = useState<string | null>(null);
   const [themeId, setThemeId] = useState(ALL);
   const [presenterName, setPresenterName] = useState(ALL);
-  const [importText, setImportText] = useState("");
 
   const activeMembers = useMemo(
     () => settings.members.filter((m) => m.active !== false),
@@ -71,34 +75,28 @@ export function HistoryList() {
     setHint(copyOrShareHint(sent, "レビュー全文をコピーした"));
   }
 
-  async function exportHistory() {
-    if (listStoredReviews().length === 0) {
-      setHint("書き出す履歴がない");
+  function reloadFromBackup() {
+    if (!hasReviewHistoryBackup()) {
+      setHint("6-④を保存したときのバックアップがない");
       return;
     }
-    const text = exportReviewHistoryJson();
-    const sent = await copyOrShare(text);
-    if (sent === "shared") setHint("履歴JSONを共有シートへ送った");
-    else if (sent === "copied") setHint("履歴JSONをコピーした。ノート等に退避して");
-    else if (sent === "aborted") setHint("共有をやめた");
-    else setHint("送れなかった。下の欄に貼って長押しして");
-  }
-
-  function reloadFromJsonOrDevice() {
-    const trimmed = importText.trim();
-    if (trimmed) {
-      try {
-        const n = importReviewHistory(trimmed);
-        setImportText("");
-        load();
-        setHint(`履歴JSONを取り込んだ（${n}件）。同じ営業日は上書き`);
-      } catch {
-        setHint("取り込みに失敗した。履歴JSONか確認して");
-      }
+    const summary = reviewHistoryBackupSummary();
+    const when = summary ? formatBackupSavedAt(summary.savedAt) : "";
+    const count = summary?.recordCount ?? 0;
+    const ok = window.confirm(
+      `JSONからのバックアップでOK？\n\n6-④保存時（${when}・${count}件）の履歴で、いまの履歴を上書きします。`,
+    );
+    if (!ok) {
+      setHint("バックアップからの復元をやめた");
       return;
     }
-    load();
-    setHint("端末の履歴を再表示した");
+    try {
+      const n = restoreReviewHistoryFromBackup();
+      load();
+      setHint(`バックアップから復元した（${n}件）`);
+    } catch {
+      setHint("バックアップの復元に失敗した");
+    }
   }
 
   const filters = (
@@ -164,7 +162,7 @@ export function HistoryList() {
           選択をクリア
         </Button>
         <p className="text-xs text-muted-foreground">
-          テーマ・担当の選択を外して、直近一覧に戻す。この端末の履歴。見るだけでは消さない。
+          テーマ・担当の選択を外して、直近一覧に戻す。見るだけでは消さない。
         </p>
       </div>
     </div>
@@ -173,6 +171,8 @@ export function HistoryList() {
   if (!ready) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
   }
+
+  const backupSummary = reviewHistoryBackupSummary();
 
   return (
     <div className="flex flex-col gap-4">
@@ -186,7 +186,7 @@ export function HistoryList() {
         <p className="text-sm text-muted-foreground">
           {themeId !== ALL || presenterName !== ALL
             ? "条件に合う履歴がない。"
-            : "まだ履歴がない。通読でコピーすると残る。退避JSONがあれば下に貼って再読み込み。"}
+            : "まだ履歴がない。通読でコピーすると残る。"}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -254,38 +254,26 @@ export function HistoryList() {
           })}
         </ul>
       )}
-      <section className="flex flex-col gap-3 rounded-lg border border-border p-3">
-        <h2 className="text-sm font-medium">履歴JSON</h2>
-        <p className="text-xs text-muted-foreground">
-          下にJSONを貼って再読み込みすると取り込む。空のままなら端末の履歴を再表示。設定JSONとは別。
-        </p>
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-11 w-full"
-          onClick={() => void exportHistory()}
-        >
-          履歴JSONをコピー／共有
-        </Button>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="import-history-json">退避JSON（任意）</Label>
-          <Textarea
-            id="import-history-json"
-            className="min-h-32 font-mono text-xs"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            placeholder='[{"reviewDate":"2026-08-17",...}]'
-          />
-        </div>
+      <div className="flex flex-col gap-2">
+        {backupSummary ? (
+          <p className="text-xs text-muted-foreground">
+            6-④保存時のバックアップ: {formatBackupSavedAt(backupSummary.savedAt)}・
+            {backupSummary.recordCount}件
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            6-④を投稿用コピー／共有で保存すると、前周込みのJSONバックアップが端末に残る。
+          </p>
+        )}
         <Button
           type="button"
           variant="outline"
           className="h-11 w-full"
-          onClick={reloadFromJsonOrDevice}
+          onClick={reloadFromBackup}
         >
           再読み込み
         </Button>
-      </section>
+      </div>
     </div>
   );
 }
