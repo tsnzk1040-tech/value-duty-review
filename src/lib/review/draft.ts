@@ -95,31 +95,31 @@ export const REVIEW_STEPS: {
     step: 1,
     title: "貼付",
     process: "②③",
-    blurb: "対象営業日・投稿・呼び名・観点を入れ、お礼＋要約案を出す",
+    blurb: "投稿を貼って、お礼と要約案を出す",
   },
   {
     step: 2,
     title: "要約",
     process: "④",
-    blurb: "あっさり（一点寄り）／こってり（厚め）から選ぶ／直し指示",
+    blurb: "あっさり／こってりから選んで、必要なら直す",
   },
   {
     step: 3,
     title: "検索",
     process: "⑤⑥",
-    blurb: "検索→共有でGoogle URLを1本入れる",
+    blurb: "ワードを選んで調べ、共有で参照を1本入れる",
   },
   {
     step: 4,
     title: "所感",
     process: "⑦⑧⑨",
-    blurb: "本文を貼ると要点メモ。フォーカスは所感専用",
+    blurb: "所感へ進むと要点まで作る。狙いを書いて下書きへ",
   },
   {
     step: 5,
     title: "出力",
     process: "⑩⑪",
-    blurb: "構成どおり1本にまとめて最終編集→コピー",
+    blurb: "通読して直してから、投稿用にコピーする",
   },
 ];
 

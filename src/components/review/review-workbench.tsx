@@ -84,12 +84,6 @@ function summaryVariantMeta(variant?: string): {
   return { title: "要約案", blurb: "" };
 }
 
-function summaryVariantLabel(variant?: string, model?: string): string {
-  const meta = summaryVariantMeta(variant);
-  const modelBit = model ? ` · Gemini ${model}` : " · Gemini";
-  return `${meta.title}${modelBit}`;
-}
-
 export function ReviewWorkbench() {
   const { settings, ready } = useSettings();
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
@@ -107,6 +101,7 @@ export function ReviewWorkbench() {
     }[]
   >([]);
   const [summaryRevise, setSummaryRevise] = useState("");
+  const [showSummaryCompare, setShowSummaryCompare] = useState(true);
   const [sameThemeQuoteNotice, setSameThemeQuoteNotice] = useState<{
     tone: "ok" | "warn" | "muted";
     text: string;
@@ -187,7 +182,7 @@ export function ReviewWorkbench() {
         researchFocus: "",
       };
     });
-    setHint("共有からGoogle参照を1本入れた。所感へ進んで要点を作って");
+    setHint("共有からGoogle参照を1本入れた。所感へ進むと要点まで作る");
   }, [draft, settings.valueItems]);
 
   useEffect(() => {
@@ -315,6 +310,7 @@ export function ReviewWorkbench() {
         }
         const candidates = data.candidates ?? [];
         setSummaryCandidates(candidates);
+        setShowSummaryCompare(true);
         const opener = data.opener ?? formatThanks(draft!.presenterName);
         const failHint =
           data.providerFailures
@@ -365,9 +361,8 @@ export function ReviewWorkbench() {
       summary: candidate.summary,
       summaryProvider: provider,
     });
-    setHint(
-      `${summaryVariantLabel(candidate.variant, candidate.model)} を採用した`,
-    );
+    setShowSummaryCompare(false);
+    setHint(`${summaryVariantMeta(candidate.variant).title}を採用した`);
   }
 
   function runSummaryRevise(instruction: string) {
@@ -526,76 +521,99 @@ export function ReviewWorkbench() {
     }
   }
 
-  function runResearchBrief(overrides?: { pagePaste?: string }) {
-    void (async () => {
-      const selectedLinks = draft!.linkCandidates.map((l) => ({
-        title: l.title,
-        url: l.url,
-      }));
-      if (selectedLinks.length === 0) {
-        setHint("先に調べるで参照を1本入れて");
-        return;
+  async function runResearchBrief(overrides?: {
+    pagePaste?: string;
+  }): Promise<boolean> {
+    const selectedLinks = draft!.linkCandidates.map((l) => ({
+      title: l.title,
+      url: l.url,
+    }));
+    if (selectedLinks.length === 0) {
+      setHint("参照URLが無い。Googleから共有してから所感へ");
+      return false;
+    }
+    const pagePaste = overrides?.pagePaste ?? draft!.researchPagePaste;
+    setGenerating(true);
+    setHint("参照から要点メモを作っている…");
+    try {
+      const res = await fetch("/api/review/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "research-brief",
+          keywords: draft!.keywords,
+          researchFocus: draft!.researchFocus,
+          themeLabel,
+          sourcePost: draft!.sourcePost,
+          summary: draft!.summary,
+          selectedLinks,
+          pagePaste,
+          preferredProvider: "gemini",
+        }),
+      });
+      const data = (await res.json()) as {
+        researchBrief?: string;
+        provider?: string;
+        model?: string;
+        fallbackReason?: string;
+        needsPagePaste?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        setHint(data.error ?? "要点の生成に失敗した");
+        return false;
       }
-      const pagePaste = overrides?.pagePaste ?? draft!.researchPagePaste;
-      setGenerating(true);
-      setHint("要点メモを生成中…");
-      try {
-        const res = await fetch("/api/review/draft", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "research-brief",
-            keywords: draft!.keywords,
-            researchFocus: draft!.researchFocus,
-            themeLabel,
-            sourcePost: draft!.sourcePost,
-            summary: draft!.summary,
-            selectedLinks,
-            pagePaste,
-            preferredProvider: "gemini",
-          }),
-        });
-        const data = (await res.json()) as {
-          researchBrief?: string;
-          provider?: string;
-          model?: string;
-          fallbackReason?: string;
-          needsPagePaste?: boolean;
-          error?: string;
-        };
-        if (!res.ok) {
-          setHint(data.error ?? "要点の生成に失敗した");
-          return;
-        }
-        if (data.needsPagePaste) {
-          patch({ researchBrief: "", researchNeedsPagePaste: true });
-          setHint(
-            "URLの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」→もう一度要点メモ",
-          );
-          return;
-        }
-        patch({
-          researchBrief: data.researchBrief ?? "",
-          researchNeedsPagePaste: false,
-        });
-        const via = providerLabel(
-          data.provider,
-          data.model,
-          data.fallbackReason,
+      if (data.needsPagePaste) {
+        patch({ researchBrief: "", researchNeedsPagePaste: true });
+        setHint(
+          "参照ページの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」で要点を出す",
         );
-        setHint(`要点メモを出した（${via}）。所感向けフォーカスを書いてから下書きへ`);
-      } catch {
-        setHint("要点リクエストに失敗した");
-      } finally {
-        setGenerating(false);
+        return false;
       }
-    })();
+      const brief = (data.researchBrief ?? "").trim();
+      if (!brief) {
+        patch({ researchBrief: "", researchNeedsPagePaste: true });
+        setHint(
+          "要点が空だった。ページ本文を貼るか、参照URLを入れ直して",
+        );
+        return false;
+      }
+      patch({
+        researchBrief: brief,
+        researchNeedsPagePaste: false,
+      });
+      setHint(
+        "要点メモを出した。所感の提案の狙いを書いてから下書きへ",
+      );
+      return true;
+    } catch {
+      setHint("要点リクエストに失敗した");
+      return false;
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  /** 所感へ：参照必須 → 遷移と同時に要点まで自動 */
+  async function enterLeaderStepWithBrief() {
+    if (!canEnterLeaderStep(draft!)) {
+      setHint("参照URLが無い。Googleから共有してから所感へ");
+      return;
+    }
+    const url = draft!.linkCandidates[0]?.url?.trim() ?? "";
+    if (!url) {
+      setHint("参照URLが空。もう一度共有し直して");
+      return;
+    }
+    go(4);
+    setHint("所感へ進んだ。参照から要点を作っている…");
+    await runResearchBrief();
   }
 
   function runLeaderDraft() {
     void (async () => {
       if (!canGenerateLeaderNote(draft!)) {
-        setHint("要点と所感向けフォーカスを揃えてから下書きを出して");
+        setHint("要点と所感の提案の狙いを揃えてから下書きを出して");
         return;
       }
       setGenerating(true);
@@ -830,7 +848,7 @@ export function ReviewWorkbench() {
     const result = checkFinalReviewPost(finalText);
     setFinalCheck(result);
     setGenerating(true);
-    setHint("最終チェック（機械＋AI照合）…");
+    setHint("修正後のAI再点検…");
     try {
       const res = await fetch("/api/review/draft", {
         method: "POST",
@@ -984,12 +1002,9 @@ export function ReviewWorkbench() {
           </ol>
         </nav>
 
-        <div className="rounded-md border border-border bg-card px-2.5 py-1.5">
-          <p className="text-xs font-medium text-foreground">
-            レビュープロセス {draft.step}/5
-          </p>
+        <div className="px-0.5">
           <p className="text-xs leading-snug text-muted-foreground">
-            実プロセス {stepMeta.process} — {stepMeta.blurb}
+            {stepMeta.blurb}
           </p>
         </div>
 
@@ -1085,7 +1100,7 @@ export function ReviewWorkbench() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="lens">観点メモ（要約を厚くする・任意）</Label>
+            <Label htmlFor="lens">要約を厚くするメモ（任意）</Label>
             <Input
               id="lens"
               value={draft.lens}
@@ -1093,7 +1108,7 @@ export function ReviewWorkbench() {
               placeholder="例: 調べて取り入れた具体を厚く"
             />
             <p className="text-xs text-muted-foreground">
-              要約に効く。所感には渡さない。所感の芯はあとでフォーカスに書く。
+              要約にだけ効く。所感には渡さない。
             </p>
           </div>
           <Button
@@ -1124,11 +1139,10 @@ export function ReviewWorkbench() {
               onChange={(e) => patch({ opener: e.target.value })}
             />
           </div>
-          {summaryCandidates.length > 1 ? (
+          {summaryCandidates.length > 1 && showSummaryCompare ? (
             <div className="flex flex-col gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                使う要約を選ぶ。あっさりは一点寄り・短め、こってりは場面が追える厚め（どちらも
-                Gemini）。直し指示はそのまま使える。
+                使う要約を選ぶ。あっさりは短め、こってりは厚め。
               </p>
               {summaryCandidates.map((c) => {
                 const meta = summaryVariantMeta(c.variant);
@@ -1172,6 +1186,16 @@ export function ReviewWorkbench() {
               })}
             </div>
           ) : null}
+          {summaryCandidates.length > 1 && !showSummaryCompare ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 w-full"
+              onClick={() => setShowSummaryCompare(true)}
+            >
+              別案をもう一度見比べる
+            </Button>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="summary">要約共有（自分の言葉へ）</Label>
             <Textarea
@@ -1185,7 +1209,7 @@ export function ReviewWorkbench() {
             <div className="flex flex-col gap-2">
               <Label htmlFor="summary-revise">直し指示（任意）</Label>
               <p className="text-xs text-muted-foreground">
-                Gemini で直す。定型の枠は維持する。
+                採用した要約を、指示どおり言い換える。
               </p>
               <Input
                 id="summary-revise"
@@ -1287,7 +1311,7 @@ export function ReviewWorkbench() {
             work={
               <>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            検索ワードでGoogleを開き、OKな結果を共有→「企業理念リレー」で参照を1本入れる。要点は所感側。
+            ワードを選んで Google で調べ、OKな結果を共有→「企業理念リレー」で参照1本。
           </p>
           <div className="flex flex-col gap-1.5">
             <Label>検索ワード候補</Label>
@@ -1390,17 +1414,10 @@ export function ReviewWorkbench() {
           )}
           <Button
             className="h-11 w-full"
-            onClick={() => {
-              if (!canEnterLeaderStep(draft)) {
-                setHint("Googleから参照を共有してから所感へ");
-                return;
-              }
-              go(4);
-              setHint("本文が取れなければ貼って要点→フォーカス→所感下書き");
-            }}
-            disabled={!canEnterLeaderStep(draft)}
+            onClick={() => void enterLeaderStepWithBrief()}
+            disabled={!canEnterLeaderStep(draft) || generating}
           >
-            所感へ
+            {generating ? "要点を準備中…" : "所感へ（要点まで作る）"}
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(2)}>
             戻る
@@ -1425,10 +1442,10 @@ export function ReviewWorkbench() {
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="researchPagePaste">
-                  開いたページの本文（任意／取得失敗時）
+                  開いたページの本文（任意）
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  ページの本文を貼ると要点メモが走る。手直しは下の欄。短すぎると走らない。
+                  貼ると要点メモを作る。手直しは下の欄。
                 </p>
                 <Button
                   type="button"
@@ -1487,9 +1504,9 @@ export function ReviewWorkbench() {
               ) : null}
               {draft.researchBrief.trim() ? (
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="researchFocus">所感向けフォーカス</Label>
+                  <Label htmlFor="researchFocus">所感の提案の狙い</Label>
                   <p className="text-xs text-muted-foreground">
-                    要点メモを見たうえで、所感の芯になる一文を書く。
+                    所感の「こうしたら？」の芯になる一文。
                   </p>
                   <Textarea
                     id="researchFocus"
@@ -1511,9 +1528,7 @@ export function ReviewWorkbench() {
               !canGenerateLeaderNote(draft)
             }
           >
-            {generating
-              ? "生成中…"
-              : "所感下書きを出す（共感→指針→提案→薄い問い）"}
+            {generating ? "生成中…" : "所感下書きを出す"}
           </Button>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="leader">所感・着想（ここで脚色）</Label>
@@ -1547,7 +1562,7 @@ export function ReviewWorkbench() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="closing">締めの呼びかけ（所感に対応）</Label>
             <p className="text-xs text-muted-foreground">
-              『ちょっとやってみよう』『そういう考え方もあるんだ』と感じてもらう一文。所感の具体に合わせて提案する。
+              所感に合わせた一文。所感の提案は復唱しない。
             </p>
             <Textarea
               id="closing"
@@ -1583,7 +1598,7 @@ export function ReviewWorkbench() {
               disabled={generating || !draft.leaderNote.trim()}
               onClick={runClosingDraft}
             >
-              {generating ? "提案中…" : "本文に合わせた呼びかけを提案"}
+              {generating ? "提案中…" : "締めの別案"}
             </Button>
           </div>
           <Button
@@ -1663,7 +1678,7 @@ export function ReviewWorkbench() {
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              通読に入ると自動で走る。直し後は「最終チェックを再実行」。
+              通読で機械チェックが走る。直したあとのAI再点検は任意。
             </p>
           )}
           <Button
@@ -1679,7 +1694,7 @@ export function ReviewWorkbench() {
             onClick={() => void runFinalCheck()}
             disabled={generating}
           >
-            {generating ? "照合中…" : "最終チェックを再実行"}
+            {generating ? "点検中…" : "修正した場合のAI再点検（任意）"}
           </Button>
           {finalCheck &&
           !finalCheck.ok &&
