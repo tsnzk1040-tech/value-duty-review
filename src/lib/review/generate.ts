@@ -35,7 +35,6 @@ import {
   reviseSummaryWithProvider,
   type GenerateProviderId,
   type SummaryGenerateResult,
-  type SummaryModelId,
   type SummaryVariantId,
 } from "@/lib/review/providers/summary";
 import type { LinkCandidate } from "@/lib/review/draft";
@@ -67,8 +66,6 @@ export type ReviewSummaryReviseRequest = {
   presenterName: string;
   currentSummary: string;
   instruction: string;
-  /** 互換用。常に Gemini */
-  preferredProvider?: SummaryModelId;
   historyNotes?: string;
 };
 
@@ -88,8 +85,6 @@ export type ReviewLeaderGenerateRequest = {
   sameThemeFixedSentence?: string;
   /** 引用整文用の要約あいだなど */
   sameThemeQuoteMaterial?: string;
-  /** 互換用。常に Gemini */
-  preferredProvider?: SummaryModelId | "stub" | "";
 };
 
 export type ReviewSearchGenerateRequest = {
@@ -117,8 +112,6 @@ export type ReviewResearchBriefRequest = {
   selectedLinks: { title: string; url: string }[];
   /** 開いたページの本文貼付（あるときは要点の正本材料） */
   pagePaste?: string;
-  /** 互換用。常に Gemini */
-  preferredProvider?: SummaryModelId | "stub" | "";
 };
 
 export type ReviewClosingGenerateRequest = {

@@ -220,29 +220,3 @@ export async function resolveSameThemeQuoteClosed(opts: {
   }
   return null;
 }
-
-/** @deprecated resolveSameThemeQuoteClosed を使う */
-export async function refineSameThemeQuoteClosed(
-  rawQuote: string,
-  opts?: {
-    material?: string;
-    apiKey?: string;
-    model?: string;
-    themeLabel?: string;
-    todaySummary?: string;
-    todaySourcePost?: string;
-    todayLeaderDraft?: string;
-  },
-): Promise<string> {
-  const resolved = await resolveSameThemeQuoteClosed({
-    seedQuote: rawQuote,
-    material: opts?.material,
-    themeLabel: opts?.themeLabel ?? "",
-    todaySummary: opts?.todaySummary,
-    todaySourcePost: opts?.todaySourcePost,
-    todayLeaderDraft: opts?.todayLeaderDraft,
-    apiKey: opts?.apiKey,
-    model: opts?.model,
-  });
-  return resolved?.quote ?? "";
-}

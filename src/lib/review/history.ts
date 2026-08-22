@@ -1003,11 +1003,6 @@ export function getSameThemeLeaderQuote(
   };
 }
 
-/** @deprecated getSameThemeLeaderQuote を使う */
-export function sameThemeHistoryForLeader(themeId?: string): string {
-  return getSameThemeLeaderQuote(themeId).notes;
-}
-
 export function historyNotesForDraft(input: {
   themeId?: string;
   presenterName?: string;

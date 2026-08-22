@@ -19,7 +19,6 @@ export async function POST(req: Request) {
     kind?: string;
     currentSummary?: string;
     instruction?: string;
-    preferredProvider?: string;
     sameThemeFixedSentence?: string;
     sameThemeQuoteMaterial?: string;
     pagePaste?: string;
@@ -79,7 +78,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const preferred = "gemini";
     const result = await generateReviewSummaryRevise({
       kind: "summary-revise",
       sourcePost: body.sourcePost,
@@ -89,7 +87,6 @@ export async function POST(req: Request) {
       presenterName: body.presenterName,
       currentSummary: body.currentSummary,
       instruction: body.instruction,
-      preferredProvider: preferred,
       historyNotes: body.historyNotes,
     });
     return NextResponse.json(result);
@@ -157,11 +154,6 @@ export async function POST(req: Request) {
       selectedLinks: body.selectedLinks,
       pagePaste:
         typeof body.pagePaste === "string" ? body.pagePaste : undefined,
-      preferredProvider:
-        body.preferredProvider === "gemini" ||
-        body.preferredProvider === "stub"
-          ? body.preferredProvider
-          : "",
     });
     return NextResponse.json(result);
   }
@@ -214,11 +206,6 @@ export async function POST(req: Request) {
         typeof body.sameThemeQuoteMaterial === "string"
           ? body.sameThemeQuoteMaterial
           : undefined,
-      preferredProvider:
-        body.preferredProvider === "gemini" ||
-        body.preferredProvider === "stub"
-          ? body.preferredProvider
-          : "",
     });
     return NextResponse.json(result);
   }

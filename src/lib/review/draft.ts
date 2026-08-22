@@ -1,5 +1,3 @@
-import { generateLeaderStub } from "@/lib/review/providers/leader";
-import { generateSummaryStub } from "@/lib/review/providers/summary";
 import { looksLikeUrlInaccessible } from "@/lib/review/providers/research-brief";
 import { repairDuplicatedGuidelinePhrase, repairMissingOpeningKagi } from "@/lib/review/final-check";
 import { formatThanks } from "@/lib/review/thanks";
@@ -50,8 +48,6 @@ export type ReviewDraft = {
   themeId: string;
   /** 要約前の観点（要約を厚くする。所感には渡さない） */
   lens: string;
-  /** 採用した要約モデル（要点メモも同じエンジン） */
-  summaryProvider: "gemini" | "stub" | "";
   /** 1 お礼 */
   opener: string;
   /** 2 要約共有 */
@@ -131,7 +127,6 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     presenterName: "",
     themeId,
     lens: "",
-    summaryProvider: "",
     opener: DEFAULT_OPENER,
     summary: "",
     keywordSuggestions: [],
@@ -146,37 +141,6 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     closing: DEFAULT_CLOSING,
     assembledPost: "",
   };
-}
-
-/**
- * @deprecated クライアント直呼び用の退避。本線は POST /api/review/draft
- */
-export function stubDraftSummary(input: {
-  sourcePost: string;
-  themeLabel: string;
-  lens: string;
-}): string {
-  return generateSummaryStub(input).summary;
-}
-
-export function stubLeaderNote(input: {
-  themeLabel: string;
-  keywords: string;
-  sourcePost: string;
-  summary?: string;
-  selectedLinkTitles?: string[];
-  researchFocus?: string;
-  researchBrief?: string;
-}): string {
-  return generateLeaderStub({
-    themeLabel: input.themeLabel,
-    keywords: input.keywords,
-    sourcePost: input.sourcePost,
-    summary: input.summary ?? "",
-    selectedLinkTitles: input.selectedLinkTitles ?? [],
-    researchFocus: input.researchFocus ?? "",
-    researchBrief: input.researchBrief ?? "",
-  }).leaderNote;
 }
 
 export function selectedLinkCount(draft: ReviewDraft): number {
@@ -260,12 +224,6 @@ export function loadReviewDraft(): ReviewDraft | null {
       researchBrief: parsed.researchBrief ?? "",
       keywordSuggestions: parsed.keywordSuggestions ?? [],
       assembledPost: parsed.assembledPost ?? "",
-      summaryProvider: (() => {
-        const p = (parsed as { summaryProvider?: string }).summaryProvider;
-        if (p === "gemini" || p === "stub") return p;
-        if (p === "chatgpt") return "gemini";
-        return "";
-      })(),
       step: parsed.step ?? 1,
     };
   } catch {

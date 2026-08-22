@@ -320,7 +320,6 @@ export function ReviewWorkbench() {
           patch({
             opener,
             summary: "",
-            summaryProvider: "",
             step: 2,
           });
           setHint("要約が2案出た。あっさり／こってりから使うほうを選ぶ");
@@ -334,7 +333,6 @@ export function ReviewWorkbench() {
         patch({
           opener,
           summary: only?.summary ?? data.summary ?? "",
-          summaryProvider: provider === "stub" ? "" : provider,
           step: 2,
         });
         setHint(
@@ -356,10 +354,8 @@ export function ReviewWorkbench() {
     model?: string;
     variant?: string;
   }) {
-    const provider = candidate.provider === "gemini" ? "gemini" : "";
     patch({
       summary: candidate.summary,
-      summaryProvider: provider,
     });
     setShowSummaryCompare(false);
     setHint(`${summaryVariantMeta(candidate.variant).title}を採用した`);
@@ -391,7 +387,6 @@ export function ReviewWorkbench() {
             presenterName: draft!.presenterName,
             currentSummary: draft!.summary,
             instruction: text,
-            preferredProvider: "gemini",
             historyNotes: historyNotesForDraft({
               themeId: draft!.themeId,
               presenterName: draft!.presenterName,
@@ -458,10 +453,11 @@ export function ReviewWorkbench() {
           researchPhase: "collect",
           researchBrief: "",
         });
-        const via =
-          data.provider === "gemini"
-            ? `Gemini${data.model ? ` (${data.model})` : ""}`
-            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        const via = providerLabel(
+          data.provider,
+          data.model,
+          data.fallbackReason,
+        );
         setHint(
           `検索ワード候補を3つ出した（${via}）。選ぶか、下に希望ワードを入れて`,
         );
@@ -548,7 +544,6 @@ export function ReviewWorkbench() {
           summary: draft!.summary,
           selectedLinks,
           pagePaste,
-          preferredProvider: "gemini",
         }),
       });
       const data = (await res.json()) as {
@@ -643,7 +638,6 @@ export function ReviewWorkbench() {
             historyNotes: sameTheme.fixedSentence ? "" : sameTheme.notes,
             sameThemeFixedSentence: sameTheme.fixedSentence,
             sameThemeQuoteMaterial: sameTheme.quoteMaterial,
-            preferredProvider: "gemini",
           }),
         });
         const data = (await res.json()) as {
@@ -798,10 +792,11 @@ export function ReviewWorkbench() {
           patch({ closing: data.closing });
           setClosingCandidates(data.candidates ?? [data.closing]);
         }
-        const via =
-          data.provider === "gemini"
-            ? `Gemini${data.model ? ` (${data.model})` : ""}`
-            : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+        const via = providerLabel(
+          data.provider,
+          data.model,
+          data.fallbackReason,
+        );
         setHint(`締め案を出した（${via}）。しっくり来なければ別案を選ぶか再提案して`);
       } catch {
         setHint("締め案のリクエストに失敗した");
@@ -1277,10 +1272,11 @@ export function ReviewWorkbench() {
                         }
                       : prev,
                   );
-                  const via =
-                    data.provider === "gemini"
-                      ? `Gemini${data.model ? ` (${data.model})` : ""}`
-                      : `スタブ退避${data.fallbackReason ? ` · ${data.fallbackReason}` : ""}`;
+                  const via = providerLabel(
+                    data.provider,
+                    data.model,
+                    data.fallbackReason,
+                  );
                   setHint(
                     `検索ワード候補を出した（${via}）。選ぶか、希望ワードを入れて`,
                   );

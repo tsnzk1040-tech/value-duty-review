@@ -92,11 +92,6 @@ export function repairMissingOpeningKagi(text: string): string {
   return out;
 }
 
-/** @deprecated 互換。鉤括弧チェックへ移行 */
-export function leaderOpeningMayMissGa(leaderBlock: string): boolean {
-  return textMayMissOpeningKagi(leaderBlock);
-}
-
 /** 投稿前の決定論チェック（サブエージェント／人手レビューの下地）。 */
 export function checkFinalReviewPost(text: string): FinalCheckResult {
   const issues: FinalCheckIssue[] = [];
