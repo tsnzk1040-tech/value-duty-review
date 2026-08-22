@@ -86,6 +86,8 @@ export type ReviewLeaderGenerateRequest = {
   historyNotes?: string;
   /** アプリが②に差し込む同テーマ前回の固定文 */
   sameThemeFixedSentence?: string;
+  /** 引用整文用の要約あいだなど */
+  sameThemeQuoteMaterial?: string;
   /** 互換用。常に Gemini */
   preferredProvider?: SummaryModelId | "stub" | "";
 };
@@ -177,6 +179,8 @@ export type ReviewLeaderGenerateResponse = {
   provider: GenerateProviderId;
   model?: string;
   fallbackReason?: string;
+  sameThemeApplied?: boolean;
+  sameThemeSkipReason?: string;
 };
 
 export type ReviewSearchGenerateResponse = {
@@ -534,6 +538,7 @@ export async function generateReviewLeaderDraft(
 
   const historyNotes = input.historyNotes?.trim() ?? "";
   const sameThemeFixedSentence = input.sameThemeFixedSentence?.trim() ?? "";
+  const sameThemeQuoteMaterial = input.sameThemeQuoteMaterial?.trim() ?? "";
 
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,
@@ -545,6 +550,7 @@ export async function generateReviewLeaderDraft(
     researchBrief: input.researchBrief,
     historyNotes,
     sameThemeFixedSentence,
+    sameThemeQuoteMaterial,
   };
 
   const gate = shouldUseStub();
@@ -555,6 +561,8 @@ export async function generateReviewLeaderDraft(
       leaderNote: stub.leaderNote,
       provider: "stub",
       fallbackReason: gate.reason,
+      sameThemeApplied: stub.sameThemeApplied,
+      sameThemeSkipReason: stub.sameThemeSkipReason,
     };
   }
 
@@ -565,6 +573,8 @@ export async function generateReviewLeaderDraft(
       leaderNote: result.leaderNote,
       provider: result.provider,
       model: result.model,
+      sameThemeApplied: result.sameThemeApplied,
+      sameThemeSkipReason: result.sameThemeSkipReason,
     };
   } catch (err) {
     const stub = generateLeaderStub(leaderInput);
@@ -574,6 +584,8 @@ export async function generateReviewLeaderDraft(
       leaderNote: stub.leaderNote,
       provider: "stub",
       fallbackReason: message,
+      sameThemeApplied: stub.sameThemeApplied,
+      sameThemeSkipReason: stub.sameThemeSkipReason,
     };
   }
 }

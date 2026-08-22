@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     instruction?: string;
     preferredProvider?: string;
     sameThemeFixedSentence?: string;
+    sameThemeQuoteMaterial?: string;
     pagePaste?: string;
     text?: string;
   };
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
     body = (await req.json()) as Partial<ReviewDraftGenerateRequest> & {
       kind?: string;
       sameThemeFixedSentence?: string;
+      sameThemeQuoteMaterial?: string;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -207,6 +209,10 @@ export async function POST(req: Request) {
       sameThemeFixedSentence:
         typeof body.sameThemeFixedSentence === "string"
           ? body.sameThemeFixedSentence
+          : undefined,
+      sameThemeQuoteMaterial:
+        typeof body.sameThemeQuoteMaterial === "string"
+          ? body.sameThemeQuoteMaterial
           : undefined,
       preferredProvider:
         body.preferredProvider === "gemini" ||

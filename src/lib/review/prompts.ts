@@ -390,6 +390,8 @@ export type LeaderGenerateInput = {
   historyNotes?: string;
   /** アプリが②に差し込む固定文（前回レビュー要約の一言） */
   sameThemeFixedSentence?: string;
+  /** 引用整文用の要約あいだなど（任意） */
+  sameThemeQuoteMaterial?: string;
 };
 
 export type LeaderFlavor = "close" | "angle";

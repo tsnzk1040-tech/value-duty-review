@@ -378,9 +378,72 @@ function stripSummaryFrame(summary: string): string {
     .trim()
     .replace(/^Value[０-９0-9ivxlcdmIVXLCDM]*[\s\S]*?行動指針について[、,]/u, "")
     .replace(/^[\s\S]*?の(?:\d+|当該)番目の行動指針について[、,]/u, "")
-    .replace(/想いを共有頂きました[。．！!]?$/u, "")
+    .replace(/(?:想いを)?共有頂(?:だ)?きました[。．！!]?$/u, "")
     .replace(/[　\s]+/g, " ")
     .trim();
+}
+
+/**
+ * レビュー投稿全文から要約あいだを切り出す（参照時）。
+ * 「…について、」の直後〜「（想いを）共有頂(だ)きました」の直前。
+ * 保存時に summary が空でも fullText から復旧する。
+ */
+export function extractSummaryMidFromPostedText(
+  posted: string,
+  themeLabel = "",
+): string {
+  const t = posted.replace(/\r\n/g, "\n").trim();
+  if (!t) return "";
+
+  const m = t.match(
+    /(?:行動指針について|について)[、,]\s*([\s\S]*?)(?:想いを)?共有頂(?:だ)?きました[!！]?/u,
+  );
+  if (!m?.[1]) return "";
+
+  let mid = m[1].replace(/[　\s]+/g, " ").trim();
+  mid = stripThemeLabelFromText(mid, themeLabel);
+  mid = mid.replace(/[　\s]+/g, " ").trim();
+  if (mid.length < 12 || isOnlyThemeLabel(mid, themeLabel)) return "";
+  return mid;
+}
+
+/** 要約フィールド優先。空・所感混入なら投稿全文から定型あいだを切り出す。 */
+export function summaryMidForSameThemeQuote(
+  item: ReviewHistoryRecord,
+): string {
+  return resolveSummaryMidForSameThemeQuote(item).mid;
+}
+
+export type SameThemeMidSource = "summary-field" | "posted-text" | "";
+
+/** 引用用要約あいだと、その出典（監査・UI用）。 */
+export function resolveSummaryMidForSameThemeQuote(
+  item: ReviewHistoryRecord,
+): { mid: string; source: SameThemeMidSource } {
+  const themeLabel = item.themeLabel ?? "";
+  const fromSummary = extractSummaryMidBody(item.summary ?? "", themeLabel);
+  const summaryUsable =
+    fromSummary.length >= 12 &&
+    !isOnlyThemeLabel(fromSummary, themeLabel) &&
+    !looksLikeLeaderEmpathyQuote(fromSummary);
+
+  if (summaryUsable) {
+    return { mid: fromSummary, source: "summary-field" };
+  }
+
+  const posted = reviewHistoryPostedText(item);
+  const fromPosted = extractSummaryMidFromPostedText(posted, themeLabel);
+  if (fromPosted.length >= 12) {
+    return { mid: fromPosted, source: "posted-text" };
+  }
+
+  if (
+    fromSummary.length >= 12 &&
+    !isOnlyThemeLabel(fromSummary, themeLabel)
+  ) {
+    return { mid: fromSummary, source: "summary-field" };
+  }
+  return { mid: "", source: "" };
 }
 
 /** 要約から定型枠を外した「あいだ」本文。 */
@@ -417,31 +480,6 @@ function isOnlyThemeLabel(text: string, themeLabel: string): boolean {
   return false;
 }
 
-/** 要約あいだを一言に圧縮。 */
-function condenseToOneLiner(text: string, maxChars: number): string {
-  let t = text.replace(/[「」『』]/g, "").trim();
-  t = t
-    .replace(/^(そして|また|なお|ただ)[、,]?/u, "")
-    .replace(/という(実践|気づき|想い).*$/u, "")
-    .replace(/[、,。．！？]+$/u, "")
-    .trim();
-  if (t.length < 6) return "";
-  if (t.length <= maxChars) return t;
-
-  const window = t.slice(0, maxChars);
-  const cut = Math.max(window.lastIndexOf("、"), window.lastIndexOf("・"));
-  if (cut >= Math.floor(maxChars * 0.35)) {
-    const clipped = window.slice(0, cut).trim();
-    if (clipped.length >= 6) return clipped;
-  }
-  for (let i = Math.min(maxChars, t.length); i >= Math.floor(maxChars * 0.45); i -= 1) {
-    if (/[たているうくすつぬぶむよろをん]$/u.test(t.slice(0, i))) {
-      return t.slice(0, i).trim();
-    }
-  }
-  return window.replace(/[、,\s　]+$/u, "").trim();
-}
-
 function scorePracticeCue(sentence: string): number {
   let score = 1;
   if (/試してみ|やってみた|実践|取り組|意識して|取り入れ/.test(sentence)) score += 10;
@@ -452,10 +490,16 @@ function scorePracticeCue(sentence: string): number {
   if (/ありがとう|振り返りコメント|共有頂き|想いを共有|行動指針について|企業理念/.test(sentence)) {
     return -100;
   }
-  if (sentence.length >= 12 && sentence.length <= 56) score += 3;
+  // 完結文の適度な長さを優遇（切らない前提）
+  if (sentence.length >= 16 && sentence.length <= 100) score += 3;
+  if (sentence.length > 140) score -= 2;
   return score;
 }
 
+/**
+ * 文区切り（。！？）された**完結文だけ**から選ぶ。
+ * 字数スライスや記号末尾ヒューリスティックでは切らない。
+ */
 function pickOneLinerFromText(
   text: string,
   themeLabel: string,
@@ -468,43 +512,102 @@ function pickOneLinerFromText(
   const parts = cleaned
     .split(/[。．！？\n]/)
     .map((p) => p.trim())
-    .filter((p) => p.length >= 6 && !isOnlyThemeLabel(p, themeLabel));
+    .filter((p) => p.length >= 12 && !isOnlyThemeLabel(p, themeLabel));
 
-  const ranked = (parts.length ? parts : [cleaned])
-    .map((part) => ({ part, score: scorePracticeCue(part) }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score);
-
-  for (const row of ranked) {
-    const q = condenseToOneLiner(row.part, maxChars);
-    if (q.length >= 6 && !isOnlyThemeLabel(q, themeLabel)) return q;
+  if (!parts.length) {
+    // 句点のない一塊は、短く完結していそうなときだけ採用（切らない）
+    if (
+      cleaned.length >= 12 &&
+      cleaned.length <= maxChars &&
+      !isOnlyThemeLabel(cleaned, themeLabel)
+    ) {
+      return cleaned.replace(/[「」『』]/g, "").trim();
+    }
+    return "";
   }
 
-  const q = condenseToOneLiner(cleaned, maxChars);
-  if (q.length >= 6 && !isOnlyThemeLabel(q, themeLabel)) return q;
-  return "";
+  const ranked = parts
+    .map((part) => ({
+      part: part.replace(/[「」『』]/g, "").trim(),
+      score: scorePracticeCue(part),
+    }))
+    .filter(
+      (row) =>
+        row.score > 0 &&
+        row.part.length >= 12 &&
+        !looksLikeLeaderEmpathyQuote(row.part),
+    )
+    .sort((a, b) => b.score - a.score);
+
+  // まず maxChars に収まる完結文
+  for (const row of ranked) {
+    if (row.part.length <= maxChars) return row.part;
+  }
+  // やや長い完結文も許容（切るより全文）
+  const hardMax = Math.max(maxChars, 140);
+  for (const row of ranked) {
+    if (row.part.length <= hardMax) return row.part;
+  }
+  // 長すぎる完結文は切らずに見送る（サーバ側 Gemini 整文に回す材料として raw を別途渡す想定）
+  return ranked[0] && ranked[0].part.length <= 200 ? ranked[0].part : "";
 }
 
 /**
- * 所感②用の核。前回レビューの**要約あいだ**を一言にしたもの。
- * 取れなければ投稿の具体を退避。理念テーマ文言だけは使わない。
+ * 所感②用の核。前回レビューの**要約あいだの完結文のみ**。
+ * summary が空でも fullText 等から定型あいだを切り出して使う。
  */
 export function extractSameThemeQuoteCore(
   item: ReviewHistoryRecord,
-  maxChars = 56,
+  maxChars = 100,
 ): string {
   const themeLabel = item.themeLabel ?? "";
+  const mid = summaryMidForSameThemeQuote(item);
+  return pickOneLinerFromText(mid, themeLabel, maxChars);
+}
 
-  const mid = extractSummaryMidBody(item.summary ?? "", themeLabel);
-  const fromMid = pickOneLinerFromText(mid, themeLabel, maxChars);
-  if (fromMid) return fromMid;
+/** Gemini 選定用。要約あいだのみ（所感・投稿本文は渡さない）。 */
+export function extractSameThemeQuoteMaterial(
+  item: ReviewHistoryRecord,
+  maxChars = 240,
+): string {
+  const mid = summaryMidForSameThemeQuote(item);
+  if (mid.length < 12) return "";
+  return mid.slice(0, maxChars).trim();
+}
 
-  const framed = stripSummaryFrame(item.summary ?? "");
-  const fromFramed = pickOneLinerFromText(framed, themeLabel, maxChars);
-  if (fromFramed) return fromFramed;
+/** 所感・共感口調っぽい一文（引用に使わない）。 */
+export function looksLikeLeaderEmpathyQuote(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (
+    /分かります|わかります|いいですね|共有ありがとう|どうでしょう|してみたら|現場でも使え|思い出しますね|つながる感じ|と通じる/.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
 
-  const source = (item.sourcePost ?? "").replace(/\s+/g, " ").trim();
-  return pickOneLinerFromText(source, themeLabel, maxChars);
+/** 固定文幹から「」内の引用を取り出す。 */
+export function extractQuoteFromSameThemeStem(stem: string): string {
+  const m = stem.trim().match(/「([^」]*)」\s*$/u);
+  return m?.[1]?.trim() ?? "";
+}
+
+/** 固定文幹の「」内だけ差し替える。 */
+export function replaceQuoteInSameThemeStem(
+  stem: string,
+  quote: string,
+): string {
+  const q = quote.replace(/[「」『』]/g, "").trim();
+  if (!q) return "";
+  const base = sameThemeFixedStem(stem);
+  if (!base) return "";
+  if (/「[^」]*」\s*$/u.test(base)) {
+    return base.replace(/「[^」]*」\s*$/u, `「${q}」`);
+  }
+  return `${base.replace(/」?\s*$/u, "")}「${q}」`;
 }
 
 /**
@@ -540,17 +643,31 @@ export function sameThemeQuoteConnectsWithToday(
   return true;
 }
 
-/** 通じる前提の末尾プール（A/B/D/E/F/G/H/J）。 */
-export const SAME_THEME_ENDING_POOL = [
+/** 今日の主線とつなぐ末尾（bridge）。 */
+export const SAME_THEME_BRIDGE_ENDING_POOL = [
   "と通じるものがありますね。", // A
   "と、今日の話と重なりますね。", // B
   "を思い出しますね。", // D
   "とつながる感じがします。", // E
+] as const;
+
+/** 単なる紹介の末尾（intro）。通じる／つながるは使わない。 */
+export const SAME_THEME_INTRO_ENDING_POOL = [
   "と、投稿していました。", // F
   "と触れていました。", // G
   "という実践がありました。", // H
   "とまとめていました。", // J
+  "と書いていました。",
+  "と共有していました。",
 ] as const;
+
+/** 互換: bridge + intro の合算。 */
+export const SAME_THEME_ENDING_POOL = [
+  ...SAME_THEME_BRIDGE_ENDING_POOL,
+  ...SAME_THEME_INTRO_ENDING_POOL,
+] as const;
+
+export type SameThemeEndingMode = "bridge" | "intro";
 
 const SAME_THEME_STEM_RE =
   /^(同テーマ前回の.+?の(?:要約|投稿)では、「[^」]+」)/u;
@@ -565,9 +682,17 @@ export function sameThemeFixedStem(fixedOrStem: string): string {
   return t;
 }
 
-function endingPoolForSource(fromSummary: boolean): readonly string[] {
-  if (fromSummary) return SAME_THEME_ENDING_POOL;
-  return SAME_THEME_ENDING_POOL.filter((e) => e !== "とまとめていました。");
+function endingPoolForMode(
+  mode: SameThemeEndingMode,
+  fromSummary: boolean,
+): readonly string[] {
+  if (mode === "intro") {
+    if (fromSummary) return SAME_THEME_INTRO_ENDING_POOL;
+    return SAME_THEME_INTRO_ENDING_POOL.filter(
+      (e) => e !== "とまとめていました。",
+    );
+  }
+  return SAME_THEME_BRIDGE_ENDING_POOL;
 }
 
 /**
@@ -616,8 +741,9 @@ export function pickSameThemeEndingForContext(
   before: string,
   after: string,
   fromSummary: boolean,
+  mode: SameThemeEndingMode = "bridge",
 ): string {
-  const pool = endingPoolForSource(fromSummary);
+  const pool = endingPoolForMode(mode, fromSummary);
   const scored = pool.map((ending) => ({
     ending,
     score: scoreSameThemeEndingFit(before, after, ending),
@@ -631,7 +757,7 @@ export function pickSameThemeEndingForContext(
 
 /**
  * 所感②用の固定文幹。末尾は所感生成後に前後のまとまりで選ぶ。
- * 返す形: `同テーマ前回の〇〇さんの要約では、「……」`
+ * 返す形: `同テーマ前回の〇〇さんの要約では、「……」`（出典は常に要約）
  */
 export function buildSameThemeFixedSentence(
   item: ReviewHistoryRecord,
@@ -642,14 +768,9 @@ export function buildSameThemeFixedSentence(
   },
 ): string {
   const callName = presenterCallName(item.presenterName);
-  const quote = extractSameThemeQuoteCore(item, 56);
+  const quote = extractSameThemeQuoteCore(item, 100);
   if (quote.length < 6) return "";
-
-  const probe = quote.slice(0, Math.min(10, quote.length));
-  const fromSummary =
-    extractSummaryMidBody(item.summary ?? "", item.themeLabel ?? "").includes(
-      probe,
-    ) || stripSummaryFrame(item.summary ?? "").includes(probe);
+  if (looksLikeLeaderEmpathyQuote(quote)) return "";
 
   const connects = sameThemeQuoteConnectsWithToday(
     quote,
@@ -659,17 +780,17 @@ export function buildSameThemeFixedSentence(
   );
   if (!connects) return "";
 
-  const sourceLabel = fromSummary ? "要約" : "投稿";
-  return `同テーマ前回の${callName}の${sourceLabel}では、「${quote}」`;
+  return `同テーマ前回の${callName}の要約では、「${quote}」`;
 }
 
 /**
  * モデルが書いた同テーマ前回の文を外し、固定文を①の直後に差し込む。
- * 末尾8案のうち、前後のまとまりが良いものからランダムに選ぶ。
+ * mode=bridge: 今日とつなぐ末尾 / mode=intro: 単なる紹介の末尾。
  */
 export function applySameThemeFixedSentence(
   body: string,
   fixedSentence: string,
+  opts?: { mode?: SameThemeEndingMode },
 ): string {
   const raw = fixedSentence.trim();
   if (!raw) return body.trim();
@@ -678,6 +799,8 @@ export function applySameThemeFixedSentence(
   if (!stem || !stem.includes("同テーマ前回の") || !/」$/u.test(stem)) {
     return body.trim();
   }
+
+  const mode: SameThemeEndingMode = opts?.mode === "intro" ? "intro" : "bridge";
 
   // モデルが本文・注釈・行頭メモに書いた同テーマ行を広く除去
   let out = body
@@ -697,10 +820,15 @@ export function applySameThemeFixedSentence(
   if (m) {
     const before = m[1]!;
     const after = m[2]!.replace(/^[、,\s]+/u, "");
-    const ending = pickSameThemeEndingForContext(before, after, fromSummary);
+    const ending = pickSameThemeEndingForContext(
+      before,
+      after,
+      fromSummary,
+      mode,
+    );
     merged = `${before}${stem}${ending}${after}`.trim();
   } else {
-    const ending = pickSameThemeEndingForContext(out, "", fromSummary);
+    const ending = pickSameThemeEndingForContext(out, "", fromSummary, mode);
     const fixed = `${stem}${ending}`;
     if (!out) {
       merged = fixed;
@@ -711,7 +839,7 @@ export function applySameThemeFixedSentence(
 
   // 差し込み必須。無ければ先頭共感のあとに強制
   if (!merged.includes("同テーマ前回の")) {
-    const ending = pickSameThemeEndingForContext(out, "", fromSummary);
+    const ending = pickSameThemeEndingForContext(out, "", fromSummary, mode);
     const fixed = `${stem}${ending}`;
     const again = out.match(/^([\s\S]*?[。．！])([\s\S]*)$/u);
     if (again) {
@@ -736,7 +864,7 @@ function sameThemeHistoryCandidates(
   const all = listStoredReviews();
   const matched = all.filter((item) => {
     if (exclude && item.reviewDate === exclude) return false;
-    if (!(item.summary?.trim() || item.sourcePost?.trim())) return false;
+    if (!summaryMidForSameThemeQuote(item)) return false;
     if (id && item.themeId === id) return true;
     if (label && item.themeLabel === label) return true;
     const itemCodes = lookupThemeCodes(item.themeId, item.themeLabel);
@@ -756,13 +884,22 @@ export function getSameThemeLeaderQuote(
   },
 ): {
   fixedSentence: string;
+  quoteMaterial: string;
   notes: string;
   reasonIfEmpty: string;
+  /** 要約あいだの出典 */
+  midSource: SameThemeMidSource;
 } {
   const id = themeId?.trim() ?? "";
   const label = opts?.themeLabel?.trim() ?? "";
   if (!id && !label) {
-    return { fixedSentence: "", notes: "", reasonIfEmpty: "テーマ未選択" };
+    return {
+      fixedSentence: "",
+      quoteMaterial: "",
+      notes: "",
+      reasonIfEmpty: "テーマ未選択",
+      midSource: "",
+    };
   }
 
   const pickUsable = (excludeDate?: string) =>
@@ -777,20 +914,40 @@ export function getSameThemeLeaderQuote(
   }
 
   if (!items.length) {
-    const rawCount = sameThemeHistoryCandidates(id, label, undefined).length;
+    const rawMatched = listStoredReviews().filter((item) => {
+      if (id && item.themeId === id) return true;
+      if (label && item.themeLabel === label) return true;
+      const itemCodes = lookupThemeCodes(item.themeId, item.themeLabel);
+      const codes = lookupThemeCodes(id, label);
+      return itemCodes.some((c) => codes.includes(c));
+    }).length;
+    const midFailCount = listStoredReviews().filter((item) => {
+      const themeOk =
+        (id && item.themeId === id) ||
+        (label && item.themeLabel === label) ||
+        lookupThemeCodes(item.themeId, item.themeLabel).some((c) =>
+          lookupThemeCodes(id, label).includes(c),
+        );
+      return themeOk && !summaryMidForSameThemeQuote(item);
+    }).length;
     return {
       fixedSentence: "",
+      quoteMaterial: "",
       notes: "",
       reasonIfEmpty:
-        rawCount === 0
+        rawMatched === 0
           ? "同テーマの履歴がこの端末にない（コピー／共有で保存された回だけが対象）"
-          : "同テーマ履歴はあるが要約・投稿から一言を作れなかった",
+          : midFailCount > 0
+            ? "同テーマ履歴はあるが、要約あいだ（について、〜共有頂きました）を切り出せなかった"
+            : "同テーマ履歴はあるが、引用できる一言を作れなかった",
+      midSource: "",
     };
   }
 
   // 今日と通じる候補だけ採用（通じない引用は出さない）
   let primary: ReviewHistoryRecord | undefined;
   let fixedSentence = "";
+  let midSource: SameThemeMidSource = "";
   for (const item of items) {
     const built = buildSameThemeFixedSentence(item, {
       todaySummary: opts?.todaySummary,
@@ -800,6 +957,7 @@ export function getSameThemeLeaderQuote(
     if (built) {
       primary = item;
       fixedSentence = built;
+      midSource = resolveSummaryMidForSameThemeQuote(item).source;
       break;
     }
   }
@@ -807,12 +965,15 @@ export function getSameThemeLeaderQuote(
   if (!primary || !fixedSentence) {
     return {
       fixedSentence: "",
+      quoteMaterial: "",
       notes: "",
       reasonIfEmpty:
-        "同テーマ履歴はあるが、使える一言（テーマ文言以外）を作れなかった",
+        "同テーマ履歴はあるが、今日とつなげる／紹介する一言を選べなかった",
+      midSource: "",
     };
   }
 
+  const quoteMaterial = extractSameThemeQuoteMaterial(primary);
   const extras = items
     .filter((item) => item.id !== primary!.id)
     .slice(0, 2)
@@ -825,12 +986,21 @@ export function getSameThemeLeaderQuote(
     "【同テーマ前回】",
     "②はアプリが所感本文へ差し込む。所感にも注釈にも書かない。",
     `日付: ${primary.reviewDate}`,
+    midSource === "posted-text"
+      ? "出典: 投稿全文から要約定型（について、〜共有頂きました）を切り出し"
+      : "出典: 保存済み summary フィールド",
     extras.length ? ["", "【同テーマのさらに前】", ...extras].join("\n") : "",
   ]
     .filter(Boolean)
     .join("\n");
 
-  return { fixedSentence, notes, reasonIfEmpty: "" };
+  return {
+    fixedSentence,
+    quoteMaterial,
+    notes,
+    reasonIfEmpty: "",
+    midSource,
+  };
 }
 
 /** @deprecated getSameThemeLeaderQuote を使う */

@@ -107,6 +107,10 @@ export function ReviewWorkbench() {
     }[]
   >([]);
   const [summaryRevise, setSummaryRevise] = useState("");
+  const [sameThemeQuoteNotice, setSameThemeQuoteNotice] = useState<{
+    tone: "ok" | "warn" | "muted";
+    text: string;
+  } | null>(null);
   const shareAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -620,6 +624,7 @@ export function ReviewWorkbench() {
             presenterName: draft!.presenterName,
             historyNotes: sameTheme.fixedSentence ? "" : sameTheme.notes,
             sameThemeFixedSentence: sameTheme.fixedSentence,
+            sameThemeQuoteMaterial: sameTheme.quoteMaterial,
             preferredProvider: "gemini",
           }),
         });
@@ -629,19 +634,25 @@ export function ReviewWorkbench() {
           model?: string;
           fallbackReason?: string;
           error?: string;
+          sameThemeApplied?: boolean;
+          sameThemeSkipReason?: string;
         };
         if (!res.ok) {
           setHint(data.error ?? "所感の生成に失敗した");
           return;
         }
         const leaderNoteRaw = data.leaderNote ?? "";
-        // サーバ差し込み漏れ時の保険（本文へ必ず入れる）
+        // サーバが意図的に外したときはクライアントで再差し込みしない（混線防止）
+        const serverSkippedQuote =
+          Boolean(sameTheme.fixedSentence) && data.sameThemeApplied === false;
         const leaderNote =
           sameTheme.fixedSentence &&
+          !serverSkippedQuote &&
           !/同テーマ前回の/.test(leaderNoteRaw)
             ? applySameThemeFixedSentence(
                 leaderNoteRaw,
                 sameTheme.fixedSentence,
+                { mode: "intro" },
               )
             : leaderNoteRaw;
         patch({ leaderNote });
@@ -654,11 +665,43 @@ export function ReviewWorkbench() {
           leaderNote && textMayMissOpeningKagi(leaderNote)
             ? " 開きの「が抜けてないか見て。"
             : "";
-        const sameThemeStatus = /同テーマ前回の/.test(leaderNote)
-          ? "同テーマ前回を本文に差し込んだ。"
-          : sameTheme.fixedSentence
-            ? "同テーマ前回の差し込みに失敗した。"
-            : `${sameTheme.reasonIfEmpty}。`;
+        const inBody = /同テーマ前回の/.test(leaderNote);
+        let sameThemeStatus: string;
+        let notice: { tone: "ok" | "warn" | "muted"; text: string };
+        if (inBody) {
+          const src =
+            sameTheme.midSource === "posted-text"
+              ? "（全文から要約あいだを切り出し）"
+              : sameTheme.midSource === "summary-field"
+                ? "（保存済み要約）"
+                : "";
+          sameThemeStatus = `同テーマ前回を本文に差し込んだ${src}。`;
+          notice = {
+            tone: "ok",
+            text: `同テーマ前回の要約引用あり${src}`,
+          };
+        } else if (serverSkippedQuote || data.sameThemeSkipReason) {
+          sameThemeStatus =
+            data.sameThemeSkipReason ??
+            "同テーマ前回の引用を外した。";
+          notice = {
+            tone: "warn",
+            text: `前回要約の引用なし: ${data.sameThemeSkipReason ?? "サーバが引用を外した"}`,
+          };
+        } else if (sameTheme.fixedSentence) {
+          sameThemeStatus = "同テーマ前回の差し込みに失敗した。";
+          notice = {
+            tone: "warn",
+            text: "前回要約の引用なし: 差し込みに失敗した",
+          };
+        } else {
+          sameThemeStatus = `${sameTheme.reasonIfEmpty}。`;
+          notice = {
+            tone: "muted",
+            text: `前回要約の引用なし: ${sameTheme.reasonIfEmpty}`,
+          };
+        }
+        setSameThemeQuoteNotice(notice);
         setHint(
           `所感下書きを出した（${via}）。${sameThemeStatus}${gaHint}締めを本文に合わせて提案中…`,
         );
@@ -1474,6 +1517,20 @@ export function ReviewWorkbench() {
           </Button>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="leader">所感・着想（ここで脚色）</Label>
+            {sameThemeQuoteNotice ? (
+              <p
+                role="status"
+                className={
+                  sameThemeQuoteNotice.tone === "ok"
+                    ? "rounded-md border border-border bg-muted/40 px-2.5 py-2 text-xs text-foreground"
+                    : sameThemeQuoteNotice.tone === "warn"
+                      ? "rounded-md border border-amber-700/40 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"
+                      : "rounded-md border border-border bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground"
+                }
+              >
+                {sameThemeQuoteNotice.text}
+              </p>
+            ) : null}
             <Textarea
               id="leader"
               className="min-h-48"
