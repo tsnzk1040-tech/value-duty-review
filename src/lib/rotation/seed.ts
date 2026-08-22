@@ -19,7 +19,7 @@ export const POC_MEMBERS: Member[] = [
   { id: "m-tamada", displayName: "玉田さん", active: true },
   { id: "m-tateishi", displayName: "立石さん", active: true },
   { id: "m-matsumoto", displayName: "松本さん", active: true },
-  { id: "m-kobayashi-taku", displayName: "小林(拓)さん", active: true },
+  { id: "m-kobayashi-taku", displayName: "小林(拓巳)さん", active: true },
   { id: "m-tagawa", displayName: "田川さん", active: true },
   { id: "m-tsunezuka", displayName: "常塚（新ローテ）", active: true },
 ];
@@ -172,7 +172,7 @@ export const POC_HISTORY_CYCLES: RotationCycle[] = [
       { date: "2026-08-19", memberId: "m-tamada", valueItemId: themeAt(14) },
       { date: "2026-08-20", memberId: "m-tateishi", valueItemId: themeAt(15) },
       { date: "2026-08-21", memberId: "m-matsumoto", valueItemId: themeAt(16) },
-      { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: themeAt(17) },
+      { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: "v4-1" },
       { date: "2026-08-25", memberId: "m-tagawa", valueItemId: themeAt(18) },
       { date: "2026-08-26", memberId: "m-susuga", valueItemId: themeAt(0) },
       { date: "2026-08-27", memberId: "m-tsunezuka", valueItemId: themeAt(1) },
