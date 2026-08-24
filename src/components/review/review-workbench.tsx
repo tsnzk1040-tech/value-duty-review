@@ -48,6 +48,10 @@ import {
 } from "@/lib/review/history";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
+import {
+  checkDraftThemeConsistency,
+  themeConsistencyToFinalIssues,
+} from "@/lib/review/theme-consistency";
 import { extractSummaryBody } from "@/lib/review/prompts";
 
 function providerLabel(
@@ -250,6 +254,24 @@ export function ReviewWorkbench() {
     patch({ step });
   }
 
+  function patchThemeId(nextId: string) {
+    setDraft((prev) => {
+      if (!prev || prev.themeId === nextId) return prev;
+      setSummaryCandidates([]);
+      setSameThemeQuoteNotice(null);
+      return {
+        ...prev,
+        themeId: nextId,
+        summary: "",
+        leaderNote: "",
+        closing: "",
+      };
+    });
+    if (draft?.themeId !== nextId) {
+      setHint("行動指針を変えたので要約・所感をクリアした。要約から出し直して");
+    }
+  }
+
   /** 投稿本文から行動指針を推定してセット（Selectで直せる） */
   function applyThemeFromSourcePost(sourcePost: string) {
     const hit = matchValueItemFromSourcePost(
@@ -261,16 +283,57 @@ export function ReviewWorkbench() {
       return;
     }
     const changed = hit.id !== draft!.themeId;
+    if (changed && draft!.summary.trim()) {
+      setSummaryCandidates([]);
+      setSameThemeQuoteNotice(null);
+      patch({
+        sourcePost,
+        themeId: hit.id,
+        summary: "",
+        leaderNote: "",
+        closing: "",
+      });
+      setHint(
+        `投稿から行動指針をセット: ${hit.label}。テーマが変わったので要約をクリアした`,
+      );
+      return;
+    }
     patch({ sourcePost, themeId: hit.id });
     if (changed) {
       setHint(`投稿から行動指針をセットした: ${hit.label}（直せる）`);
     }
   }
 
+  function draftThemeIssues(d: ReviewDraft) {
+    return checkDraftThemeConsistency({
+      themeId: d.themeId,
+      themeLabel:
+        settings.valueItems.find((v) => v.id === d.themeId)?.label ?? d.themeId,
+      sourcePost: d.sourcePost,
+      valueItems: settings.valueItems,
+    });
+  }
+
+  function mergeFinalCheck(text: string): FinalCheckResult {
+    const base = checkFinalReviewPost(text);
+    if (!draft) return base;
+    const extra = themeConsistencyToFinalIssues(draftThemeIssues(draft));
+    const issues = [...base.issues, ...extra];
+    const ok =
+      base.ok && !extra.some((issue) => issue.severity === "error");
+    return { ok, issues };
+  }
+
   function runDraftGenerate() {
     void (async () => {
+      const themeIssues = draftThemeIssues(draft!);
+      const postMismatch = themeIssues.find((i) => i.id === "post-theme-mismatch");
       setGenerating(true);
-      setHint("要約を生成中…");
+      setHint(
+        postMismatch
+          ? `${postMismatch.message} — このまま要約を出す`
+          : "要約を生成中…",
+      );
       try {
         const res = await fetch("/api/review/draft", {
           method: "POST",
@@ -620,6 +683,7 @@ export function ReviewWorkbench() {
           excludeReviewDate: draft!.reviewDate,
           todaySummary: draft!.summary,
           todaySourcePost: draft!.sourcePost,
+          valueItems: settings.valueItems,
         });
         const res = await fetch("/api/review/draft", {
           method: "POST",
@@ -687,10 +751,13 @@ export function ReviewWorkbench() {
               : sameTheme.midSource === "summary-field"
                 ? "（保存済み要約）"
                 : "";
+          const refLine = sameTheme.reference?.displayLine
+            ? ` ${sameTheme.reference.displayLine}.`
+            : "";
           sameThemeStatus = `同テーマ前回を本文に差し込んだ${src}。`;
           notice = {
             tone: "ok",
-            text: `同テーマ前回の要約引用あり${src}`,
+            text: `同テーマ前回の要約引用あり${src}${refLine}`,
           };
         } else if (serverSkippedQuote || data.sameThemeSkipReason) {
           sameThemeStatus =
@@ -896,7 +963,7 @@ export function ReviewWorkbench() {
       setHint("コメント対象の営業日が空。下書きに戻って日付を入れて");
       return;
     }
-    const result = checkFinalReviewPost(finalText);
+    const result = mergeFinalCheck(finalText);
     setFinalCheck(result);
     if (!result.ok) {
       setHint("コピー前チェックで問題あり。指摘を直してからもう一度");
@@ -1035,7 +1102,7 @@ export function ReviewWorkbench() {
             <Select
               value={draft.themeId || settings.valueItems[0]?.id || ""}
               onValueChange={(value) => {
-                if (value) patch({ themeId: value });
+                if (value) patchThemeId(value);
               }}
             >
               <SelectTrigger id="theme" className="w-full">

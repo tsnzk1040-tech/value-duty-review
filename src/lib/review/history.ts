@@ -1,6 +1,14 @@
 import type { AppSettings } from "@/lib/settings/types";
 import { themeCodeFromLabel } from "@/lib/rotation/format-notebook";
 import { stripThemeLabelFromText } from "@/lib/review/theme-meta";
+import {
+  formatSameThemeReference,
+  isHistoryRecordThemeDrift,
+  type SameThemeReference,
+} from "@/lib/review/theme-consistency";
+import { themeCodeFromValueItemId } from "@/lib/review/theme-meta";
+
+export { themeCodeFromValueItemId } from "@/lib/review/theme-meta";
 
 export type ReviewHistoryLink = {
   title: string;
@@ -433,16 +441,6 @@ export function presenterCallName(name: string): string {
   if (!raw) return "（名前不明）さん";
   if (/さん$/.test(raw)) return raw;
   return `${raw}さん`;
-}
-
-/** valueItem id（v4-3）→ 行動指針コード（4-③）。 */
-export function themeCodeFromValueItemId(themeId: string): string {
-  const m = themeId.trim().match(/^v(\d+)-(\d+)$/i);
-  if (!m) return "";
-  const circled = ["", "①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"] as const;
-  const n = Number(m[2]);
-  if (n < 1 || n > 10) return "";
-  return `${Number(m[1])}-${circled[n]}`;
 }
 
 function lookupThemeCodes(themeId: string, themeLabel: string): string[] {
@@ -941,6 +939,7 @@ function sameThemeHistoryCandidates(
   themeId: string,
   themeLabel: string,
   excludeReviewDate?: string,
+  valueItems?: { id: string; label: string }[],
 ): ReviewHistoryRecord[] {
   const id = themeId.trim();
   const label = themeLabel.trim();
@@ -951,12 +950,46 @@ function sameThemeHistoryCandidates(
   const matched = all.filter((item) => {
     if (exclude && item.reviewDate === exclude) return false;
     if (!summaryMidForSameThemeQuote(item)) return false;
-    if (id && item.themeId === id) return true;
-    if (label && item.themeLabel === label) return true;
-    const itemCodes = lookupThemeCodes(item.themeId, item.themeLabel);
-    return itemCodes.some((c) => codes.includes(c));
+
+    let themeMatch = false;
+    if (id) {
+      themeMatch = item.themeId === id;
+    } else if (label) {
+      themeMatch = item.themeLabel === label;
+    } else {
+      const itemCodes = lookupThemeCodes(item.themeId, item.themeLabel);
+      themeMatch = itemCodes.some((c) => codes.includes(c));
+    }
+    if (!themeMatch) return false;
+
+    if (
+      valueItems?.length &&
+      isHistoryRecordThemeDrift(item, valueItems)
+    ) {
+      return false;
+    }
+    return true;
   });
   return matched.slice(0, 8);
+}
+
+function countSameThemeDriftSkipped(
+  themeId: string,
+  themeLabel: string,
+  valueItems?: { id: string; label: string }[],
+): number {
+  if (!valueItems?.length) return 0;
+  const id = themeId.trim();
+  const label = themeLabel.trim();
+  return listStoredReviews().filter((item) => {
+    if (!summaryMidForSameThemeQuote(item)) return false;
+    const themeMatch = id
+      ? item.themeId === id
+      : label
+        ? item.themeLabel === label
+        : false;
+    return themeMatch && isHistoryRecordThemeDrift(item, valueItems);
+  }).length;
 }
 
 /** 所感生成用。固定文＋参考メモ（履歴は端末 localStorage）。 */
@@ -967,6 +1000,7 @@ export function getSameThemeLeaderQuote(
     excludeReviewDate?: string;
     todaySummary?: string;
     todaySourcePost?: string;
+    valueItems?: { id: string; label: string }[];
   },
 ): {
   fixedSentence: string;
@@ -975,9 +1009,13 @@ export function getSameThemeLeaderQuote(
   reasonIfEmpty: string;
   /** 要約あいだの出典 */
   midSource: SameThemeMidSource;
+  reference?: SameThemeReference;
+  driftSkippedCount: number;
 } {
   const id = themeId?.trim() ?? "";
   const label = opts?.themeLabel?.trim() ?? "";
+  const valueItems = opts?.valueItems;
+  const driftSkippedCount = countSameThemeDriftSkipped(id, label, valueItems);
   if (!id && !label) {
     return {
       fixedSentence: "",
@@ -985,11 +1023,12 @@ export function getSameThemeLeaderQuote(
       notes: "",
       reasonIfEmpty: "テーマ未選択",
       midSource: "",
+      driftSkippedCount: 0,
     };
   }
 
   const pickUsable = (excludeDate?: string) =>
-    sameThemeHistoryCandidates(id, label, excludeDate).filter((item) => {
+    sameThemeHistoryCandidates(id, label, excludeDate, valueItems).filter((item) => {
       const quote = extractSameThemeQuoteCore(item);
       return quote.length >= 6 && item.presenterName.trim().length > 0;
     });
@@ -1021,12 +1060,15 @@ export function getSameThemeLeaderQuote(
       quoteMaterial: "",
       notes: "",
       reasonIfEmpty:
-        rawMatched === 0
-          ? "同テーマの履歴がこの端末にない（コピー／共有で保存された回だけが対象）"
-          : midFailCount > 0
-            ? "同テーマ履歴はあるが、要約あいだ（について、〜共有頂きました）を切り出せなかった"
-            : "同テーマ履歴はあるが、引用できる一言を作れなかった",
+        driftSkippedCount > 0 && rawMatched > 0
+          ? "同テーマ履歴はあるが、テーマと要約のズレで除外した（履歴の要約を直して再保存して）"
+          : rawMatched === 0
+            ? "同テーマの履歴がこの端末にない（コピー／共有で保存された回だけが対象）"
+            : midFailCount > 0
+              ? "同テーマ履歴はあるが、要約あいだ（について、〜共有頂きました）を切り出せなかった"
+              : "同テーマ履歴はあるが、引用できる一言を作れなかった",
       midSource: "",
+      driftSkippedCount,
     };
   }
 
@@ -1056,6 +1098,7 @@ export function getSameThemeLeaderQuote(
       reasonIfEmpty:
         "同テーマ履歴はあるが、今日とつなげる／紹介する一言を選べなかった",
       midSource: "",
+      driftSkippedCount,
     };
   }
 
@@ -1086,6 +1129,14 @@ export function getSameThemeLeaderQuote(
     notes,
     reasonIfEmpty: "",
     midSource,
+    reference: {
+      reviewDate: primary.reviewDate,
+      presenterName: primary.presenterName,
+      themeLabel: primary.themeLabel,
+      themeId: primary.themeId,
+      displayLine: formatSameThemeReference(primary),
+    },
+    driftSkippedCount,
   };
 }
 

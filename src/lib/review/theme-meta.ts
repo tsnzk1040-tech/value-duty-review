@@ -1,4 +1,5 @@
 import { POC_VALUE_HEADINGS } from "@/lib/rotation/seed";
+import { themeCodeFromLabel } from "@/lib/rotation/format-notebook";
 import { valueGroupFromLabel } from "@/lib/rotation/value-group";
 
 const CIRCLED_ORDINAL: Record<string, number> = {
@@ -26,6 +27,28 @@ export function themeOrdinal(themeLabel: string): number | null {
   const m = themeLabel.trim().match(/^\d+\s*[-－]\s*([①-⑩])/);
   if (!m) return null;
   return CIRCLED_ORDINAL[m[1]!] ?? null;
+}
+
+/** valueItem id（v4-3）→ 行動指針コード（4-③）。 */
+export function themeCodeFromValueItemId(themeId: string): string {
+  const m = themeId.trim().match(/^v(\d+)-(\d+)$/i);
+  if (!m) return "";
+  const circled = ["", "①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"] as const;
+  const n = Number(m[2]);
+  if (n < 1 || n > 10) return "";
+  return `${Number(m[1])}-${circled[n]}`;
+}
+
+export function themeCodeForSelection(themeId: string, themeLabel: string): string {
+  return themeCodeFromValueItemId(themeId) || themeCodeFromLabel(themeLabel);
+}
+
+/** themeId と themeLabel のコードが食い違う */
+export function themeIdLabelMismatch(themeId: string, themeLabel: string): boolean {
+  const fromId = themeCodeFromValueItemId(themeId);
+  const fromLabel = themeCodeFromLabel(themeLabel);
+  if (!fromId || !fromLabel) return false;
+  return fromId !== fromLabel;
 }
 
 /**
