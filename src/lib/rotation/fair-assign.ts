@@ -51,10 +51,10 @@ export type FairAssignOptions = FairAssignInput & {
 };
 
 /**
- * Theme-first rotation assigner.
- * Essence: walk themes; place on non-weekend/holiday dates; space people;
- * never repeat an exact guideline from stored history; then avoid same Value
- * band as last turn; 常塚 (closer) last so next cycle can be designed.
+ * People-first rotation assigner.
+ * Essence: each active member goes exactly once; dates skip weekends/holidays;
+ * among remaining people, prefer unused guidelines then a different Value band;
+ * 常塚 (closer) last so next cycle can be designed.
  */
 export function fairAssign(input: FairAssignOptions): FairAssignResult {
   const active = input.members.filter((m) => m.active);
@@ -245,9 +245,12 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
       (min, m) => Math.min(min, memberCount.get(m.id) ?? 0),
       Number.POSITIVE_INFINITY,
     );
+    const pendingOf = (candidates: Member[]) =>
+      candidates.filter((m) => (memberCount.get(m.id) ?? 0) === 0);
+
     let eligible =
       stageFocus.length === 0
-        ? pool
+        ? pendingOf(pool)
         : stageFocus.filter((m) => (memberCount.get(m.id) ?? 0) === minCount);
 
     const avoidSameValue = input.avoidSameValueBand !== false;
@@ -264,34 +267,42 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
         return prevVal !== themeValue;
       });
 
-    // Hard preference (except forced closer): never-had exact guideline first,
-    // then different Value band. Cascade until someone remains.
+    // People-once is hard. Theme / Value filters stay inside remaining people.
+    // Never expand to someone who already has a turn this cycle.
     if (!forceCloser) {
+      const remainingEligible = pendingOf(eligible);
+      const remainingFocus = pendingOf(stageFocus);
+      const remainingStage = pendingOf(stagePool);
+      const remainingPool = pendingOf(pool);
       const valueFilter = (group: Member[]) =>
         avoidSameValue && themeValue != null
           ? differentValueOf(group)
           : group;
       const picked = firstNonEmpty([
-        valueFilter(neverHadThemeOf(eligible)),
-        neverHadThemeOf(eligible),
-        valueFilter(neverHadThemeOf(stageFocus)),
-        neverHadThemeOf(stageFocus),
-        valueFilter(neverHadThemeOf(stagePool)),
-        neverHadThemeOf(stagePool),
-        valueFilter(neverHadThemeOf(pool)),
-        neverHadThemeOf(pool),
-        valueFilter(eligible),
-        valueFilter(stageFocus),
-        valueFilter(stagePool),
-        valueFilter(pool),
+        valueFilter(neverHadThemeOf(remainingEligible)),
+        neverHadThemeOf(remainingEligible),
+        valueFilter(neverHadThemeOf(remainingFocus)),
+        neverHadThemeOf(remainingFocus),
+        valueFilter(neverHadThemeOf(remainingStage)),
+        neverHadThemeOf(remainingStage),
+        valueFilter(neverHadThemeOf(remainingPool)),
+        neverHadThemeOf(remainingPool),
+        remainingEligible,
+        remainingFocus,
+        remainingStage,
+        remainingPool,
       ]);
       if (picked) eligible = picked;
     }
 
+    const pickFrom = forceCloser
+      ? [closer!]
+      : pendingOf(eligible.length > 0 ? eligible : pool);
+
     const member = forceCloser
       ? closer!
       : pickWeighted(
-          eligible.length > 0 ? eligible : pool,
+          pickFrom.length > 0 ? pickFrom : pendingOf(pool),
           (m) => {
             let score = 10;
             if (m.newcomer && veteranPending.length > 0) score -= 30;
@@ -306,6 +317,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
                 score -= (gap - maxGap) * 8;
               }
             }
+            if ((memberCount.get(m.id) ?? 0) > 0) score -= 1000;
             if (seenThemeIds.get(m.id)?.has(valueItem.id)) score -= 80;
             const prevId = lastThemeId.get(m.id);
             if (avoidSameValue && prevId && themeValue != null) {
@@ -353,7 +365,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   const doubles = active.filter((m) => (memberCount.get(m.id) ?? 0) >= 2);
   if (doubles.length > 0) {
     warnings.push(
-      `同一サイクルで2回以上: ${doubles
+      `人の一巡ルール未達: 同一サイクルで2回以上 ${doubles
         .map((m) => `${m.displayName}×${memberCount.get(m.id)}`)
         .join("、")}`,
     );
