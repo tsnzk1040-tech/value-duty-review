@@ -36,7 +36,7 @@ export type RotationCycle = {
 export type FairAssignInput = {
   members: Member[];
   valueItems: ValueItem[];
-  /** Up to ~2 prior cycles of history (oldest → newest) */
+  /** Prior cycles (oldest → newest). Theme uniqueness uses all stored cycles. */
   historyCycles: RotationCycle[];
   /** First business day of the new cycle */
   cycleStart: string; // YYYY-MM-DD
@@ -50,6 +50,7 @@ export type FairAssignInput = {
   /**
    * Avoid same Value band (1〜6) as that person's previous assignment.
    * Default true = hard filter when a different-band candidate exists.
+   * Exact guideline repeats (1-① etc. across stored history) are always avoided first.
    */
   avoidSameValueBand: boolean;
   /**

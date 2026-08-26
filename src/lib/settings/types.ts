@@ -49,6 +49,7 @@ export type RotationSettings = {
   /**
    * Prefer / require avoiding the same Value band (1〜6) as that person's previous turn.
    * Default true: hard filter when anyone eligible has a different band.
+   * Exact guideline repeats across stored history are always avoided first (not this toggle).
    */
   avoidSameValueBand: boolean;
   /**
@@ -60,7 +61,7 @@ export type RotationSettings = {
    * First theme of the cycle. Empty = auto (next after previous cycle's last theme).
    */
   themeStartValueItemId: string;
-  /** Prior cycles — required before generating the next rotation */
+  /** Prior cycles — required before generating. Theme uniqueness uses all stored cycles. */
   historyCycles: RotationCycle[];
 };
 

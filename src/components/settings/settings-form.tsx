@@ -516,7 +516,8 @@ export function SettingsForm() {
           前回と同じ Value 帯（1〜6）を避ける
         </label>
         <p className="text-xs text-muted-foreground sm:col-span-2 -mt-2">
-          ON（既定）: 違う帯の候補がいれば必ずそちら。最終当番ロック時や候補切れだけ例外。
+          同じ行動指針（1-① など）の繰り返し回避は常時ON（保存中の履歴全体）。このトグルは前回の
+          Value 帯用。ON（既定）: 違う帯の候補がいれば必ずそちら。最終当番ロック時や候補切れだけ例外。
         </p>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="theme-start">サイクル開始テーマ</Label>

@@ -14,11 +14,16 @@ export function latestPreviousCycle(
   return withDays[withDays.length - 1];
 }
 
-/** Keep newest cycles only (fair-assign uses ~2). */
+/** Keep newest cycles only. Default covers a full guideline catalog tour. */
+export function historyCycleKeepCount(themeCount: number): number {
+  return Math.max(2, themeCount);
+}
+
+/** Keep newest cycles so the same guideline is not forgotten. */
 export function appendHistoryCycle(
   historyCycles: RotationCycle[],
   cycle: RotationCycle,
-  keep = 2,
+  keep = 20,
 ): RotationCycle[] {
   return [...historyCycles, cycle].slice(-keep);
 }
