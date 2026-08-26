@@ -1,5 +1,4 @@
 import type { Member, RotationDay, ValueItem } from "./types";
-import { ROTATION_INSTRUCTION_BLOCK } from "./seed";
 
 /** Leading theme code like `1-①` / `6-④`. */
 export function themeCodeFromLabel(label: string): string {
@@ -35,8 +34,6 @@ export function formatNotebookCopy(
 
   const lines = [
     "日別ローテ（アプリ出力・ノート貼付用）",
-    "",
-    ...ROTATION_INSTRUCTION_BLOCK.split("\n"),
     "",
     "新ローテーション",
     ["日付", "当番", "テーマ", "前回間隔"].join(NOTEBOOK_COL_SEP),

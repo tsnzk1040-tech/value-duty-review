@@ -257,10 +257,3 @@ export const POC_THEME_START_VALUE_ITEM_ID = "";
  */
 export const ROTATION_MINIMUM_RULE =
   "このローテ表は、土日祝日を除く事、最後はツネヅカ（＝トシオ）で終わる事が最低限のルールです。";
-
-/**
- * Verbatim WowTalk / notebook instruction block (toschio-provided).
- * Also stored in data/local/members-and-rotation.json.
- */
-export const ROTATION_INSTRUCTION_BLOCK =
-  "各担当者は、該当日のテーマ(コード内容は下記参照）について、当該内容を意識して行動し、翌日午前中を目途に自身の行動結果(振り返り)をWowTalkに投稿してください。\n・他のメンバーは、投稿内容を自身の行動へ活かしていただき、「リアクション」やコメント記載をお願いします。\n・担当日が休暇の場合は前後の人と入れ替えて下さい。\n・該当日のテーマの振り返りがどうしても困難な場合は、対応するValueについて自分の考えやどう行動したいと思っているか共有ください。";
