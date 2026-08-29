@@ -224,8 +224,18 @@ function reconstructGoogleFromLooseParams(
 export function incomingFromSearchParams(
   params: URLSearchParams,
 ): ShareIncoming {
-  const title = params.get("title") ?? params.get("stitle") ?? "";
-  const text = params.get("text") ?? params.get("stext") ?? "";
+  const title =
+    params.get("title") ??
+    params.get("stitle") ??
+    params.get("subject") ??
+    "";
+  const text =
+    params.get("text") ??
+    params.get("stext") ??
+    params.get("body") ??
+    params.get("content") ??
+    params.get("message") ??
+    "";
   let url = coerceHttpUrl(
     params.get("url") ?? params.get("slink") ?? params.get("link") ?? "",
   );
@@ -254,12 +264,93 @@ const CHAT_HINT_RE =
 const THEME_CODE_RE =
   /(?:^|[^\d０-９])[1-6１-６]\s*[-－﹣]\s*(?:[①②③④⑤⑥]|[1-6１-６])(?:[^\d０-９]|$)/;
 
+const REFLECTION_RE =
+  /意識した|してみた|できた|感じた|今日は|お客様|取り組|実践|振り返/;
+
+const SEARCH_QUERY_RE = /(?:とは|意味|方法|例|違い|コツ|ポイント)$/;
+
+const STRONG_SCORE = 80;
+const CLEAR_GAP = 25;
+
+export type ClassifyShareOptions = {
+  /** 共有直前のレビュー手順（1=投稿, 3=調べる）。曖昧時の寄せに使う */
+  draftStep?: number;
+};
+
 function hasThemeCode(body: string): boolean {
   return THEME_CODE_RE.test(body);
 }
 
 function looksLikeMemberComment(body: string): boolean {
   return CHAT_HINT_RE.test(body) || hasThemeCode(body);
+}
+
+function scoreShare(
+  input: ShareIncoming,
+  urls: string[],
+  postBody: string,
+  title: string,
+  text: string,
+  options?: ClassifyShareOptions,
+): { post: number; research: number } {
+  let post = 0;
+  let research = 0;
+  const combined = `${title}\n${text}`;
+
+  if (
+    looksLikeMemberComment(postBody) ||
+    looksLikeMemberComment(title) ||
+    looksLikeMemberComment(text)
+  ) {
+    post += STRONG_SCORE;
+  }
+
+  if (urls.some(isGoogleUrl) || isGoogleUrl(input.url.trim())) {
+    research += STRONG_SCORE;
+  }
+  if (/Google\s*(検索|Search)/i.test(combined)) {
+    research += STRONG_SCORE;
+  }
+
+  if (postBody.length >= 40) post += 20;
+  else if (postBody.length >= 20) post += 10;
+  if (/\n/.test(postBody)) post += 25;
+  if (REFLECTION_RE.test(postBody)) post += 15;
+  if (/さん、/.test(postBody)) post += 20;
+  if (urls.length > 0 && !urls.some(isGoogleUrl)) post += 25;
+
+  const query = researchQuery(title, text);
+  if (query && SEARCH_QUERY_RE.test(query.trim())) research += 20;
+  if (
+    title &&
+    text &&
+    (title === text || text.startsWith(title)) &&
+    title.length < 60
+  ) {
+    research += 15;
+  }
+  if (
+    postBody.length > 0 &&
+    postBody.length < 25 &&
+    !/\n/.test(postBody) &&
+    !looksLikeMemberComment(postBody)
+  ) {
+    research += 20;
+  }
+  if (
+    text.length >= 80 &&
+    /\n/.test(text) &&
+    !looksLikeMemberComment(postBody) &&
+    !REFLECTION_RE.test(postBody) &&
+    (title.length < 50 || text.startsWith(title))
+  ) {
+    research += 60;
+  }
+
+  if (options?.draftStep === 3) research += 20;
+  if (options?.draftStep === 1) post += 20;
+
+  return { post, research };
 }
 
 function researchQuery(title: string, text: string): string {
@@ -323,7 +414,10 @@ export function researchUrlFromPending(pending: {
   return "";
 }
 
-export function classifyShare(input: ShareIncoming): {
+export function classifyShare(
+  input: ShareIncoming,
+  options?: ClassifyShareOptions,
+): {
   suggested: ShareIntent;
   /** 両方あり得るときユーザーに選ばせる */
   ambiguous: boolean;
@@ -352,19 +446,40 @@ export function classifyShare(input: ShareIncoming): {
       stripped.replace(/\s+/g, " ").trim().slice(0, 80) || urls[0] || "共有リンク";
   }
 
-  const member =
-    looksLikeMemberComment(postBody) ||
-    looksLikeMemberComment(title) ||
-    looksLikeMemberComment(text);
+  const resolvedUrls =
+    urls.length > 0
+      ? urls
+      : urlField && isGoogleUrl(urlField)
+        ? [urlField]
+        : urls;
+
+  const hasGoogle = resolvedUrls.some(isGoogleUrl);
+  const substantialPost =
+    postBody.length >= 80 && !isBareUrl(postBody) && !looksLikeMemberComment(postBody);
+
+  if (hasGoogle && substantialPost) {
+    return {
+      suggested: "research",
+      ambiguous: true,
+      urls: resolvedUrls,
+      postBody,
+      researchLabel,
+    };
+  }
+
+  const scores = scoreShare(input, resolvedUrls, postBody, title, text, options);
+  const maxScore = Math.max(scores.post, scores.research);
+  const suggested: ShareIntent =
+    scores.post >= scores.research ? "post" : "research";
+
+  const ambiguous =
+    maxScore < STRONG_SCORE &&
+    Math.abs(scores.post - scores.research) < CLEAR_GAP;
+
   return {
-    suggested: member ? "post" : "research",
-    ambiguous: false,
-    urls:
-      urls.length > 0
-        ? urls
-        : urlField && isGoogleUrl(urlField)
-          ? [urlField]
-          : urls,
+    suggested,
+    ambiguous,
+    urls: resolvedUrls,
     postBody,
     researchLabel,
   };

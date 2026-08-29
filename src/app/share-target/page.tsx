@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { loadReviewDraft } from "@/lib/review/draft";
 import {
   buildPendingShare,
   classifyShare,
@@ -21,11 +22,11 @@ function ShareTargetInner() {
   const [held, setHeld] = useState<ShareIncoming | null>(null);
   const [status, setStatus] = useState<"routing" | "choose">("routing");
   const committed = useRef(false);
+  const draftStep = loadReviewDraft()?.step;
 
   useEffect(() => {
     if (committed.current) return;
     const fromQuery = incomingFromSearchParams(searchParams);
-    // WowTalk は GET の ?text= が正本。古い POST の localStorage で上書きしない。
     const incoming = hasShareIncoming(fromQuery)
       ? fromQuery
       : (consumeShareIncoming() ?? fromQuery);
@@ -34,7 +35,7 @@ function ShareTargetInner() {
       router.replace("/review");
       return;
     }
-    const classifiedShare = classifyShare(incoming);
+    const classifiedShare = classifyShare(incoming, { draftStep });
     if (classifiedShare.ambiguous) {
       setHeld(incoming);
       setStatus("choose");
@@ -42,13 +43,20 @@ function ShareTargetInner() {
     }
     committed.current = true;
     writePendingShare(
-      buildPendingShare(classifiedShare.suggested, incoming, classifiedShare),
+      buildPendingShare(
+        classifiedShare.suggested,
+        incoming,
+        classifiedShare,
+      ),
     );
     router.replace("/review");
-  }, [searchParams, router]);
+  }, [searchParams, router, draftStep]);
 
   const incoming = held ?? incomingFromSearchParams(searchParams);
-  const classified = useMemo(() => classifyShare(incoming), [incoming]);
+  const classified = useMemo(
+    () => classifyShare(incoming, { draftStep }),
+    [incoming, draftStep],
+  );
 
   function commit(intent: ShareIntent) {
     if (committed.current) return;
@@ -58,12 +66,19 @@ function ShareTargetInner() {
   }
 
   if (status === "choose") {
+    const preview = classified.postBody.trim().slice(0, 120);
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 py-8">
         <h1 className="text-xl font-semibold tracking-tight">共有の行き先</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          URLと長文の両方がある。どこに入れる？
+          メンバー投稿と検索結果のどちらか判断しづらい。入れる場所を選んで。
         </p>
+        {preview ? (
+          <p className="line-clamp-4 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+            {preview}
+            {classified.postBody.length > 120 ? "…" : ""}
+          </p>
+        ) : null}
         {classified.urls[0] ? (
           <p className="break-all text-xs text-muted-foreground">
             {classified.urls[0]}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  SHARE_INCOMING_KEY,
   SHARE_PENDING_KEY,
   buildPendingShare,
   classifyShare,
@@ -25,9 +26,10 @@ function escapeForInlineJson(value: unknown): string {
 function receiveHtml(incoming: ShareIncoming): NextResponse {
   const filled = fillMissingShareUrl(incoming);
   const classified = classifyShare(filled);
-  const pending = hasShareIncoming(filled)
-    ? buildPendingShare(classified.suggested, filled, classified)
-    : null;
+  const pending =
+    hasShareIncoming(filled) && !classified.ambiguous
+      ? buildPendingShare(classified.suggested, filled, classified)
+      : null;
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -42,10 +44,10 @@ function receiveHtml(incoming: ShareIncoming): NextResponse {
       ${
         pending
           ? `localStorage.setItem(${JSON.stringify(SHARE_PENDING_KEY)}, ${escapeForInlineJson(pending)});`
-          : ""
+          : `localStorage.setItem(${JSON.stringify(SHARE_INCOMING_KEY)}, ${escapeForInlineJson(filled)});`
       }
     } catch (e) {}
-    location.replace("/review");
+    location.replace(${JSON.stringify(pending ? "/review" : "/share-target")});
   </script>
 </body>
 </html>`;
