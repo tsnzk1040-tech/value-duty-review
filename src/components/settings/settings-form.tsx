@@ -1,8 +1,9 @@
 "use client";
 
-import { CorporateCreedPanel } from "@/components/creed/corporate-creed-panel";
 import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
+import { CorporateCreedPanel } from "@/components/creed/corporate-creed-panel";
 import { useSettings } from "@/components/settings/settings-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
 import { defaultCycleStartYmd } from "@/lib/rotation/business-days";
 import type { Member, ValueItem } from "@/lib/rotation/types";
 import { CREED_CHART_CHANGED, saveCreedChartBlob } from "@/lib/creed/creed-chart-store";
+import { moveMemberAt } from "@/lib/settings/member-order";
 
 function newId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -227,24 +229,62 @@ export function SettingsForm() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">メンバー</h2>
+        <p className="text-xs text-muted-foreground">
+          この並びが、投稿の発表者プルダウン・履歴の担当・ローテ当番の表示順。上へ／下へで入れ替える。
+        </p>
         <ul className="flex flex-col gap-2">
           {settings.members.map((m, index) => (
             <li
               key={m.id}
               className="flex flex-col gap-2 rounded-lg border border-border p-3"
             >
-              <Input
-                value={m.displayName}
-                onChange={(e) =>
-                  updateSettings((prev) => ({
-                    ...prev,
-                    members: prev.members.map((x, i) =>
-                      i === index ? { ...x, displayName: e.target.value } : x,
-                    ),
-                  }))
-                }
-                aria-label="表示名"
-              />
+              <div className="flex items-start gap-2">
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={index === 0}
+                    aria-label={`${m.displayName}を上へ`}
+                    onClick={() =>
+                      updateSettings((prev) => ({
+                        ...prev,
+                        members: moveMemberAt(prev.members, index, -1),
+                      }))
+                    }
+                  >
+                    <ChevronUp />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={index === settings.members.length - 1}
+                    aria-label={`${m.displayName}を下へ`}
+                    onClick={() =>
+                      updateSettings((prev) => ({
+                        ...prev,
+                        members: moveMemberAt(prev.members, index, 1),
+                      }))
+                    }
+                  >
+                    <ChevronDown />
+                  </Button>
+                </div>
+                <Input
+                  value={m.displayName}
+                  onChange={(e) =>
+                    updateSettings((prev) => ({
+                      ...prev,
+                      members: prev.members.map((x, i) =>
+                        i === index ? { ...x, displayName: e.target.value } : x,
+                      ),
+                    }))
+                  }
+                  aria-label="表示名"
+                  className="min-w-0 flex-1"
+                />
+              </div>
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

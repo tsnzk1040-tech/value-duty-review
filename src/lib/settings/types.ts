@@ -73,6 +73,7 @@ export type CreedMeta = {
 
 export type AppSettings = {
   version: typeof SETTINGS_VERSION;
+  /** 配列の順＝発表者プルダウン・履歴・ローテ当番の表示順（設定で入れ替え） */
   members: Member[];
   /** Daily themes = ×-① guidelines (verbatim labels) */
   valueItems: ValueItem[];
