@@ -104,26 +104,13 @@ export async function incomingFromFormData(
 export async function incomingFromRequest(
   request: Request,
 ): Promise<ShareIncoming> {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    try {
-      const raw = await request.text();
-      return fillMissingShareUrl(
-        incomingFromSearchParams(new URLSearchParams(raw)),
-      );
-    } catch {
-      return { title: "", text: "", url: "" };
-    }
-  }
   try {
-    const incoming = fillMissingShareUrl(
+    return fillMissingShareUrl(
       await incomingFromFormData(await request.formData()),
     );
-    if (hasShareIncoming(incoming)) return incoming;
   } catch {
-    // urlencoded に落とす
+    return { title: "", text: "", url: "" };
   }
-  return { title: "", text: "", url: "" };
 }
 
 export function fillMissingShareUrl(incoming: ShareIncoming): ShareIncoming {
