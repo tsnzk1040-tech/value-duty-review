@@ -114,7 +114,6 @@ export function ReviewWorkbench() {
     tone: "ok" | "warn" | "muted";
     text: string;
   } | null>(null);
-  const shareAppliedRef = useRef(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -133,10 +132,9 @@ export function ReviewWorkbench() {
   }, [ready, settings.valueItems]);
 
   useEffect(() => {
-    if (!draft || shareAppliedRef.current) return;
+    if (!draft) return;
     const pending = consumePendingShare();
     if (!pending) return;
-    shareAppliedRef.current = true;
 
     if (pending.intent === "post") {
       const body = pending.text.trim() || pending.title.trim();

@@ -17,12 +17,21 @@ function escapeForInlineJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+function shareTargetPath(incoming: ShareIncoming): string {
+  const query = new URLSearchParams();
+  if (incoming.title.trim()) query.set("title", incoming.title);
+  if (incoming.text.trim()) query.set("text", incoming.text);
+  if (incoming.url.trim()) query.set("url", incoming.url);
+  const encoded = query.toString();
+  return encoded ? `/share-target?${encoded}` : "/share-target";
+}
+
 function receiveHtml(incoming: ShareIncoming): NextResponse {
   const classified = classifyShare(incoming);
   const pending = hasShareIncoming(incoming)
     ? buildPendingShare(classified.suggested, incoming, classified)
     : null;
-  const nextPath = pending ? "/review" : "/share-target";
+  const nextPath = shareTargetPath(incoming);
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -54,23 +63,24 @@ function receiveHtml(incoming: ShareIncoming): NextResponse {
   });
 }
 
-/**
- * PWA share_target の受け口。
- * Google URL を GET クエリに載せない（リンク共有として WowTalk へ飛ぶのを避ける）。
- * WowTalk は text が File だったり permalink URL 付きだったりするので、本文を投稿欄へ送る。
- */
+function toShareTarget(request: Request, incoming: ShareIncoming): NextResponse {
+  const path = shareTargetPath(incoming);
+  if (path.length > 1800) return receiveHtml(incoming);
+  return NextResponse.redirect(new URL(path, request.url), 303);
+}
+
+/** 古い POST マニフェスト用。本体は GET /share-target。 */
 export async function POST(request: Request) {
   let incoming: ShareIncoming = { title: "", text: "", url: "" };
   try {
     incoming = await incomingFromFormData(await request.formData());
   } catch {
-    // 空のまま受けて review / share-target へ
+    // 空のまま share-target へ
   }
-  return receiveHtml(incoming);
+  return toShareTarget(request, incoming);
 }
 
-/** 古い GET マニフェストや、POST が GET に落ちたときの保険 */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  return receiveHtml(incomingFromSearchParams(searchParams));
+  return toShareTarget(request, incomingFromSearchParams(searchParams));
 }

@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     icons: [
       {
-        src: "/icon.png?v=7",
+        src: "/icon.png?v=8",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.png?v=7",
+        src: "/icon.png?v=8",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -27,17 +27,17 @@ export default function manifest(): MetadataRoute.Manifest {
   };
 
   // share_target は Manifest 型に未定義のため拡張
+  // GET /share-target が WowTalk の本文受け取り正本。
+  // url は置かない（Google URL の & がクエリを壊し、リンク共有として WowTalk が開くため）。
   return {
     ...base,
     share_target: {
-      action: "/api/share-target",
-      method: "POST",
-      enctype: "multipart/form-data",
+      action: "/share-target",
+      method: "GET",
+      enctype: "application/x-www-form-urlencoded",
       params: {
         title: "title",
         text: "text",
-        url: "url",
-        files: [{ name: "file", accept: ["text/plain", "text/*"] }],
       },
     },
   } as MetadataRoute.Manifest;

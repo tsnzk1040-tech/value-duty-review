@@ -24,27 +24,25 @@ function ShareTargetInner() {
 
   useEffect(() => {
     if (committed.current) return;
-    const fromPost = consumeShareIncoming();
     const fromQuery = incomingFromSearchParams(searchParams);
-    const incomingShare = fromPost ?? fromQuery;
-    if (!hasShareIncoming(incomingShare)) {
+    // WowTalk は GET の ?text= が正本。古い POST の localStorage で上書きしない。
+    const incoming = hasShareIncoming(fromQuery)
+      ? fromQuery
+      : (consumeShareIncoming() ?? fromQuery);
+    if (!hasShareIncoming(incoming)) {
       committed.current = true;
       router.replace("/review");
       return;
     }
-    const classifiedShare = classifyShare(incomingShare);
+    const classifiedShare = classifyShare(incoming);
     if (classifiedShare.ambiguous) {
-      setHeld(incomingShare);
+      setHeld(incoming);
       setStatus("choose");
       return;
     }
     committed.current = true;
     writePendingShare(
-      buildPendingShare(
-        classifiedShare.suggested,
-        incomingShare,
-        classifiedShare,
-      ),
+      buildPendingShare(classifiedShare.suggested, incoming, classifiedShare),
     );
     router.replace("/review");
   }, [searchParams, router]);

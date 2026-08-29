@@ -45,16 +45,6 @@ export function preferPostBody(title: string, text: string): string {
   return t || h;
 }
 
-export function incomingFromSearchParams(
-  params: URLSearchParams,
-): ShareIncoming {
-  return {
-    title: params.get("title") ?? params.get("stitle") ?? "",
-    text: params.get("text") ?? params.get("stext") ?? "",
-    url: params.get("url") ?? params.get("slink") ?? params.get("link") ?? "",
-  };
-}
-
 async function entryToText(value: FormDataEntryValue): Promise<string> {
   if (typeof value === "string") return value;
   if (
@@ -129,6 +119,49 @@ export function isGoogleUrl(url: string): boolean {
   } catch {
     return /google\./i.test(url);
   }
+}
+
+const SHARE_QUERY_KEYS = new Set([
+  "title",
+  "stitle",
+  "text",
+  "stext",
+  "url",
+  "slink",
+  "link",
+]);
+
+function firstHttpUrl(value: string): string {
+  const match = value.match(/https?:\/\/[^\s]+/i);
+  return match ? match[0].replace(/[),.;]+$/g, "") : "";
+}
+
+/** GET の url= が Google の & で壊れたとき、はみ出したクエリを戻す */
+function mergeSplitGoogleUrl(params: URLSearchParams, baseUrl: string): string {
+  if (!baseUrl || !isGoogleUrl(baseUrl)) return baseUrl;
+  try {
+    const parsed = new URL(baseUrl);
+    for (const [key, value] of params.entries()) {
+      if (SHARE_QUERY_KEYS.has(key)) continue;
+      if (!parsed.searchParams.has(key)) parsed.searchParams.append(key, value);
+    }
+    return parsed.toString();
+  } catch {
+    return baseUrl;
+  }
+}
+
+export function incomingFromSearchParams(
+  params: URLSearchParams,
+): ShareIncoming {
+  const title = params.get("title") ?? params.get("stitle") ?? "";
+  const text = params.get("text") ?? params.get("stext") ?? "";
+  let url = params.get("url") ?? params.get("slink") ?? params.get("link") ?? "";
+  const googleBase =
+    [url, firstHttpUrl(text)].find((candidate) => candidate && isGoogleUrl(candidate)) ??
+    "";
+  if (googleBase) url = mergeSplitGoogleUrl(params, googleBase);
+  return { title, text, url };
 }
 
 /** 調べる向け: Google URL を優先して1本だけ */
