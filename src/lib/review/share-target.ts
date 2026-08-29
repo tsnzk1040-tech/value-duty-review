@@ -269,6 +269,8 @@ const REFLECTION_RE =
 
 const SEARCH_QUERY_RE = /(?:とは|意味|方法|例|違い|コツ|ポイント)$/;
 
+const DEFINITION_RE = /とは[、,]?|という意味|意味は|について|とは何|って何|refers to/i;
+
 const STRONG_SCORE = 80;
 const CLEAR_GAP = 25;
 
@@ -285,6 +287,42 @@ function looksLikeMemberComment(body: string): boolean {
   return CHAT_HINT_RE.test(body) || hasThemeCode(body);
 }
 
+/** Google 検索／AIモードの共有っぽい（チャット定型が無い） */
+export function looksLikeSearchResultShare(
+  title: string,
+  text: string,
+  postBody: string,
+  urls: string[],
+): boolean {
+  if (looksLikeMemberComment(postBody) || looksLikeMemberComment(title)) {
+    return false;
+  }
+  const combined = `${title}\n${text}`;
+  if (urls.some(isGoogleUrl) || /Google\s*(検索|Search)/i.test(combined)) {
+    return true;
+  }
+  const query = researchQuery(title, text);
+  if (query && SEARCH_QUERY_RE.test(query.trim())) return true;
+  if (DEFINITION_RE.test(text) || DEFINITION_RE.test(title)) return true;
+  if (
+    title &&
+    text.length > title.length + 8 &&
+    text.startsWith(title.slice(0, Math.min(title.length, 12)))
+  ) {
+    return true;
+  }
+  if (
+    title &&
+    text &&
+    title === text &&
+    title.length < 60 &&
+    !REFLECTION_RE.test(text)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function scoreShare(
   input: ShareIncoming,
   urls: string[],
@@ -296,6 +334,7 @@ function scoreShare(
   let post = 0;
   let research = 0;
   const combined = `${title}\n${text}`;
+  const searchLike = looksLikeSearchResultShare(title, text, postBody, urls);
 
   if (
     looksLikeMemberComment(postBody) ||
@@ -311,10 +350,18 @@ function scoreShare(
   if (/Google\s*(検索|Search)/i.test(combined)) {
     research += STRONG_SCORE;
   }
+  if (searchLike) {
+    research += 50;
+  }
+  if (DEFINITION_RE.test(text) || DEFINITION_RE.test(title)) {
+    research += 25;
+  }
 
-  if (postBody.length >= 40) post += 20;
-  else if (postBody.length >= 20) post += 10;
-  if (/\n/.test(postBody)) post += 25;
+  if (!searchLike || looksLikeMemberComment(postBody)) {
+    if (postBody.length >= 40) post += 20;
+    else if (postBody.length >= 20) post += 10;
+    if (/\n/.test(postBody)) post += 25;
+  }
   if (REFLECTION_RE.test(postBody)) post += 15;
   if (/さん、/.test(postBody)) post += 20;
   if (urls.length > 0 && !urls.some(isGoogleUrl)) post += 25;
@@ -347,7 +394,7 @@ function scoreShare(
     research += 60;
   }
 
-  if (options?.draftStep === 3) research += 20;
+  if (options?.draftStep === 3) research += 40;
   if (options?.draftStep === 1) post += 20;
 
   return { post, research };
@@ -456,8 +503,38 @@ export function classifyShare(
   const hasGoogle = resolvedUrls.some(isGoogleUrl);
   const substantialPost =
     postBody.length >= 80 && !isBareUrl(postBody) && !looksLikeMemberComment(postBody);
+  const searchLike = looksLikeSearchResultShare(
+    title,
+    text,
+    postBody,
+    resolvedUrls,
+  );
 
-  if (hasGoogle && substantialPost) {
+  if (
+    options?.draftStep === 3 &&
+    !looksLikeMemberComment(postBody) &&
+    !looksLikeMemberComment(title)
+  ) {
+    return {
+      suggested: "research",
+      ambiguous: false,
+      urls: resolvedUrls,
+      postBody,
+      researchLabel,
+    };
+  }
+
+  if (searchLike && !looksLikeMemberComment(postBody)) {
+    return {
+      suggested: "research",
+      ambiguous: false,
+      urls: resolvedUrls,
+      postBody,
+      researchLabel,
+    };
+  }
+
+  if (hasGoogle && substantialPost && looksLikeMemberComment(postBody)) {
     return {
       suggested: "research",
       ambiguous: true,
@@ -474,7 +551,8 @@ export function classifyShare(
 
   const ambiguous =
     maxScore < STRONG_SCORE &&
-    Math.abs(scores.post - scores.research) < CLEAR_GAP;
+    Math.abs(scores.post - scores.research) < CLEAR_GAP &&
+    !searchLike;
 
   return {
     suggested,
