@@ -214,7 +214,7 @@ const CHAT_HINT_RE =
   /振り返りコメント|想いを共有|共有頂き|浸透リレー/;
 
 const THEME_CODE_RE =
-  /(\d+|[０-９]+)\s*[-－﹣]\s*([①②③④⑤⑥⑦⑧⑨⑩]|[0-9０-９]{1,2})/;
+  /(?:^|[^\d０-９])[1-6１-６]\s*[-－﹣]\s*(?:[①②③④⑤⑥]|[1-6１-６])(?:[^\d０-９]|$)/;
 
 function hasThemeCode(body: string): boolean {
   return THEME_CODE_RE.test(body);
@@ -239,42 +239,21 @@ function researchQuery(title: string, text: string): string {
   return (strippedTitle || firstLine).slice(0, 80);
 }
 
-/**
- * Google 検索／AIモード共有（url パラメータ無し）か。
- * 長いAI回答でも、理念リレー投稿の定型が無ければ調べるへ。
- */
-export function looksLikeGoogleResultShare(
-  input: ShareIncoming,
-  urls: string[],
-): boolean {
-  if (urls.some(isGoogleUrl) || isGoogleUrl(input.url.trim())) return true;
-  if (urls.length > 0) return false;
-  const title = input.title.trim();
-  const text = input.text.trim();
-  const body = preferPostBody(title, text);
-  if (looksLikeMemberComment(body)) return false;
-  if (/Google\s*(検索|Search)/i.test(`${title}\n${text}`)) return true;
-  if (title && text && (text.startsWith(title) || title === text)) return true;
-  if (title && !text && title.length < 120 && !isBareUrl(title)) return true;
-  if (!title && text && text.length < 120 && !/\n/.test(text) && !isBareUrl(text)) {
-    return true;
-  }
-  // 定型なし・URLなし＝検索結果の本文共有（AIモードの長文含む）
-  return Boolean(body.trim());
-}
-
 export function resolveResearchUrl(
   classified: ReturnType<typeof classifyShare>,
   input: ShareIncoming,
 ): string {
-  const found = pickResearchUrl(classified.urls, input.url.trim());
-  if (found && isGoogleUrl(found)) return found;
+  const found = pickResearchUrl(
+    classified.urls,
+    coerceHttpUrl(input.url.trim()),
+  );
+  if (found) return found;
   const query = (classified.researchLabel || classified.postBody)
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  return query ? googleAiModeSearchUrl(query) : found;
+  return query ? googleAiModeSearchUrl(query) : "";
 }
 
 export function classifyShare(input: ShareIncoming): {
@@ -306,14 +285,12 @@ export function classifyShare(input: ShareIncoming): {
       stripped.replace(/\s+/g, " ").trim().slice(0, 80) || urls[0] || "共有リンク";
   }
 
-  const hasGoogle =
-    urls.some(isGoogleUrl) ||
-    isGoogleUrl(urlField) ||
-    isGoogleUrl(firstHttpUrl(text)) ||
-    isGoogleUrl(firstHttpUrl(title));
-  const googleShare = looksLikeGoogleResultShare(input, urls);
+  const member =
+    looksLikeMemberComment(postBody) ||
+    looksLikeMemberComment(title) ||
+    looksLikeMemberComment(text);
   return {
-    suggested: hasGoogle || googleShare ? "research" : "post",
+    suggested: member ? "post" : "research",
     ambiguous: false,
     urls:
       urls.length > 0

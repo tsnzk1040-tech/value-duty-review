@@ -188,7 +188,7 @@ export function ReviewWorkbench() {
         researchFocus: "",
       };
     });
-    setHint("共有からGoogle参照を1本入れた。結果の本文をコピーしてから所感へ");
+    setHint("検索共有を調べるの参照へ入れた");
   }, [draft, settings.valueItems]);
 
   useEffect(() => {
