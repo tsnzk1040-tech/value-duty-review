@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import {
-  SHARE_INCOMING_KEY,
   SHARE_PENDING_KEY,
   buildPendingShare,
   classifyShare,
@@ -17,21 +16,16 @@ function escapeForInlineJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-function shareTargetPath(incoming: ShareIncoming): string {
-  const query = new URLSearchParams();
-  if (incoming.title.trim()) query.set("title", incoming.title);
-  if (incoming.text.trim()) query.set("text", incoming.text);
-  if (incoming.url.trim()) query.set("url", incoming.url);
-  const encoded = query.toString();
-  return encoded ? `/share-target?${encoded}` : "/share-target";
-}
-
+/**
+ * クエリに Google URL を載せない。Location も /review のみ。
+ * GET の ?url= / 未エンコードの text=https://google.com/...?x&y が
+ * WowTalk のリンク共有（サインイン）を開く。
+ */
 function receiveHtml(incoming: ShareIncoming): NextResponse {
   const classified = classifyShare(incoming);
   const pending = hasShareIncoming(incoming)
     ? buildPendingShare(classified.suggested, incoming, classified)
     : null;
-  const nextPath = shareTargetPath(incoming);
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -46,10 +40,10 @@ function receiveHtml(incoming: ShareIncoming): NextResponse {
       ${
         pending
           ? `localStorage.setItem(${JSON.stringify(SHARE_PENDING_KEY)}, ${escapeForInlineJson(pending)});`
-          : `localStorage.setItem(${JSON.stringify(SHARE_INCOMING_KEY)}, ${escapeForInlineJson(incoming)});`
+          : ""
       }
     } catch (e) {}
-    location.replace(${JSON.stringify(nextPath)});
+    location.replace("/review");
   </script>
 </body>
 </html>`;
@@ -63,24 +57,17 @@ function receiveHtml(incoming: ShareIncoming): NextResponse {
   });
 }
 
-function toShareTarget(request: Request, incoming: ShareIncoming): NextResponse {
-  const path = shareTargetPath(incoming);
-  if (path.length > 1800) return receiveHtml(incoming);
-  return NextResponse.redirect(new URL(path, request.url), 303);
-}
-
-/** 古い POST マニフェスト用。本体は GET /share-target。 */
 export async function POST(request: Request) {
   let incoming: ShareIncoming = { title: "", text: "", url: "" };
   try {
     incoming = await incomingFromFormData(await request.formData());
   } catch {
-    // 空のまま share-target へ
+    // 空のまま review へ
   }
-  return toShareTarget(request, incoming);
+  return receiveHtml(incoming);
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  return toShareTarget(request, incomingFromSearchParams(searchParams));
+  return receiveHtml(incomingFromSearchParams(searchParams));
 }

@@ -82,7 +82,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - 所感: 同 API `kind=leader`（参照・要点・フォーカス必須。同テーマ前回は [same-theme-quote.md](same-theme-quote.md)）
 - 参照リンク: PWA共有で調べるへ（♯＝検索ワード）
 - 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め。**ブロック間は空行**）。通読で `assembledPost` として最終編集可。定型の二重は要約組み立て時に機械修正
-- **PWA共有**: GET `/share-target?title=&text=`（`url` は置かない）。**投稿定型（振り返りコメント／想いを共有／指針コード）があるときだけ①本文**。それ以外（Google結果・記事URL付き含む）は調べるの参照。URLが無ければ検索ワードから AIモード URL を組み立てる。
+- **PWA共有**: **POST `/share-target`**（WebAPK内。`/api` 直叩きにしない）。Google URL はフォームへ載せ、GET クエリに出さない（WowTalk サインイン防止）。GET `?text=` は WowTalk 用にページ側で残す。定型あり→①本文、それ以外→調べるの参照。
 
 - **投稿前**: 通読ステップの最終チェック（`src/lib/review/final-check.ts`）／Cursor は [final-check.md](final-check.md)
 - プロンプト: `src/lib/review/prompts.ts`
