@@ -211,25 +211,56 @@ export function pickResearchUrl(urls: string[], fallback = ""): string {
 }
 
 const CHAT_HINT_RE =
-  /振り返り|行動指針|企業理念|想いを|共有頂き|さん、/;
+  /振り返りコメント|想いを共有|共有頂き|浸透リレー/;
 
-function looksLikeMemberPost(body: string): boolean {
-  const t = body.trim();
-  if (t.length >= 80) return true;
-  if (/\n/.test(t)) return true;
-  return CHAT_HINT_RE.test(t);
+const THEME_CODE_RE =
+  /(\d+|[０-９]+)\s*[-－﹣]\s*([①②③④⑤⑥⑦⑧⑨⑩]|[0-9０-９]{1,2})/;
+
+function hasThemeCode(body: string): boolean {
+  return THEME_CODE_RE.test(body);
 }
 
-/** url パラメータ無しの Google 共有は、検索ワードだけが text に来る */
-export function looksLikeKeywordSearchShare(
-  body: string,
+function looksLikeMemberComment(body: string): boolean {
+  return CHAT_HINT_RE.test(body) || hasThemeCode(body);
+}
+
+function researchQuery(title: string, text: string): string {
+  const strippedTitle = title.replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "").trim();
+  if (strippedTitle && strippedTitle.length < 80 && !isBareUrl(strippedTitle)) {
+    return strippedTitle;
+  }
+  const firstLine = text
+    .split(/\n/)[0]
+    ?.replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "")
+    .trim() ?? "";
+  if (firstLine && firstLine.length < 80 && !isBareUrl(firstLine)) {
+    return firstLine;
+  }
+  return (strippedTitle || firstLine).slice(0, 80);
+}
+
+/**
+ * Google 検索／AIモード共有（url パラメータ無し）か。
+ * 長いAI回答でも、理念リレー投稿の定型が無ければ調べるへ。
+ */
+export function looksLikeGoogleResultShare(
+  input: ShareIncoming,
   urls: string[],
 ): boolean {
-  if (urls.some(isGoogleUrl)) return false;
+  if (urls.some(isGoogleUrl) || isGoogleUrl(input.url.trim())) return true;
   if (urls.length > 0) return false;
-  if (!body.trim() || isBareUrl(body)) return false;
-  if (looksLikeMemberPost(body)) return false;
-  return body.trim().length < 120;
+  const title = input.title.trim();
+  const text = input.text.trim();
+  const body = preferPostBody(title, text);
+  if (looksLikeMemberComment(body)) return false;
+  if (/Google\s*(検索|Search)/i.test(`${title}\n${text}`)) return true;
+  if (title && text && (text.startsWith(title) || title === text)) return true;
+  if (title && !text && title.length < 120 && !isBareUrl(title)) return true;
+  if (!title && text && text.length < 120 && !/\n/.test(text) && !isBareUrl(text)) {
+    return true;
+  }
+  // 定型なし・URLなし＝検索結果の本文共有（AIモードの長文含む）
+  return Boolean(body.trim());
 }
 
 export function resolveResearchUrl(
@@ -266,24 +297,23 @@ export function classifyShare(input: ShareIncoming): {
   );
 
   const postBody = preferPostBody(title, text);
-  let researchLabel = title;
+  const query = researchQuery(title, text);
+  let researchLabel = query;
   if (!researchLabel) {
     let stripped = text;
     for (const u of urls) stripped = stripped.replace(u, "");
     researchLabel =
-      stripped.replace(/\s+/g, " ").trim() || urls[0] || "共有リンク";
+      stripped.replace(/\s+/g, " ").trim().slice(0, 80) || urls[0] || "共有リンク";
   }
 
-  // Google URL がある、または検索ワードだけの共有 → 調べる。
-  // WowTalk の本文（長文・改行・定型）は投稿欄。permalink 付きも投稿欄。
   const hasGoogle =
     urls.some(isGoogleUrl) ||
     isGoogleUrl(urlField) ||
     isGoogleUrl(firstHttpUrl(text)) ||
     isGoogleUrl(firstHttpUrl(title));
-  const keywordSearch = looksLikeKeywordSearchShare(postBody, urls);
+  const googleShare = looksLikeGoogleResultShare(input, urls);
   return {
-    suggested: hasGoogle || keywordSearch ? "research" : "post",
+    suggested: hasGoogle || googleShare ? "research" : "post",
     ambiguous: false,
     urls:
       urls.length > 0

@@ -82,7 +82,7 @@ Value{N}　{Value名}   の{何番目}番目の行動指針について、{投�
 - 所感: 同 API `kind=leader`（参照・要点・フォーカス必須。同テーマ前回は [same-theme-quote.md](same-theme-quote.md)）
 - 参照リンク: PWA共有で調べるへ（♯＝検索ワード）
 - 組み立て: `formatReviewPost`（お礼→要約→所感→任意♯リンク→締め。**ブロック間は空行**）。通読で `assembledPost` として最終編集可。定型の二重は要約組み立て時に機械修正
-- **PWA共有**: ホーム画面追加後、Androidの共有から「企業理念リレー」を選ぶ。受け口は **GET `/share-target?title=&text=`**（**`url` は置かない**。Google URL の `&` で WowTalk サインインが開くため）。WowTalk の本文→投稿欄。Google 検索ワード→AIモード URL を組み立てて調べるの参照1本。
+- **PWA共有**: GET `/share-target?title=&text=`（`url` は置かない）。WowTalk（振り返り定型・指針コード・非Google URL）→投稿欄。Google／AIモード（定型なし）→検索ワードから AIモード URL を組み立てて調べるの参照。
 
 - **投稿前**: 通読ステップの最終チェック（`src/lib/review/final-check.ts`）／Cursor は [final-check.md](final-check.md)
 - プロンプト: `src/lib/review/prompts.ts`
