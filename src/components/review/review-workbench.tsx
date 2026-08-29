@@ -561,27 +561,6 @@ export function ReviewWorkbench() {
     setHint("参照を外した");
   }
 
-  async function pastePageFromClipboard() {
-    const clip = await readClipboardText();
-    if (clip.ok) {
-      if (!isUsablePagePaste(clip.text)) {
-        setHint(
-          "クリップボードはURLか短文だけ。結果ページの本文をコピーしてから再度",
-        );
-        return;
-      }
-      patch({
-        researchPagePaste: clip.text,
-        researchBrief: "",
-        researchNeedsPagePaste: true,
-      });
-      setHint("本文を貼った。要点メモを作って");
-      void runResearchBrief({ pagePaste: clip.text });
-      return;
-    }
-    setHint("クリップボードを読めなかった。下の欄を長押しして貼って");
-  }
-
   async function runResearchBrief(overrides?: {
     pagePaste?: string;
   }): Promise<boolean> {
@@ -630,7 +609,7 @@ export function ReviewWorkbench() {
       if (data.needsPagePaste) {
         patch({ researchBrief: "", researchNeedsPagePaste: true });
         setHint(
-          "参照ページの本文を取れなかった。ページを開いてコピー→「クリップボードから貼る」で要点を出す",
+          "参照ページの本文を取れなかった。ページを開いてコピーし、下の欄に貼ると要点を出す",
         );
         return false;
       }
@@ -1545,15 +1524,6 @@ export function ReviewWorkbench() {
                 <p className="text-xs text-muted-foreground">
                   所感へで貼れなかったときは、ここを長押しして貼る。貼ると要点メモを作る。
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full"
-                  disabled={generating}
-                  onClick={() => void pastePageFromClipboard()}
-                >
-                  クリップボードから貼る
-                </Button>
                 <Textarea
                   id="researchPagePaste"
                   autoComplete="off"

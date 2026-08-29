@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import {
   buildPendingShare,
   classifyShare,
+  consumeShareIncoming,
+  hasShareIncoming,
   writePendingShare,
   type ShareIncoming,
   type ShareIntent,
@@ -23,35 +25,39 @@ function readIncoming(params: URLSearchParams): ShareIncoming {
 function ShareTargetInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const incoming = useMemo(
-    () => readIncoming(searchParams),
-    [searchParams],
-  );
-  const classified = useMemo(() => classifyShare(incoming), [incoming]);
+  const [held, setHeld] = useState<ShareIncoming | null>(null);
   const [status, setStatus] = useState<"routing" | "choose">("routing");
   const committed = useRef(false);
 
   useEffect(() => {
     if (committed.current) return;
-    const empty =
-      !incoming.title.trim() &&
-      !incoming.text.trim() &&
-      !incoming.url.trim();
-    if (empty) {
+    const fromPost = consumeShareIncoming();
+    const fromQuery = readIncoming(searchParams);
+    const incomingShare = fromPost ?? fromQuery;
+    if (!hasShareIncoming(incomingShare)) {
       committed.current = true;
       router.replace("/review");
       return;
     }
-    if (classified.ambiguous) {
+    const classifiedShare = classifyShare(incomingShare);
+    if (classifiedShare.ambiguous) {
+      setHeld(incomingShare);
       setStatus("choose");
       return;
     }
     committed.current = true;
     writePendingShare(
-      buildPendingShare(classified.suggested, incoming, classified),
+      buildPendingShare(
+        classifiedShare.suggested,
+        incomingShare,
+        classifiedShare,
+      ),
     );
     router.replace("/review");
-  }, [classified, incoming, router]);
+  }, [searchParams, router]);
+
+  const incoming = held ?? readIncoming(searchParams);
+  const classified = useMemo(() => classifyShare(incoming), [incoming]);
 
   function commit(intent: ShareIntent) {
     if (committed.current) return;

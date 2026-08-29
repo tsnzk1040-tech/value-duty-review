@@ -1,6 +1,8 @@
 /** PWA Web Share Target → レビュー画面への橋渡し */
 
 export const SHARE_PENDING_KEY = "vdr.share.pending";
+/** POST 共有の一時置き。/share-target が読んで消す */
+export const SHARE_INCOMING_KEY = "vdr.share.incoming";
 
 export type ShareIntent = "post" | "research";
 
@@ -145,6 +147,31 @@ export function consumePendingShare(): PendingShare | null {
       text: parsed.text ?? "",
       url: parsed.url ?? "",
     };
+  } catch {
+    return null;
+  }
+}
+
+export function hasShareIncoming(input: ShareIncoming): boolean {
+  return Boolean(
+    input.title.trim() || input.text.trim() || input.url.trim(),
+  );
+}
+
+/** POST 受け口が置いた一時データ。読んだら消す。 */
+export function consumeShareIncoming(): ShareIncoming | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SHARE_INCOMING_KEY);
+    if (!raw) return null;
+    window.localStorage.removeItem(SHARE_INCOMING_KEY);
+    const parsed = JSON.parse(raw) as Partial<ShareIncoming>;
+    const incoming: ShareIncoming = {
+      title: typeof parsed.title === "string" ? parsed.title : "",
+      text: typeof parsed.text === "string" ? parsed.text : "",
+      url: typeof parsed.url === "string" ? parsed.url : "",
+    };
+    return hasShareIncoming(incoming) ? incoming : null;
   } catch {
     return null;
   }

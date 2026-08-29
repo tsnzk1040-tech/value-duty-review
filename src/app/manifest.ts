@@ -30,9 +30,9 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     ...base,
     share_target: {
-      action: "/share-target",
-      method: "GET",
-      enctype: "application/x-www-form-urlencoded",
+      action: "/api/share-target",
+      method: "POST",
+      enctype: "multipart/form-data",
       params: {
         title: "title",
         text: "text",
