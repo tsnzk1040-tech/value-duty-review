@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     icons: [
       {
-        src: "/icon.png?v=6",
+        src: "/icon.png?v=7",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.png?v=6",
+        src: "/icon.png?v=7",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -37,6 +37,7 @@ export default function manifest(): MetadataRoute.Manifest {
         title: "title",
         text: "text",
         url: "url",
+        files: [{ name: "file", accept: ["text/plain", "text/*"] }],
       },
     },
   } as MetadataRoute.Manifest;

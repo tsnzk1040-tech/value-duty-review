@@ -1,40 +1,28 @@
 import { NextResponse } from "next/server";
 
-import { SHARE_INCOMING_KEY } from "@/lib/review/share-target";
+import {
+  SHARE_INCOMING_KEY,
+  SHARE_PENDING_KEY,
+  buildPendingShare,
+  classifyShare,
+  hasShareIncoming,
+  incomingFromFormData,
+  incomingFromSearchParams,
+  type ShareIncoming,
+} from "@/lib/review/share-target";
 
 export const dynamic = "force-dynamic";
-
-function field(form: FormData, ...keys: string[]): string {
-  for (const key of keys) {
-    const value = form.get(key);
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return "";
-}
 
 function escapeForInlineJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-/**
- * PWA share_target の POST 受け口。
- * GET の ?url= に Google の長い検索 URL を載せると、Android が
- * リンク共有として WowTalk 等へ渡すことがある。本体はフォームに置く。
- */
-export async function POST(request: Request) {
-  let title = "";
-  let text = "";
-  let url = "";
-  try {
-    const form = await request.formData();
-    title = field(form, "title", "stitle");
-    text = field(form, "text", "stext");
-    url = field(form, "url", "slink");
-  } catch {
-    // 空のまま受けて share-target へ
-  }
-
-  const payload = { title, text, url };
+function receiveHtml(incoming: ShareIncoming): NextResponse {
+  const classified = classifyShare(incoming);
+  const pending = hasShareIncoming(incoming)
+    ? buildPendingShare(classified.suggested, incoming, classified)
+    : null;
+  const nextPath = pending ? "/review" : "/share-target";
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -46,9 +34,13 @@ export async function POST(request: Request) {
   <p>共有を受け取ってる…</p>
   <script>
     try {
-      localStorage.setItem(${JSON.stringify(SHARE_INCOMING_KEY)}, ${escapeForInlineJson(payload)});
+      ${
+        pending
+          ? `localStorage.setItem(${JSON.stringify(SHARE_PENDING_KEY)}, ${escapeForInlineJson(pending)});`
+          : `localStorage.setItem(${JSON.stringify(SHARE_INCOMING_KEY)}, ${escapeForInlineJson(incoming)});`
+      }
     } catch (e) {}
-    location.replace("/share-target");
+    location.replace(${JSON.stringify(nextPath)});
   </script>
 </body>
 </html>`;
@@ -60,4 +52,25 @@ export async function POST(request: Request) {
       "cache-control": "no-store",
     },
   });
+}
+
+/**
+ * PWA share_target の受け口。
+ * Google URL を GET クエリに載せない（リンク共有として WowTalk へ飛ぶのを避ける）。
+ * WowTalk は text が File だったり permalink URL 付きだったりするので、本文を投稿欄へ送る。
+ */
+export async function POST(request: Request) {
+  let incoming: ShareIncoming = { title: "", text: "", url: "" };
+  try {
+    incoming = await incomingFromFormData(await request.formData());
+  } catch {
+    // 空のまま受けて review / share-target へ
+  }
+  return receiveHtml(incoming);
+}
+
+/** 古い GET マニフェストや、POST が GET に落ちたときの保険 */
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  return receiveHtml(incomingFromSearchParams(searchParams));
 }

@@ -9,18 +9,11 @@ import {
   classifyShare,
   consumeShareIncoming,
   hasShareIncoming,
+  incomingFromSearchParams,
   writePendingShare,
   type ShareIncoming,
   type ShareIntent,
 } from "@/lib/review/share-target";
-
-function readIncoming(params: URLSearchParams): ShareIncoming {
-  return {
-    title: params.get("title") ?? "",
-    text: params.get("text") ?? "",
-    url: params.get("url") ?? "",
-  };
-}
 
 function ShareTargetInner() {
   const router = useRouter();
@@ -32,7 +25,7 @@ function ShareTargetInner() {
   useEffect(() => {
     if (committed.current) return;
     const fromPost = consumeShareIncoming();
-    const fromQuery = readIncoming(searchParams);
+    const fromQuery = incomingFromSearchParams(searchParams);
     const incomingShare = fromPost ?? fromQuery;
     if (!hasShareIncoming(incomingShare)) {
       committed.current = true;
@@ -56,7 +49,7 @@ function ShareTargetInner() {
     router.replace("/review");
   }, [searchParams, router]);
 
-  const incoming = held ?? readIncoming(searchParams);
+  const incoming = held ?? incomingFromSearchParams(searchParams);
   const classified = useMemo(() => classifyShare(incoming), [incoming]);
 
   function commit(intent: ShareIntent) {

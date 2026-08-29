@@ -21,6 +21,91 @@ export type PendingShare = {
 };
 
 const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+const BARE_URL_RE = /^https?:\/\/\S+$/i;
+const KNOWN_SHARE_KEYS = new Set([
+  "title",
+  "stitle",
+  "text",
+  "stext",
+  "url",
+  "slink",
+  "link",
+]);
+
+function isBareUrl(value: string): boolean {
+  return BARE_URL_RE.test(value.trim());
+}
+
+/** 投稿欄向け: 単体URLより本文を優先（WowTalkは title=本文 / text=URL になりがち） */
+export function preferPostBody(title: string, text: string): string {
+  const t = text.trim();
+  const h = title.trim();
+  if (t && !isBareUrl(t)) return t;
+  if (h && !isBareUrl(h)) return h;
+  return t || h;
+}
+
+export function incomingFromSearchParams(
+  params: URLSearchParams,
+): ShareIncoming {
+  return {
+    title: params.get("title") ?? params.get("stitle") ?? "",
+    text: params.get("text") ?? params.get("stext") ?? "",
+    url: params.get("url") ?? params.get("slink") ?? params.get("link") ?? "",
+  };
+}
+
+async function entryToText(value: FormDataEntryValue): Promise<string> {
+  if (typeof value === "string") return value;
+  if (
+    value &&
+    typeof value === "object" &&
+    "text" in value &&
+    typeof value.text === "function" &&
+    "size" in value &&
+    typeof value.size === "number" &&
+    value.size > 0 &&
+    value.size < 500_000
+  ) {
+    try {
+      const text = await value.text();
+      return typeof text === "string" ? text : "";
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+/** POST の text が File になる共有（チャットアプリ）も拾う */
+export async function incomingFromFormData(
+  form: FormData,
+): Promise<ShareIncoming> {
+  let title = "";
+  let text = "";
+  let url = "";
+  const extras: string[] = [];
+  for (const [key, value] of form.entries()) {
+    const raw = (await entryToText(value)).trim();
+    if (!raw) continue;
+    const lower = key.toLowerCase();
+    if (lower === "title" || lower === "stitle") {
+      if (!title) title = raw;
+      continue;
+    }
+    if (lower === "url" || lower === "slink" || lower === "link") {
+      if (!url) url = raw;
+      continue;
+    }
+    if (lower === "text" || lower === "stext" || lower === "file") {
+      if (!text) text = raw;
+      continue;
+    }
+    if (!KNOWN_SHARE_KEYS.has(lower)) extras.push(raw);
+  }
+  if (!text && extras.length > 0) text = extras.join("\n\n");
+  return { title, text, url };
+}
 
 export function extractUrls(...parts: string[]): string[] {
   const found: string[] = [];
@@ -72,7 +157,7 @@ export function classifyShare(input: ShareIncoming): {
     title,
   );
 
-  const postBody = text || title;
+  const postBody = preferPostBody(title, text);
   let researchLabel = title;
   if (!researchLabel) {
     let stripped = text;
@@ -81,31 +166,11 @@ export function classifyShare(input: ShareIncoming): {
       stripped.replace(/\s+/g, " ").trim() || urls[0] || "共有リンク";
   }
 
-  if (urls.length === 0) {
-    return {
-      suggested: "post",
-      ambiguous: false,
-      urls,
-      postBody,
-      researchLabel,
-    };
-  }
-
-  // URL付きで本文が短い＝検索結果・ページ共有寄り
-  if (postBody.length < 180) {
-    return {
-      suggested: "research",
-      ambiguous: false,
-      urls,
-      postBody,
-      researchLabel,
-    };
-  }
-
-  // URL＋長文＝チャット全文か、リンク付き長文。選ばせる
+  // Google検索の共有だけ調べるへ。WowTalk等の本文＋permalinkは投稿欄へ。
+  const hasGoogle = urls.some(isGoogleUrl);
   return {
-    suggested: "post",
-    ambiguous: true,
+    suggested: hasGoogle ? "research" : "post",
+    ambiguous: false,
     urls,
     postBody,
     researchLabel,
