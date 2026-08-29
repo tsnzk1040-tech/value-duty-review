@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     icons: [
       {
-        src: "/icon.png?v=8",
+        src: "/icon.png?v=9",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.png?v=8",
+        src: "/icon.png?v=9",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -27,8 +27,8 @@ export default function manifest(): MetadataRoute.Manifest {
   };
 
   // share_target は Manifest 型に未定義のため拡張
-  // GET /share-target が WowTalk の本文受け取り正本。
-  // url は置かない（Google URL の & がクエリを壊し、リンク共有として WowTalk が開くため）。
+  // GET /share-target が正本。WowTalk は text=本文、Google は url=検索URL。
+  // url の & 割れは incomingFromSearchParams で組み立て直す。
   return {
     ...base,
     share_target: {
@@ -38,6 +38,7 @@ export default function manifest(): MetadataRoute.Manifest {
       params: {
         title: "title",
         text: "text",
+        url: "url",
       },
     },
   } as MetadataRoute.Manifest;

@@ -136,6 +136,14 @@ function firstHttpUrl(value: string): string {
   return match ? match[0].replace(/[),.;]+$/g, "") : "";
 }
 
+function coerceHttpUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(www\.)?google\./i.test(trimmed)) return `https://${trimmed}`;
+  return trimmed;
+}
+
 /** GET の url= が Google の & で壊れたとき、はみ出したクエリを戻す */
 function mergeSplitGoogleUrl(params: URLSearchParams, baseUrl: string): string {
   if (!baseUrl || !isGoogleUrl(baseUrl)) return baseUrl;
@@ -151,16 +159,47 @@ function mergeSplitGoogleUrl(params: URLSearchParams, baseUrl: string): string {
   }
 }
 
+/** url が落ちて udm / q だけ残った Google 検索共有を組み立てる */
+function reconstructGoogleFromLooseParams(
+  params: URLSearchParams,
+): string {
+  const reserved = SHARE_QUERY_KEYS;
+  const loose: [string, string][] = [];
+  for (const [key, value] of params.entries()) {
+    if (reserved.has(key)) continue;
+    loose.push([key, value]);
+  }
+  if (loose.length === 0) return "";
+  const keys = new Set(loose.map(([key]) => key));
+  const looksLikeGoogleSearch =
+    keys.has("udm") ||
+    keys.has("ved") ||
+    keys.has("oq") ||
+    keys.has("tbm") ||
+    (keys.has("q") && (keys.has("hl") || keys.has("gl") || keys.has("source")));
+  if (!looksLikeGoogleSearch) return "";
+  const parsed = new URL("https://www.google.com/search");
+  for (const [key, value] of loose) parsed.searchParams.append(key, value);
+  return parsed.toString();
+}
+
 export function incomingFromSearchParams(
   params: URLSearchParams,
 ): ShareIncoming {
   const title = params.get("title") ?? params.get("stitle") ?? "";
   const text = params.get("text") ?? params.get("stext") ?? "";
-  let url = params.get("url") ?? params.get("slink") ?? params.get("link") ?? "";
+  let url = coerceHttpUrl(
+    params.get("url") ?? params.get("slink") ?? params.get("link") ?? "",
+  );
   const googleBase =
-    [url, firstHttpUrl(text)].find((candidate) => candidate && isGoogleUrl(candidate)) ??
-    "";
+    [url, firstHttpUrl(text), firstHttpUrl(title)].find(
+      (candidate) => candidate && isGoogleUrl(candidate),
+    ) ?? "";
   if (googleBase) url = mergeSplitGoogleUrl(params, googleBase);
+  else {
+    const reconstructed = reconstructGoogleFromLooseParams(params);
+    if (reconstructed) url = reconstructed;
+  }
   return { title, text, url };
 }
 
@@ -183,7 +222,7 @@ export function classifyShare(input: ShareIncoming): {
 } {
   const title = input.title.trim();
   const text = input.text.trim();
-  const urlField = input.url.trim();
+  const urlField = coerceHttpUrl(input.url.trim());
   const urls = extractUrls(
     urlField && /^https?:\/\//i.test(urlField) ? urlField : "",
     text,
@@ -200,11 +239,15 @@ export function classifyShare(input: ShareIncoming): {
   }
 
   // Google検索の共有だけ調べるへ。WowTalk等の本文＋permalinkは投稿欄へ。
-  const hasGoogle = urls.some(isGoogleUrl);
+  const hasGoogle =
+    urls.some(isGoogleUrl) ||
+    isGoogleUrl(urlField) ||
+    isGoogleUrl(firstHttpUrl(text)) ||
+    isGoogleUrl(firstHttpUrl(title));
   return {
     suggested: hasGoogle ? "research" : "post",
     ambiguous: false,
-    urls,
+    urls: urls.length > 0 ? urls : urlField && isGoogleUrl(urlField) ? [urlField] : urls,
     postBody,
     researchLabel,
   };
