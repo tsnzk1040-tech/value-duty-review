@@ -1,4 +1,4 @@
-/** PWA Web Share Target → レビュー画面への橋渡し */
+import { googleAiModeSearchUrl } from "@/lib/review/google-ai-mode";
 
 export const SHARE_PENDING_KEY = "vdr.share.pending";
 /** POST 共有の一時置き。/share-target が読んで消す */
@@ -210,6 +210,42 @@ export function pickResearchUrl(urls: string[], fallback = ""): string {
   return google ?? urls[0] ?? fallback;
 }
 
+const CHAT_HINT_RE =
+  /振り返り|行動指針|企業理念|想いを|共有頂き|さん、/;
+
+function looksLikeMemberPost(body: string): boolean {
+  const t = body.trim();
+  if (t.length >= 80) return true;
+  if (/\n/.test(t)) return true;
+  return CHAT_HINT_RE.test(t);
+}
+
+/** url パラメータ無しの Google 共有は、検索ワードだけが text に来る */
+export function looksLikeKeywordSearchShare(
+  body: string,
+  urls: string[],
+): boolean {
+  if (urls.some(isGoogleUrl)) return false;
+  if (urls.length > 0) return false;
+  if (!body.trim() || isBareUrl(body)) return false;
+  if (looksLikeMemberPost(body)) return false;
+  return body.trim().length < 120;
+}
+
+export function resolveResearchUrl(
+  classified: ReturnType<typeof classifyShare>,
+  input: ShareIncoming,
+): string {
+  const found = pickResearchUrl(classified.urls, input.url.trim());
+  if (found && isGoogleUrl(found)) return found;
+  const query = (classified.researchLabel || classified.postBody)
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return query ? googleAiModeSearchUrl(query) : found;
+}
+
 export function classifyShare(input: ShareIncoming): {
   suggested: ShareIntent;
   /** 両方あり得るときユーザーに選ばせる */
@@ -238,16 +274,23 @@ export function classifyShare(input: ShareIncoming): {
       stripped.replace(/\s+/g, " ").trim() || urls[0] || "共有リンク";
   }
 
-  // Google検索の共有だけ調べるへ。WowTalk等の本文＋permalinkは投稿欄へ。
+  // Google URL がある、または検索ワードだけの共有 → 調べる。
+  // WowTalk の本文（長文・改行・定型）は投稿欄。permalink 付きも投稿欄。
   const hasGoogle =
     urls.some(isGoogleUrl) ||
     isGoogleUrl(urlField) ||
     isGoogleUrl(firstHttpUrl(text)) ||
     isGoogleUrl(firstHttpUrl(title));
+  const keywordSearch = looksLikeKeywordSearchShare(postBody, urls);
   return {
-    suggested: hasGoogle ? "research" : "post",
+    suggested: hasGoogle || keywordSearch ? "research" : "post",
     ambiguous: false,
-    urls: urls.length > 0 ? urls : urlField && isGoogleUrl(urlField) ? [urlField] : urls,
+    urls:
+      urls.length > 0
+        ? urls
+        : urlField && isGoogleUrl(urlField)
+          ? [urlField]
+          : urls,
     postBody,
     researchLabel,
   };
@@ -264,7 +307,7 @@ export function buildPendingShare(
     text: intent === "post" ? classified.postBody : classified.researchLabel,
     url:
       intent === "research"
-        ? pickResearchUrl(classified.urls, input.url.trim())
+        ? resolveResearchUrl(classified, input)
         : (classified.urls[0] ?? input.url.trim()),
   };
 }
