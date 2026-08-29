@@ -6,6 +6,14 @@ import type { GenerateProviderId } from "@/lib/review/providers/summary";
 
 export const PAGE_PASTE_MIN_CHARS = 80;
 
+/** 所感の要点材料になるページ本文か。単体URLや短文は不可。 */
+export function isUsablePagePaste(text: string): boolean {
+  const t = text.trim();
+  if (t.length < PAGE_PASTE_MIN_CHARS) return false;
+  if (/^https?:\/\/\S+$/i.test(t)) return false;
+  return true;
+}
+
 export type ResearchBriefInput = {
   keywords: string;
   researchFocus: string;
@@ -49,7 +57,7 @@ export function generateResearchBriefStub(
   const focusNote = input.researchFocus.trim()
     ? `（フォーカス「${input.researchFocus.trim()}」に寄せた）`
     : "";
-  if (paste.length >= PAGE_PASTE_MIN_CHARS) {
+  if (isUsablePagePaste(paste)) {
     const lines = input.selectedLinks.map((l, i) => {
       const excerpt = paste.slice(0, 280).replace(/\s+/g, " ");
       return `【${i + 1} ${l.title}】\n- ${focusNote}貼付本文より: ${excerpt}`;
@@ -146,7 +154,7 @@ export async function generateResearchBriefGemini(
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
   const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const paste = input.pagePaste?.trim() ?? "";
-  const hasPaste = paste.length >= PAGE_PASTE_MIN_CHARS;
+  const hasPaste = isUsablePagePaste(paste);
 
   if (hasPaste) {
     const prompt = buildPrompt(input, "from-paste");

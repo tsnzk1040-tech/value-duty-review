@@ -109,7 +109,7 @@ export const REVIEW_STEPS: {
     step: 4,
     title: "所感",
     process: "⑦⑧⑨",
-    blurb: "所感へ進むと要点まで作る。狙いを書いて下書きへ",
+    blurb: "コピーした本文を貼って要点まで。狙いを書いて下書きへ",
   },
   {
     step: 5,

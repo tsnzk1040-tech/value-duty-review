@@ -80,6 +80,27 @@ export async function copyOrShare(text: string): Promise<CopyOrShareResult> {
   return "failed";
 }
 
+export type ReadClipboardResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: "empty" | "denied" };
+
+/**
+ * クリック直後のユーザー操作内で呼ぶ。
+ * Android PWA では他アプリ（Google）からコピーした本文を読めないことがある。
+ */
+export async function readClipboardText(): Promise<ReadClipboardResult> {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.readText) {
+    return { ok: false, reason: "denied" };
+  }
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text.trim()) return { ok: false, reason: "empty" };
+    return { ok: true, text };
+  } catch {
+    return { ok: false, reason: "denied" };
+  }
+}
+
 export function copyOrShareHint(result: CopyOrShareResult, copiedOk: string): string {
   if (result === "shared") {
     return "共有シートを開いた。WowTalk 等を選んで";

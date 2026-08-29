@@ -38,7 +38,7 @@ import {
   textMayMissOpeningKagi,
   type FinalCheckResult,
 } from "@/lib/review/final-check";
-import { PAGE_PASTE_MIN_CHARS } from "@/lib/review/providers/research-brief";
+import { isUsablePagePaste } from "@/lib/review/providers/research-brief";
 import { consumePendingShare } from "@/lib/review/share-target";
 import {
   historyNotesForDraft,
@@ -46,7 +46,11 @@ import {
   applySameThemeFixedSentence,
   saveReviewHistory,
 } from "@/lib/review/history";
-import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
+import {
+  copyOrShare,
+  copyOrShareHint,
+  readClipboardText,
+} from "@/lib/clipboard";
 import { matchValueItemFromSourcePost } from "@/lib/review/match-theme";
 import {
   checkDraftThemeConsistency,
@@ -186,7 +190,7 @@ export function ReviewWorkbench() {
         researchFocus: "",
       };
     });
-    setHint("共有からGoogle参照を1本入れた。所感へ進むと要点まで作る");
+    setHint("共有からGoogle参照を1本入れた。結果の本文をコピーしてから所感へ");
   }, [draft, settings.valueItems]);
 
   useEffect(() => {
@@ -558,26 +562,24 @@ export function ReviewWorkbench() {
   }
 
   async function pastePageFromClipboard() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text.trim()) {
-        setHint("クリップボードが空。ページでコピーしてから再度");
+    const clip = await readClipboardText();
+    if (clip.ok) {
+      if (!isUsablePagePaste(clip.text)) {
+        setHint(
+          "クリップボードはURLか短文だけ。結果ページの本文をコピーしてから再度",
+        );
         return;
       }
       patch({
-        researchPagePaste: text,
+        researchPagePaste: clip.text,
         researchBrief: "",
         researchNeedsPagePaste: true,
       });
-      if (text.trim().length < PAGE_PASTE_MIN_CHARS) {
-        setHint("貼ったが短い。もう少し本文を足すと要点が走る");
-        return;
-      }
       setHint("本文を貼った。要点メモを作って");
-      runResearchBrief({ pagePaste: text });
-    } catch {
-      setHint("クリップボードを読めなかった。下の欄を長押しして貼って");
+      void runResearchBrief({ pagePaste: clip.text });
+      return;
     }
+    setHint("クリップボードを読めなかった。下の欄を長押しして貼って");
   }
 
   async function runResearchBrief(overrides?: {
@@ -593,7 +595,11 @@ export function ReviewWorkbench() {
     }
     const pagePaste = overrides?.pagePaste ?? draft!.researchPagePaste;
     setGenerating(true);
-    setHint("参照から要点メモを作っている…");
+    setHint(
+      isUsablePagePaste(pagePaste)
+        ? "貼った本文から要点メモを作っている…"
+        : "参照から要点メモを作っている…",
+    );
     try {
       const res = await fetch("/api/review/draft", {
         method: "POST",
@@ -652,20 +658,46 @@ export function ReviewWorkbench() {
     }
   }
 
-  /** 所感へ：参照必須 → 遷移と同時に要点まで自動 */
+  /** 所感へ：クリップボード（または既に貼った本文）が材料。URL取得には頼らない */
   async function enterLeaderStepWithBrief() {
     if (!canEnterLeaderStep(draft!)) {
       setHint("参照URLが無い。Googleから共有してから所感へ");
       return;
     }
-    const url = draft!.linkCandidates[0]?.url?.trim() ?? "";
-    if (!url) {
-      setHint("参照URLが空。もう一度共有し直して");
+
+    let paste = draft!.researchPagePaste;
+    let clipDenied = false;
+    if (!isUsablePagePaste(paste)) {
+      const clip = await readClipboardText();
+      if (clip.ok) {
+        paste = clip.text;
+      } else if (clip.reason === "denied") {
+        clipDenied = true;
+      }
+    }
+
+    if (isUsablePagePaste(paste)) {
+      patch({
+        step: 4,
+        researchPagePaste: paste,
+        researchBrief: "",
+        researchNeedsPagePaste: true,
+      });
+      await runResearchBrief({ pagePaste: paste });
       return;
     }
-    go(4);
-    setHint("所感へ進んだ。参照から要点を作っている…");
-    await runResearchBrief();
+
+    if (clipDenied) {
+      patch({ step: 4 });
+      setHint(
+        "クリップボードを直接読めなかった。下の欄を長押しして本文を貼ると要点まで進む",
+      );
+      return;
+    }
+
+    setHint(
+      "張り付ける本文が無い。Googleの結果ページで本文をコピーしてから、もう一度「所感へ」",
+    );
   }
 
   function runLeaderDraft() {
@@ -1475,12 +1507,15 @@ export function ReviewWorkbench() {
               まだ参照なし。Googleから共有するとここに1本入る。
             </p>
           )}
+          <p className="text-xs text-muted-foreground">
+            結果ページで本文をコピーしてから押す。貼れる本文が無いときは進まない。
+          </p>
           <Button
             className="h-11 w-full"
             onClick={() => void enterLeaderStepWithBrief()}
             disabled={!canEnterLeaderStep(draft) || generating}
           >
-            {generating ? "要点を準備中…" : "所感へ（要点まで作る）"}
+            {generating ? "要点を準備中…" : "所感へ（貼って要点まで）"}
           </Button>
           <Button variant="outline" className="h-11 w-full" onClick={() => go(2)}>
             戻る
@@ -1508,7 +1543,7 @@ export function ReviewWorkbench() {
                   開いたページの本文（任意）
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  貼ると要点メモを作る。手直しは下の欄。
+                  所感へで貼れなかったときは、ここを長押しして貼る。貼ると要点メモを作る。
                 </p>
                 <Button
                   type="button"
@@ -1538,8 +1573,8 @@ export function ReviewWorkbench() {
                         "researchPagePaste",
                       ) as HTMLTextAreaElement | null;
                       const next = el?.value ?? inserted;
-                      if (next.trim().length < PAGE_PASTE_MIN_CHARS) return;
-                      runResearchBrief({ pagePaste: next });
+                      if (!isUsablePagePaste(next)) return;
+                      void runResearchBrief({ pagePaste: next });
                     }, 0);
                   }}
                 />
