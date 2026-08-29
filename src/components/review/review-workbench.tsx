@@ -39,7 +39,7 @@ import {
   type FinalCheckResult,
 } from "@/lib/review/final-check";
 import { isUsablePagePaste } from "@/lib/review/providers/research-brief";
-import { consumePendingShare } from "@/lib/review/share-target";
+import { consumePendingShare, researchUrlFromPending } from "@/lib/review/share-target";
 import {
   historyNotesForDraft,
   getSameThemeLeaderQuote,
@@ -157,9 +157,9 @@ export function ReviewWorkbench() {
       return;
     }
 
-    const url = pending.url.trim();
+    const url = researchUrlFromPending(pending);
     if (!url) {
-      setHint("共有にURLがなかった。Googleからもう一度共有して");
+      setHint("共有にURLも検索ワードもなかった。Googleからもう一度共有して");
       return;
     }
     const sharp =

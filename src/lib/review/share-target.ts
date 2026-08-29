@@ -94,7 +94,51 @@ export async function incomingFromFormData(
     if (!KNOWN_SHARE_KEYS.has(lower)) extras.push(raw);
   }
   if (!text && extras.length > 0) text = extras.join("\n\n");
+  if (!url) {
+    const harvested = extractUrls(title, text, extras.join("\n"))[0];
+    if (harvested) url = harvested;
+  }
   return { title, text, url };
+}
+
+export async function incomingFromRequest(
+  request: Request,
+): Promise<ShareIncoming> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/x-www-form-urlencoded")) {
+    try {
+      const raw = await request.text();
+      return fillMissingShareUrl(
+        incomingFromSearchParams(new URLSearchParams(raw)),
+      );
+    } catch {
+      return { title: "", text: "", url: "" };
+    }
+  }
+  try {
+    const incoming = fillMissingShareUrl(
+      await incomingFromFormData(await request.formData()),
+    );
+    if (hasShareIncoming(incoming)) return incoming;
+  } catch {
+    // urlencoded に落とす
+  }
+  return { title: "", text: "", url: "" };
+}
+
+export function fillMissingShareUrl(incoming: ShareIncoming): ShareIncoming {
+  const url = coerceHttpUrl(incoming.url);
+  if (url && /^https?:\/\//i.test(url)) {
+    return { ...incoming, url };
+  }
+  const harvested =
+    extractUrls(incoming.url, incoming.text, incoming.title)[0] ??
+    firstHttpUrl(incoming.text) ??
+    firstHttpUrl(incoming.title);
+  return {
+    ...incoming,
+    url: harvested ? coerceHttpUrl(harvested) : url,
+  };
 }
 
 export function extractUrls(...parts: string[]): string[] {
@@ -103,6 +147,13 @@ export function extractUrls(...parts: string[]): string[] {
     const matches = part.match(URL_RE) ?? [];
     for (const m of matches) {
       found.push(m.replace(/[),.;]+$/g, ""));
+    }
+    const schemeless = part.match(
+      /(?:^|[\s"'<>(])((?:www\.)?google\.[^\s<>"']+)/gi,
+    );
+    for (const raw of schemeless ?? []) {
+      const hostPath = raw.replace(/^[^\w.]+/, "").replace(/[),.;]+$/g, "");
+      if (hostPath) found.push(`https://${hostPath}`);
     }
   }
   return [...new Set(found)];
@@ -247,13 +298,42 @@ export function resolveResearchUrl(
     classified.urls,
     coerceHttpUrl(input.url.trim()),
   );
-  if (found) return found;
-  const query = (classified.researchLabel || classified.postBody)
+  if (found && /^https?:\/\//i.test(found)) return found;
+  const harvested =
+    extractUrls(input.url, input.text, input.title)[0] ??
+    firstHttpUrl(input.text) ??
+    firstHttpUrl(input.title);
+  if (harvested && /^https?:\/\//i.test(coerceHttpUrl(harvested))) {
+    return coerceHttpUrl(harvested);
+  }
+  const query = (classified.researchLabel || classified.postBody || input.title || input.text)
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  return query ? googleAiModeSearchUrl(query) : "";
+  if (query) return googleAiModeSearchUrl(query.slice(0, 120));
+  return googleAiModeSearchUrl("検索");
+}
+
+export function researchUrlFromPending(pending: {
+  title: string;
+  text: string;
+  url: string;
+}): string {
+  const direct = pending.url.trim();
+  if (direct && /^https?:\/\//i.test(direct)) return direct;
+  const harvested =
+    extractUrls(pending.url, pending.text, pending.title)[0] ??
+    firstHttpUrl(pending.text) ??
+    firstHttpUrl(pending.title);
+  if (harvested) return coerceHttpUrl(harvested);
+  const query = (pending.title || pending.text)
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s*[-–—]\s*Google\s*検索\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (query) return googleAiModeSearchUrl(query.slice(0, 120));
+  return "";
 }
 
 export function classifyShare(input: ShareIncoming): {

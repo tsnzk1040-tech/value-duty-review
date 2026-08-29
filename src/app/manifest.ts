@@ -12,13 +12,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ja",
     icons: [
       {
-        src: "/icon.png?v=12",
+        src: "/icon.png?v=13",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon.png?v=12",
+        src: "/icon.png?v=13",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
@@ -32,7 +32,7 @@ export default function manifest(): MetadataRoute.Manifest {
     share_target: {
       action: "/share-target",
       method: "POST",
-      enctype: "multipart/form-data",
+      enctype: "application/x-www-form-urlencoded",
       params: {
         title: "title",
         text: "text",

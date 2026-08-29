@@ -4,8 +4,9 @@ import {
   SHARE_PENDING_KEY,
   buildPendingShare,
   classifyShare,
+  fillMissingShareUrl,
   hasShareIncoming,
-  incomingFromFormData,
+  incomingFromRequest,
   incomingFromSearchParams,
   type ShareIncoming,
 } from "@/lib/review/share-target";
@@ -22,9 +23,10 @@ function escapeForInlineJson(value: unknown): string {
  * WowTalk のリンク共有（サインイン）を開く。
  */
 function receiveHtml(incoming: ShareIncoming): NextResponse {
-  const classified = classifyShare(incoming);
-  const pending = hasShareIncoming(incoming)
-    ? buildPendingShare(classified.suggested, incoming, classified)
+  const filled = fillMissingShareUrl(incoming);
+  const classified = classifyShare(filled);
+  const pending = hasShareIncoming(filled)
+    ? buildPendingShare(classified.suggested, filled, classified)
     : null;
   const html = `<!DOCTYPE html>
 <html lang="ja">
@@ -58,12 +60,7 @@ function receiveHtml(incoming: ShareIncoming): NextResponse {
 }
 
 export async function POST(request: Request) {
-  let incoming: ShareIncoming = { title: "", text: "", url: "" };
-  try {
-    incoming = await incomingFromFormData(await request.formData());
-  } catch {
-    // 空のまま review へ
-  }
+  const incoming = await incomingFromRequest(request);
   return receiveHtml(incoming);
 }
 
