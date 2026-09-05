@@ -114,49 +114,40 @@ export const POC_VALUE_HEADINGS = [
   "Value６　妥協なき信念、貫くは正道",
 ] as const;
 
-const VALUE_IDS = POC_VALUE_ITEMS.map((v) => v.id);
-
-function themeAt(index: number): string {
-  return VALUE_IDS[index % VALUE_IDS.length]!;
-}
-
 /**
- * 新ローテーション第1周（2026-07-29〜08-27）。トシオ提供のノート出力どおり。
+ * 新ローテーション第1周（2026-07-29〜08-27）。トシオ実績（ノート貼付）。
+ * 21日。テーマは 1-① からカタログ順。煤賀さんが 8/14 と 8/26 の2回。最終は常塚 1-②。
  */
 const SHIN_CYCLE_SCHEDULE = [
-  { date: "2026-07-29", memberId: "m-amakawa", valueItemId: "v4-3" },
-  { date: "2026-07-30", memberId: "m-makishima", valueItemId: "v5-1" },
-  { date: "2026-07-31", memberId: "m-kato", valueItemId: "v5-2" },
-  { date: "2026-08-03", memberId: "m-shinohara", valueItemId: "v5-3" },
-  { date: "2026-08-04", memberId: "m-sakuma", valueItemId: "v6-1" },
-  { date: "2026-08-05", memberId: "m-chigira", valueItemId: "v6-2" },
-  { date: "2026-08-06", memberId: "m-kobayashi-megumi", valueItemId: "v6-3" },
-  { date: "2026-08-07", memberId: "m-arita", valueItemId: "v6-4" },
-  { date: "2026-08-10", memberId: "m-tanaka", valueItemId: "v1-1" },
-  { date: "2026-08-12", memberId: "m-sakurai", valueItemId: "v1-2" },
-  { date: "2026-08-13", memberId: "m-nakajo", valueItemId: "v1-3" },
-  { date: "2026-08-14", memberId: "m-susuga", valueItemId: "v1-4" },
-  { date: "2026-08-17", memberId: "m-furutaka", valueItemId: "v2-1" },
-  { date: "2026-08-18", memberId: "m-takeya", valueItemId: "v2-2" },
-  { date: "2026-08-19", memberId: "m-tamada", valueItemId: "v3-1" },
-  { date: "2026-08-20", memberId: "m-tateishi", valueItemId: "v3-2" },
-  { date: "2026-08-21", memberId: "m-matsumoto", valueItemId: "v3-3" },
-  { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: "v4-1" },
-  { date: "2026-08-25", memberId: "m-tagawa", valueItemId: "v4-2" },
-  { date: "2026-08-26", memberId: "m-susuga", valueItemId: "v4-3" },
-  { date: "2026-08-27", memberId: "m-tsunezuka", valueItemId: "v5-1" },
+  { date: "2026-07-29", memberId: "m-amakawa", valueItemId: "v1-1" },
+  { date: "2026-07-30", memberId: "m-makishima", valueItemId: "v1-2" },
+  { date: "2026-07-31", memberId: "m-kato", valueItemId: "v1-3" },
+  { date: "2026-08-03", memberId: "m-shinohara", valueItemId: "v1-4" },
+  { date: "2026-08-04", memberId: "m-sakuma", valueItemId: "v2-1" },
+  { date: "2026-08-05", memberId: "m-chigira", valueItemId: "v2-2" },
+  { date: "2026-08-06", memberId: "m-kobayashi-megumi", valueItemId: "v3-1" },
+  { date: "2026-08-07", memberId: "m-arita", valueItemId: "v3-2" },
+  { date: "2026-08-10", memberId: "m-tanaka", valueItemId: "v3-3" },
+  { date: "2026-08-12", memberId: "m-sakurai", valueItemId: "v4-1" },
+  { date: "2026-08-13", memberId: "m-nakajo", valueItemId: "v4-2" },
+  { date: "2026-08-14", memberId: "m-susuga", valueItemId: "v4-3" },
+  { date: "2026-08-17", memberId: "m-furutaka", valueItemId: "v5-1" },
+  { date: "2026-08-18", memberId: "m-takeya", valueItemId: "v5-2" },
+  { date: "2026-08-19", memberId: "m-tamada", valueItemId: "v5-3" },
+  { date: "2026-08-20", memberId: "m-tateishi", valueItemId: "v6-1" },
+  { date: "2026-08-21", memberId: "m-matsumoto", valueItemId: "v6-2" },
+  { date: "2026-08-24", memberId: "m-kobayashi-taku", valueItemId: "v6-3" },
+  { date: "2026-08-25", memberId: "m-tagawa", valueItemId: "v6-4" },
+  { date: "2026-08-26", memberId: "m-susuga", valueItemId: "v1-1" },
+  { date: "2026-08-27", memberId: "m-tsunezuka", valueItemId: "v1-2" },
 ] as const;
 
-function shinCycleDays() {
-  return SHIN_CYCLE_SCHEDULE.map((row) => ({
-    date: row.date,
-    memberId: row.memberId,
-    valueItemId: row.valueItemId,
-  }));
-}
-
-/** 新ローテーション第2周（2026-08-28〜）。トシオ提供の fairAssign 出力どおり。 */
-const NEXT_CYCLE_SCHEDULE = [
+/**
+ * 本番・現ローテ（2026-08-28〜09-29）。トシオ実績（本番環境）。
+ * 20日・人の一巡。テーマは 5-② からカタログ順（前サイクル最終 1-② の次＝1-③ ではない）。
+ * 最終は常塚 5-②。9/19〜23 は土日祝で空ける。
+ */
+const PROD_CYCLE_SCHEDULE = [
   { date: "2026-08-28", memberId: "m-arita", valueItemId: "v5-2" },
   { date: "2026-08-31", memberId: "m-tanaka", valueItemId: "v5-3" },
   { date: "2026-09-01", memberId: "m-takeya", valueItemId: "v6-1" },
@@ -179,8 +170,14 @@ const NEXT_CYCLE_SCHEDULE = [
   { date: "2026-09-29", memberId: "m-tsunezuka", valueItemId: "v5-2" },
 ] as const;
 
-function nextCycleDays() {
-  return NEXT_CYCLE_SCHEDULE.map((row) => ({
+function cycleDaysFrom(
+  schedule: readonly {
+    date: string;
+    memberId: string;
+    valueItemId: string;
+  }[],
+) {
+  return schedule.map((row) => ({
     date: row.date,
     memberId: row.memberId,
     valueItemId: row.valueItemId,
@@ -188,45 +185,19 @@ function nextCycleDays() {
 }
 
 /**
- * Prior cycles for fair-assign.
- * Latest = トシオ提供の「新ローテーション」（data/local/members-and-rotation.json と同内容）。
- * 1つ前 = その直前サイクル（仮・間隔計算用）。
+ * Prior cycles for fair-assign. Older first.
+ * 7/29 実績の次に、本番・現ローテ（8/28〜9/29）を置く。これ以外の生成結果は実績にしない。
  */
 export const POC_HISTORY_CYCLES: RotationCycle[] = [
   {
-    id: "hist-prev",
-    label: "前サイクル（仮）",
-    days: [
-      { date: "2026-07-01", memberId: "m-makishima", valueItemId: themeAt(2) },
-      { date: "2026-07-02", memberId: "m-kato", valueItemId: themeAt(3) },
-      { date: "2026-07-03", memberId: "m-shinohara", valueItemId: themeAt(4) },
-      { date: "2026-07-06", memberId: "m-sakuma", valueItemId: themeAt(5) },
-      { date: "2026-07-07", memberId: "m-chigira", valueItemId: themeAt(6) },
-      { date: "2026-07-08", memberId: "m-kobayashi-megumi", valueItemId: themeAt(7) },
-      { date: "2026-07-09", memberId: "m-arita", valueItemId: themeAt(8) },
-      { date: "2026-07-10", memberId: "m-tanaka", valueItemId: themeAt(9) },
-      { date: "2026-07-13", memberId: "m-sakurai", valueItemId: themeAt(10) },
-      { date: "2026-07-14", memberId: "m-nakajo", valueItemId: themeAt(11) },
-      { date: "2026-07-15", memberId: "m-susuga", valueItemId: themeAt(12) },
-      { date: "2026-07-16", memberId: "m-furutaka", valueItemId: themeAt(13) },
-      { date: "2026-07-17", memberId: "m-takeya", valueItemId: themeAt(14) },
-      { date: "2026-07-21", memberId: "m-tamada", valueItemId: themeAt(15) },
-      { date: "2026-07-22", memberId: "m-tateishi", valueItemId: themeAt(16) },
-      { date: "2026-07-23", memberId: "m-matsumoto", valueItemId: themeAt(17) },
-      { date: "2026-07-24", memberId: "m-kobayashi-taku", valueItemId: themeAt(18) },
-      { date: "2026-07-27", memberId: "m-tagawa", valueItemId: themeAt(0) },
-      { date: "2026-07-28", memberId: "m-tsunezuka", valueItemId: themeAt(18) },
-    ],
-  },
-  {
     id: "cycle-shin-2026-07-29",
     label: "新ローテーション",
-    days: shinCycleDays(),
+    days: cycleDaysFrom(SHIN_CYCLE_SCHEDULE),
   },
   {
-    id: "cycle-shin-2026-08-28",
-    label: "新ローテーション（2026-08-28〜）",
-    days: nextCycleDays(),
+    id: "cycle-prod-2026-08-28",
+    label: "本番・現ローテ",
+    days: cycleDaysFrom(PROD_CYCLE_SCHEDULE),
   },
 ];
 

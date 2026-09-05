@@ -3,7 +3,7 @@ import {
   listBusinessDaysWithMeta,
   type BusinessDayOptions,
 } from "./business-days";
-import { hasPreviousRotation, latestPreviousCycle } from "./previous-cycle";
+import { hasPreviousRotation, latestPreviousCycle, cycleNeighborIds } from "./previous-cycle";
 import { resolveCycleStart } from "./cycle-start";
 import { resolveThemeStart } from "./theme-start";
 import type {
@@ -27,23 +27,29 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function pickWeighted<T>(
+function pickBest<T>(
   items: T[],
   score: (item: T) => number,
   rand: () => number,
 ): T {
-  const weights = items.map((item) => Math.max(0.0001, score(item)));
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = rand() * total;
-  for (let i = 0; i < items.length; i += 1) {
-    r -= weights[i];
-    if (r <= 0) return items[i];
+  let best = Number.NEGATIVE_INFINITY;
+  const winners: T[] = [];
+  for (const item of items) {
+    const s = score(item);
+    if (s > best) {
+      best = s;
+      winners.length = 0;
+      winners.push(item);
+    } else if (s === best) {
+      winners.push(item);
+    }
   }
-  return items[items.length - 1];
-}
-
-function firstNonEmpty(groups: Member[][]): Member[] | undefined {
-  return groups.find((group) => group.length > 0);
+  if (winners.length <= 1) return winners[0] ?? items[items.length - 1]!;
+  const idx = Math.min(
+    winners.length - 1,
+    Math.floor(rand() * winners.length),
+  );
+  return winners[idx]!;
 }
 
 export type FairAssignOptions = FairAssignInput & {
@@ -149,7 +155,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   }
 
   warnings.push(
-    `テーマ枠 ${themeSlotCount}（カタログ ${input.valueItems.length}・メンバー ${active.length}）。テーマ巡回が本質。日付は土日祝を避けて乗せる。休み番なし。`,
+    `テーマ枠 ${themeSlotCount}（カタログ ${input.valueItems.length}・メンバー ${active.length}）。人の一巡が本質。日付は土日祝を避けて乗せる。休み番なし。`,
   );
 
   const themeStartMeta = {
@@ -165,6 +171,8 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   }
 
   const prevCycle = latestPreviousCycle(input.historyCycles);
+  const prevNeighbors = cycleNeighborIds(prevCycle);
+  const prevCycleLastMember = prevCycle?.days[prevCycle.days.length - 1]?.memberId;
   const prevCycleLast = prevCycle?.days[prevCycle.days.length - 1]?.date;
   if (prevCycleLast) {
     const cycleGap = businessDaysBetween(
@@ -226,32 +234,12 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
         : active;
 
     const veterans = pool.filter((m) => !m.newcomer);
-    const newcomerPool = pool.filter((m) => Boolean(m.newcomer));
 
-    // Veterans first; newcomers only after all veterans have their turn (end of cycle, before closer).
     const veteranPending = veterans.filter(
       (m) => (memberCount.get(m.id) ?? 0) === 0,
     );
-    const stagePool =
-      !forceCloser && veteranPending.length > 0 ? veterans : pool;
-    const stageFocus =
-      !forceCloser && veteranPending.length > 0
-        ? veteranPending
-        : !forceCloser && newcomerPool.length > 0 && veteranPending.length === 0
-          ? newcomerPool.filter((m) => (memberCount.get(m.id) ?? 0) === 0)
-          : stagePool;
-
-    const minCount = stageFocus.reduce(
-      (min, m) => Math.min(min, memberCount.get(m.id) ?? 0),
-      Number.POSITIVE_INFINITY,
-    );
     const pendingOf = (candidates: Member[]) =>
       candidates.filter((m) => (memberCount.get(m.id) ?? 0) === 0);
-
-    let eligible =
-      stageFocus.length === 0
-        ? pendingOf(pool)
-        : stageFocus.filter((m) => (memberCount.get(m.id) ?? 0) === minCount);
 
     const avoidSameValue = input.avoidSameValueBand !== false;
 
@@ -267,32 +255,62 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
         return prevVal !== themeValue;
       });
 
-    // People-once is hard. Theme / Value filters stay inside remaining people.
-    // Never expand to someone who already has a turn this cycle.
+    let eligible: Member[] = [];
+    // People-once is hard. Unused guideline is hard among all remaining
+    // (closer reserved until last day). Veterans first only inside that set.
+    // Prefer not consuming someone who is the sole unused candidate for a later day.
     if (!forceCloser) {
-      const remainingEligible = pendingOf(eligible);
-      const remainingFocus = pendingOf(stageFocus);
-      const remainingStage = pendingOf(stagePool);
-      const remainingPool = pendingOf(pool);
-      const valueFilter = (group: Member[]) =>
-        avoidSameValue && themeValue != null
-          ? differentValueOf(group)
-          : group;
-      const picked = firstNonEmpty([
-        valueFilter(neverHadThemeOf(remainingEligible)),
-        neverHadThemeOf(remainingEligible),
-        valueFilter(neverHadThemeOf(remainingFocus)),
-        neverHadThemeOf(remainingFocus),
-        valueFilter(neverHadThemeOf(remainingStage)),
-        neverHadThemeOf(remainingStage),
-        valueFilter(neverHadThemeOf(remainingPool)),
-        neverHadThemeOf(remainingPool),
-        remainingEligible,
-        remainingFocus,
-        remainingStage,
-        remainingPool,
-      ]);
-      if (picked) eligible = picked;
+      const remaining = pendingOf(pool);
+      const unused = neverHadThemeOf(remaining);
+      const futureThemes = themeSequence.slice(
+        di + 1,
+        closer ? dates.length - 1 : dates.length,
+      );
+      const soleUnusedForFuture = (m: Member) =>
+        futureThemes.some((futureItem) => {
+          const unusedFor = remaining.filter(
+            (p) => !seenThemeIds.get(p.id)?.has(futureItem.id),
+          );
+          return unusedFor.length === 1 && unusedFor[0]!.id === m.id;
+        });
+      const unusedFlexible = unused.filter((m) => !soleUnusedForFuture(m));
+      const unusedPool =
+        unusedFlexible.length > 0 ? unusedFlexible : unused;
+      let base: Member[];
+      if (unusedPool.length > 0) {
+        const unusedVeterans = unusedPool.filter((m) => !m.newcomer);
+        base =
+          veteranPending.length > 0 && unusedVeterans.length > 0
+            ? unusedVeterans
+            : unusedPool;
+      } else {
+        const remainingVeterans = pendingOf(veterans);
+        base =
+          remainingVeterans.length > 0
+            ? remainingVeterans
+            : remaining;
+      }
+      if (avoidSameValue && themeValue != null) {
+        const different = differentValueOf(base);
+        eligible = different.length > 0 ? different : base;
+      } else {
+        eligible = base;
+      }
+      const prevAssignee =
+        built.length > 0
+          ? built[built.length - 1]!.memberId
+          : prevCycleLastMember;
+      const forbidden = new Set<MemberId>();
+      if (prevAssignee) {
+        for (const id of prevNeighbors.get(prevAssignee) ?? []) forbidden.add(id);
+      }
+      if (closer && di === dates.length - 2) {
+        for (const id of prevNeighbors.get(closer.id) ?? []) forbidden.add(id);
+      }
+      if (forbidden.size > 0) {
+        const notNeighbor = eligible.filter((m) => !forbidden.has(m.id));
+        if (notNeighbor.length > 0) eligible = notNeighbor;
+      }
     }
 
     const pickFrom = forceCloser
@@ -301,7 +319,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
 
     const member = forceCloser
       ? closer!
-      : pickWeighted(
+      : pickBest(
           pickFrom.length > 0 ? pickFrom : pendingOf(pool),
           (m) => {
             let score = 10;
@@ -326,6 +344,13 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
             }
             if (built.length > 0 && built[built.length - 1]!.memberId === m.id) {
               score -= 12;
+            }
+            const neighborOf =
+              built.length > 0
+                ? built[built.length - 1]!.memberId
+                : prevCycleLastMember;
+            if (neighborOf && prevNeighbors.get(neighborOf)?.has(m.id)) {
+              score -= 50;
             }
             return score;
           },
@@ -382,6 +407,7 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
   let maxGapHits = 0;
   let sameThemeHits = 0;
   let sameValueHits = 0;
+  let neighborHits = 0;
   for (let i = 0; i < built.length; i += 1) {
     const day = built[i]!;
     const prevDays = [...historyDays, ...built.slice(0, i)].filter(
@@ -407,6 +433,11 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
       const b = valueGroupForItem(day.valueItemId, input.valueItems);
       if (a != null && a === b) sameValueHits += 1;
     }
+    const prevAssignee =
+      i === 0 ? prevCycleLastMember : built[i - 1]?.memberId;
+    if (prevAssignee && prevNeighbors.get(prevAssignee)?.has(day.memberId)) {
+      neighborHits += 1;
+    }
   }
   if (sameThemeHits > 0) {
     warnings.push(
@@ -428,6 +459,11 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
       input.avoidSameValueBand === false
         ? `前回と同じ Value 帯の当番が ${sameValueHits} 件（回避オフ）`
         : `前回と同じ Value 帯の当番が ${sameValueHits} 件（候補が尽きた例外・手直し可）`,
+    );
+  }
+  if (neighborHits > 0) {
+    warnings.push(
+      `前回となりだった並びが ${neighborHits} 件（候補が尽きた例外・手直し可）`,
     );
   }
 

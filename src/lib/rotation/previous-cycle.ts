@@ -1,4 +1,4 @@
-import type { Member, RotationCycle, RotationDay, ValueItem } from "./types";
+import type { Member, MemberId, RotationCycle, RotationDay, ValueItem } from "./types";
 import { themeCodeFromLabel } from "./format-notebook";
 
 /** At least one prior cycle with days — required before generating. */
@@ -25,7 +25,74 @@ export function appendHistoryCycle(
   cycle: RotationCycle,
   keep = 20,
 ): RotationCycle[] {
-  return [...historyCycles, cycle].slice(-keep);
+  return withoutStubHistoryCycles([...historyCycles, cycle]).slice(-keep);
+}
+
+/** Seed/demo stub — must not pollute unused-theme history. */
+export function isStubHistoryCycle(cycle: RotationCycle): boolean {
+  return cycle.id === "hist-prev" || /（仮）/.test(cycle.label);
+}
+
+export function withoutStubHistoryCycles(
+  cycles: RotationCycle[],
+): RotationCycle[] {
+  return cycles.filter((c) => !isStubHistoryCycle(c) && c.days.length > 0);
+}
+
+/**
+ * Keep extras older than the canonical actuals, then append seed cycles.
+ * Colliding start dates and anything from the latest canonical start onward
+ * are replaced so generated tables cannot outrank production.
+ */
+export function mergeCanonicalHistory(
+  stored: RotationCycle[],
+  canonical: RotationCycle[],
+): RotationCycle[] {
+  const canon = withoutStubHistoryCycles(canonical);
+  const storedClean = withoutStubHistoryCycles(stored);
+  if (canon.length === 0) return storedClean;
+
+  const canonicalStarts = new Set(
+    canon
+      .map((c) => c.days[0]?.date)
+      .filter((d): d is string => Boolean(d)),
+  );
+  const latestStart = canon[canon.length - 1]!.days[0]!.date;
+
+  const extras = storedClean.filter((c) => {
+    const first = c.days[0]?.date;
+    if (!first) return false;
+    if (canonicalStarts.has(first)) return false;
+    if (first >= latestStart) return false;
+    return true;
+  });
+
+  return [
+    ...extras,
+    ...canon.map((c) => ({
+      ...c,
+      days: structuredClone(c.days),
+    })),
+  ];
+}
+
+/** Undirected next-door pairs from one cycle (consecutive days only). */
+export function cycleNeighborIds(
+  cycle: RotationCycle | undefined,
+): Map<MemberId, Set<MemberId>> {
+  const map = new Map<MemberId, Set<MemberId>>();
+  const add = (a: MemberId, b: MemberId) => {
+    if (!a || !b || a === b) return;
+    const set = map.get(a) ?? new Set<MemberId>();
+    set.add(b);
+    map.set(a, set);
+  };
+  const days = cycle?.days ?? [];
+  for (let i = 0; i < days.length - 1; i += 1) {
+    add(days[i]!.memberId, days[i + 1]!.memberId);
+    add(days[i + 1]!.memberId, days[i]!.memberId);
+  }
+  return map;
 }
 
 export function cycleFromDays(
@@ -62,6 +129,11 @@ function resolveMemberId(
   members: Member[],
 ): string | undefined {
   const name = nameCell.trim();
+  const aliases: Record<string, string> = {
+    "小林(拓)さん": "m-kobayashi-taku",
+  };
+  const aliased = aliases[name];
+  if (aliased && members.some((m) => m.id === aliased)) return aliased;
   return members.find((m) => m.displayName === name)?.id;
 }
 

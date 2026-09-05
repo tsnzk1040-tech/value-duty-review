@@ -159,8 +159,8 @@ export function RotationWorkbench() {
       <section className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
           毎日回す前提: 開始日・開始テーマは自動（違うときだけ手動）。前回ローテ必須。枠＝人数。最終は常塚。
-          人を一巡（同一人物の2回なし）。そのうえで同じ行動指針・同じ Value 帯を避ける。
-          既定の前回は渡済みの「新ローテーション」（7/29〜8/27）。設定バージョン更新で再読込。
+          人を一巡（同一人物の2回なし）。未経験の行動指針・違う Value 帯は残り人数の中で優先。前回となりは隣の日に載せない（シャッフルは同点のときだけ）。
+          既定の現状は本番・現ローテ（2026-08-28〜09-29）。その前が 7/29〜8/27 実績。ノート用コピーで増える。バージョン上げでも履歴は残す。
           メンバー{settings.members.filter((m) => m.active).length}・行動指針
           {settings.valueItems.length}・間隔
           {settings.rotation.cooldownBusinessDays}〜
