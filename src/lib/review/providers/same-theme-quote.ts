@@ -171,7 +171,7 @@ export async function resolveSameThemeQuoteClosed(opts: {
   const model =
     opts.model?.trim() ||
     process.env.GEMINI_MODEL?.trim() ||
-    "gemini-2.5-flash";
+    "gemini-3.8-flash";
 
   const prompt = [
     "あなたは職場のレビュー文で使う『同テーマ前回の引用』を選ぶ助手です。",

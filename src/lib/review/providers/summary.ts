@@ -66,7 +66,7 @@ export async function generateSummaryGemini(
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   const minBody = VARIANT_MIN_BODY[flavor];
   const temperature = flavor === "light" ? 0.35 : 0.5;
 
@@ -131,7 +131,7 @@ export async function reviseSummaryWithProvider(
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   const raw = await callGeminiRaw(prompt, model, apiKey);
   const assembled = assembleSummary(
     raw,

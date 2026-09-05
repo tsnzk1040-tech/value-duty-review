@@ -7,7 +7,7 @@ export async function generateLlmFinalCheckIssues(
 ): Promise<FinalCheckIssue[]> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return [];
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   const prompt = [
     "職場グループ向けレビュー投稿の追加チェック。JSONだけ返す。",
     '形式: {"issues":[{"message":"短い指摘"}]}',

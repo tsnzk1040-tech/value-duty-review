@@ -60,7 +60,7 @@ export async function generateKeywordSuggestionsGemini(
 ): Promise<KeywordSuggestResult> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
 
   const prompt = [
     "職場の理念浸透レビューで、参考リンク検索に使うキーワード候補を出してください。",

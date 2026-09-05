@@ -152,7 +152,7 @@ export async function generateResearchBriefGemini(
 ): Promise<ResearchBriefResult> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   const paste = input.pagePaste?.trim() ?? "";
   const hasPaste = isUsablePagePaste(paste);
 

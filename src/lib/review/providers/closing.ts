@@ -43,7 +43,7 @@ export async function generateClosingGemini(
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
 
   const first = await callGeminiRaw(
     buildClosingInstructions(input),

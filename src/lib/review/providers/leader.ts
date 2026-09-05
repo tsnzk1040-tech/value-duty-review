@@ -114,7 +114,7 @@ export async function generateLeaderGemini(
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
   }
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
   const fixedIn = input.sameThemeFixedSentence?.trim() ?? "";
   const material = input.sameThemeQuoteMaterial?.trim() ?? "";
   const hasSameThemeInput = Boolean(fixedIn);
