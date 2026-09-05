@@ -13,7 +13,7 @@ export function hydrateSettings(
   parsed: Partial<AppSettings> & { version?: number },
 ): AppSettings {
   const defaults = createDefaultSettings();
-  const parsedRotation = parsed.rotation ?? {};
+  const parsedRotation: Partial<AppSettings["rotation"]> = parsed.rotation ?? {};
   const keptHistory = mergeCanonicalHistory(
     Array.isArray(parsedRotation.historyCycles)
       ? parsedRotation.historyCycles
