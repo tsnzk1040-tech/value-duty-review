@@ -754,7 +754,7 @@ export const SAME_THEME_ENDING_POOL = [
 export type SameThemeEndingMode = "bridge" | "intro";
 
 const SAME_THEME_STEM_RE =
-  /^(同テーマ前回の.+?の(?:要約|投稿)では、「[^」]+」)/u;
+  /^(同テーマ前回の.+?の(?:共有にあった|要約では|投稿では)、「[^」]+」)/u;
 
 /** 固定文から幹（「……」まで）を取る。末尾は含めない。 */
 export function sameThemeFixedStem(fixedOrStem: string): string {
@@ -841,7 +841,7 @@ export function pickSameThemeEndingForContext(
 
 /**
  * 所感②用の固定文幹。末尾は所感生成後に前後のまとまりで選ぶ。
- * 返す形: `同テーマ前回の〇〇さんの要約では、「……」`（出典は常に要約）
+ * 返す形: `同テーマ前回の〇〇さんの共有にあった、「……」`（取る箱は要約あいだ）
  */
 export function buildSameThemeFixedSentence(
   item: ReviewHistoryRecord,
@@ -864,7 +864,7 @@ export function buildSameThemeFixedSentence(
   );
   if (!connects) return "";
 
-  return `同テーマ前回の${callName}の要約では、「${quote}」`;
+  return `同テーマ前回の${callName}の共有にあった、「${quote}」`;
 }
 
 /**
@@ -898,7 +898,8 @@ export function applySameThemeFixedSentence(
     .replace(/[、,]{2,}/g, "、")
     .trim();
 
-  const fromSummary = stem.includes("の要約では");
+  const fromSummary =
+    stem.includes("の共有にあった") || stem.includes("の要約では");
   const m = out.match(/^([\s\S]*?[。．！])([\s\S]*)$/u);
   let merged: string;
   if (m) {

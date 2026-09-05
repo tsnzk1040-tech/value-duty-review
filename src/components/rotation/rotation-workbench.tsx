@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useSettings } from "@/components/settings/settings-provider";
+import { DutyHistoryMatrix } from "@/components/rotation/duty-history-matrix";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -175,6 +176,17 @@ export function RotationWorkbench() {
             ? `・開始日手動 ${settings.rotation.cycleStart}`
             : "・開始日自動"}
         </p>
+        <section className="flex flex-col gap-2" aria-label="当番の履歴">
+          <h2 className="text-sm font-medium">当番の履歴（人 × テーマ）</h2>
+          <p className="text-xs text-muted-foreground">
+            縦が人、横がテーマ番号。セルは当番回数と日付。空欄はまだ当たっていない指針。
+          </p>
+          <DutyHistoryMatrix
+            cycles={settings.rotation.historyCycles}
+            members={settings.members}
+            valueItems={settings.valueItems}
+          />
+        </section>
         {previous ? (
           <section className="flex flex-col gap-2" aria-label="現状のローテ">
             <Label htmlFor="current-rotation">現状のローテ（前回として保存中）</Label>
