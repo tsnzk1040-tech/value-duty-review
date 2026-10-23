@@ -8,6 +8,7 @@ import {
 import {
   assembleLeaderNote,
   buildLeaderInstructions,
+  LEADER_SEARCH_LEAD,
   leaderRetrySuffix,
   type LeaderGenerateInput,
 } from "@/lib/review/prompts";
@@ -37,16 +38,20 @@ export function generateLeaderStub(
     input.selectedLinkTitles[0] != null
       ? `「${input.selectedLinkTitles[0]}」も参考にしつつ、`
       : "";
-  const briefHint = input.researchBrief.trim()
-    ? "検索して調べた結果を踏まえ、"
+  const briefPoint = (input.researchBrief.trim().split(/[。\n]/)[0] ?? "")
+    .trim()
+    .slice(0, 60);
+  const briefHint = briefPoint
+    ? `${LEADER_SEARCH_LEAD}${briefPoint}とありました。`
     : "";
 
   const body = [
     hook
       ? `「${hook}」に触れた実践、共有ありがとうございます。現場でも使えそうでいいですね。`
       : "今日の振り返り、共有ありがとうございます。具体があってわかりやすいですね。",
+    briefHint,
     briefHint || linkHint
-      ? `${briefHint}${linkHint}同じ詰まりを減らすなら、朝の依頼の時点で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。`
+      ? `${briefHint ? "我々も、" : ""}${linkHint}朝の依頼の時点で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。`
       : "同じ詰まりを減らすなら、先に『誰に聞くか』を決める、をチームの型にしてみたらどうでしょう。",
   ].join("");
 

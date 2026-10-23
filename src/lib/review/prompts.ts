@@ -25,6 +25,9 @@ export function summaryFlavorLabel(flavor: SummaryFlavor): string {
   return flavor === "light" ? "あっさり" : "こってり";
 }
 
+const SUMMARY_SENTENCE_END_RULE =
+  "- 途中の文は紹介する丁寧語で結ぶ（「〜と捉えていました。」「〜を意識していました。」「〜を調べていました。」）。「〜ていた。」「〜した。」の常体で終えない。最後の文だけは句点を付けず「〜してみたいという」「〜を大切にしたいという」のように止める（アプリが「想いを共有頂きました！」を続ける）。ね・だね・ですねは使わない。";
+
 function summaryLengthBlock(flavor: SummaryFlavor): string {
   if (flavor === "light") {
     return [
@@ -33,7 +36,7 @@ function summaryLengthBlock(flavor: SummaryFlavor): string {
       "- 核は実践の一点を前面に（調べた／試したのどちらかが主でよい）。もう一方は短く触れてよいが、両方を同量にしない。",
       "- 場面の細部・次に試したいことは厚くしない（半文までなら可）。",
       "- 文の区切りは「。」を使う。一文が終わったら「、」ではなく「。」。全部を「、」でつながない。",
-      "- 文末は「〜してみた」「〜したい」「〜ていて」などでもよいが、です・ます・ね・だね・ですねで終わらない。",
+      SUMMARY_SENTENCE_END_RULE,
       "- 文末に「共有」「想いを共有」「のが伝わる」「という気づき」「という実践です」を自分で書かない。",
       "- 短すぎ（目安70字未満）や薄い抽象は不合格。所感めいた解説を足すのも不合格。",
     ].join("\n");
@@ -44,7 +47,7 @@ function summaryLengthBlock(flavor: SummaryFlavor): string {
     "- 調べた／試したの両方に触れられるとよい。同じ事実を、誰・何・どうしたが見える程度まで厚くする。",
     "- 次に試したいことは薄くて可。投稿に無い場面・推測で水増ししない。",
     "- 文の区切りは「。」を使う。一文が終わったら「、」ではなく「。」。全部を「、」でつながない。",
-    "- 文末は「〜してみた」「〜したい」「〜ていて」などでもよいが、です・ます・ね・だね・ですねで終わらない。",
+    SUMMARY_SENTENCE_END_RULE,
     "- 文末に「共有」「想いを共有」「のが伝わる」「という気づき」「という実践です」を自分で書かない。",
     "- 短すぎ（目安150字未満）や薄い抽象は不合格。投稿に無いことを足して伸ばすのも不合格。",
   ].join("\n");
@@ -98,6 +101,7 @@ export function buildSummaryInstructions(
     "",
     "【トーン】",
     "- リーダーが理解した内容として、実践の事実を淡々と見せる。褒め・盛り・大げさな評価語は控える。",
+    "- 目線は、リーダーが投稿者の実践を他のメンバーに紹介する立場。投稿者がしたこと・捉えたことを「〜していました」「〜と捉えていました」と丁寧に伝える。",
     "- 堅い報告書にも、カジュアルな話し言葉にもしない。同僚向けの落ち着いたです・ます。",
     "- 「だね」「だよ」「ですね」「ね。」「！！」は使わない（「〜ですね。」も禁止）。上から目線・皮肉・減点も禁止。",
     "- 「考察した」「定義した」より、「〜と捉えて」「〜してみた」「〜したい」を優先。",
@@ -129,9 +133,10 @@ export function buildSummaryInstructions(
     "  - 次回テーマ／担当／箇条書き／前置き説明",
     "",
     "【良い例（分量・洗練の参考・中身は仮）】",
-    "誠実という言葉を自分で調べて、正直さだけでなく思いやりや約束を守ることまで含めて捉え直していた。今日は関係者への返答を曖昧にせず期限どおり返すことを意識し、明日も同じ基準で返答してみたい",
+    "誠実という言葉を自分で調べて、正直さだけでなく思いやりや約束を守ることまで含めて捉え直していました。今日は関係者への返答を曖昧にせず期限どおり返すことを意識し、明日も同じ基準で返答してみたいという",
     "",
     "【悪い例】",
+    "思いやりまで含めて捉え直していた。明日も同じ基準で返答してみたい（途中の文が常体で、紹介の丁寧さがない）",
     `${heading} の想い`,
     "今日の振り返り、ありがとうございます、誠実さについて考えた",
     "誠実さについて考えた一日",
@@ -256,12 +261,12 @@ export function buildSummaryReviseInstructions(
     ...lengthLines,
     "",
     "【守る】",
-    "- 落ち着いたリーダー理解。ですね・だね・だよ・！！禁止。",
+    "- 落ち着いたリーダー理解。投稿者の実践を他のメンバーに紹介する目線。ですね・だね・だよ・！！禁止。",
     "- お礼・実感（一歩前進など）・所感・提案は書かない。",
     "- 投稿本文といまの要約に無い事実・推測・別のエピソードは足さない。",
     `- Value帯名（${heading}）・行動指針コード・「想いを共有」は書かない。`,
     "- 文の区切りは「。」を使う。「、」だけで長くつながない。",
-    "- 文末は「〜してみた」「〜したい」「〜ていて」などでもよいが、です・ますで終わらない。",
+    SUMMARY_SENTENCE_END_RULE,
     "",
     lens,
     "【いまの要約全文】",
@@ -314,21 +319,22 @@ function polishSummaryMid(mid: string): string {
   out = out.replace(/(という)?行動指針について、?/g, "");
   out = stripGuidelineCodeRestate(out);
   out = out.replace(/^について、?/g, "");
-  // 「〜ていますね。」→「ていて。」（句点は残す）。句点なしは「ていて、」
-  out = out.replace(/ていますね[。．]/g, "ていて。");
-  out = out.replace(/していますね[。．]/g, "していて。");
+  // 途中の文のです・ますは紹介の丁寧語として残す。「ね」「よ」だけ落とす
+  out = out.replace(/ますね[。．]/g, "ます。");
+  out = out.replace(/ですね[。．]/g, "です。");
+  out = out.replace(/ですよ[。．]/g, "です。");
   out = out.replace(/ていますね/g, "ていて、");
-  out = out.replace(/していますね/g, "していて、");
-  out = out.replace(/ますね[。．]/g, "。");
-  out = out.replace(/ですね[。．]/g, "。");
-  out = out.replace(/ですよ[。．]/g, "。");
   out = out.replace(/ますね/g, "、");
   out = out.replace(/ですね/g, "、");
   out = out.replace(/ですよ/g, "、");
-  out = out.replace(/です(?=[、,。．])/g, "");
   out = out.replace(/[、,]{2,}/g, "、");
   out = out.replace(/[。．]{2,}/g, "。");
   out = out.replace(/[。．！？]$/, "").replace(/[、,]$/, "");
+  // 最後の文は「想いを共有頂きました！」へつなぐので、丁寧語の言い切りを連体形に寄せる
+  out = out.replace(/と(考えて|話して|語って|思って)いました$/, "という");
+  out = out.replace(/(て|で)いました$/, "$1いた");
+  out = out.replace(/(て|で)います$/, "$1いる");
+  out = out.replace(/しました$/, "した");
   out = out.replace(/(という内容|とのこと)$/, "");
   out = out.replace(/共有の想い$/, "");
   out = out.replace(/(という)?(前向きな|実践の)?共有$/, "");
@@ -412,6 +418,10 @@ function leaderFlavorBlock(flavor: LeaderFlavor): string {
   ].join("\n");
 }
 
+/** 所感で検索結果に触れるときの定型の書き出し。 */
+export const LEADER_SEARCH_RESULT = "今日のコメントに関連したキーワードを検索した結果";
+export const LEADER_SEARCH_LEAD = `${LEADER_SEARCH_RESULT}によると、`;
+
 export function leaderRetrySuffix(hasSameThemeFixed = false): string {
   const quoteLine = hasSameThemeFixed
     ? "同テーマ前回の文はアプリが入れるので所感本文に書かない。①共感 ③テーマ一言 ④こうしたら？に集中。"
@@ -422,7 +432,7 @@ export function leaderRetrySuffix(hasSameThemeFixed = false): string {
     "所感の型で再出力せよ: ①共感・感謝 ③テーマに会話っぽく一言 ④チームへの『こうしたら？』1点。同テーマ前回は書かない。",
     quoteLine,
     "出力は所感本文だけ。『以下』『下書きです』『承知しました』『【所感】』『注』は書かない。",
-    "検索に触れるなら『検索して調べた結果』と書く。『調べた要点』『要点メモ』は書かない。",
+    `検索に触れるなら『${LEADER_SEARCH_LEAD}〇〇とありました。我々も、〜してみたらどうでしょう。』の2文で書く。『調べた要点』『要点メモ』は書かない。`,
     "宣教師口調禁止。上司として寄り添うカジュアルなです・ます。『理念浸透』『指針の実践』連発は不可。",
     "参照は材料まで。『皆さんでやってみませんか』は書かない。共感の「ですね」は可。",
   ].join("\n");
@@ -476,8 +486,10 @@ export function buildLeaderInstructions(
       : "② 同テーマ前回なし（省略）",
     "③ 今日のテーマに、会話の延長で一言つなぐ（訓示にしない）",
     "④ チーム／グループ全体への『こうしたら？』を1点だけ。",
-    "   材料は今日の投稿の具体＋検索して調べた結果の一点を織る。",
-    "   検索に触れるときの言い方は『検索して調べた結果』（『調べた要点』『要点メモ』は禁止。受け手はアプリを知らない）。",
+    "   材料は今日の投稿の具体＋キーワード検索の結果の一点を織る。",
+    `   検索に触れるときは、次の2文の流れで書く: 『${LEADER_SEARCH_LEAD}〇〇とありました。我々も、〜してみたらどうでしょう。』`,
+    "   1文目＝検索結果の一点を「〜とありました。」で紹介（提案は混ぜない）。2文目＝「我々も、」で始めるチームへの『こうしたら？』。",
+    "   書き出しの言い換え・『検索して調べた結果』『調べた要点』『要点メモ』は禁止（受け手はアプリを知らない）。",
     "   必ず半文で『なぜ今日のこの場面に効くか』を付ける。記事の要約にしてはいけない。",
     "   呼びかけの宛先は投稿者ひとりではなく、読んでいるメンバー全体。",
     "⑤ 所感では奨励の締め文を書かない（締め欄の仕事）。",
@@ -486,7 +498,7 @@ export function buildLeaderInstructions(
     "- 所感本文のみ（だいたい160〜280字・2〜4文）。お礼・Value要約定型・締めの奨励文は書かない。",
     "- 出力は所感本文の連続テキストだけ。前置き・見出し・番号・『以下に示します』『下書きです』『承知しました』『注』は禁止。",
     "- 採択リンクのタイトルに触れるなら半文まで（URL・♯記法は書かない）。",
-    "- 検索して調べた結果は『こうしたら？』の根拠に使う。2点以上盛らない。",
+    "- キーワード検索の結果は『こうしたら？』の根拠に使う。2点以上盛らない。",
     "",
     "【絶対に書かない】",
     "  - お礼定型（「〜さん、振り返りコメント共有…」）",
@@ -502,7 +514,7 @@ export function buildLeaderInstructions(
     "  - 前置き・メタ（『以下が下書き』『所感：』『再出力します』『ご確認ください』『【所感】』『企業理念の方向性』）",
     "",
     "【良い例（中身は仮・②なし）】",
-    "周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。曖昧な依頼を減らすなら、朝会で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。",
+    `周囲に聞いて一次回答まで持っていったの、現場でも使えそうでいいですね。${LEADER_SEARCH_LEAD}依頼を受けた時点で相談先を決めておくと、曖昧なまま抱え込む時間が減るとありました。我々も、朝会で『誰に聞くか』を先に決める、をチームの型にしてみたらどうでしょう。`,
     "",
     leaderFlavorBlock(flavor),
     "",
@@ -523,7 +535,7 @@ export function buildLeaderInstructions(
     keywords,
     focus,
     links,
-    "検索して調べた結果（提案の材料。主役にしない。この見出しも本文に書かない）:",
+    "キーワード検索の結果（提案の材料。主役にしない。この見出しも本文に書かない）:",
     input.researchBrief.trim() || "（なし）",
     "要約（共感の主材料）:",
     input.summary.trim() || "（未編集）",
@@ -547,9 +559,15 @@ export function polishLeaderNote(raw: string): string {
     "",
   );
   out = stripTrailingClosingVariation(out);
-  out = out.replace(/調べた要点メモ/g, "検索して調べた結果");
-  out = out.replace(/要点メモ/g, "検索して調べた結果");
-  out = out.replace(/調べた要点/g, "検索して調べた結果");
+  out = out.replace(
+    /検索して調べ(?:てみ)?た結果(?:では|によると|から|を踏まえ(?:ると|て)?)?[、,]/g,
+    LEADER_SEARCH_LEAD,
+  );
+  out = out.replace(/調べた要点メモ/g, LEADER_SEARCH_RESULT);
+  out = out.replace(/要点メモ/g, LEADER_SEARCH_RESULT);
+  out = out.replace(/調べた要点/g, LEADER_SEARCH_RESULT);
+  out = out.replace(/検索して調べ(?:てみ)?た結果/g, LEADER_SEARCH_RESULT);
+  out = shapeLeaderSearchSentences(out);
   out = out.replace(/同テーマの前回の/g, "同テーマ前回の");
   out = out.replace(/同テーマの前回、/g, "同テーマ前回の");
   out = out.replace(/(?<!同テーマ)前回の([^\s、。]{1,12}さん)/g, "同テーマ前回の$1");
@@ -557,6 +575,33 @@ export function polishLeaderNote(raw: string): string {
   out = out.replace(/(?<!同テーマ)前回は([^\s、。]{1,12}さん)/g, "同テーマ前回の$1");
   out = stripLeaderPreambleAndMeta(out);
   return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * 検索の書き出しのあとを「〇〇とありました。我々も、〜どうでしょう。」の流れに寄せる。
+ * 書き出しの直後が提案文なら、紹介文を作れないので触らない。
+ */
+export function shapeLeaderSearchSentences(text: string): string {
+  const idx = text.indexOf(LEADER_SEARCH_LEAD);
+  if (idx < 0) return text;
+  const start = idx + LEADER_SEARCH_LEAD.length;
+  const end = text.indexOf("。", start);
+  if (end < 0) return text;
+  let found = text.slice(start, end);
+  if (/(どうでしょう|しませんか|しましょう)$/.test(found)) return text;
+  found = found.replace(/(?:そうです|ようです|とのことです|とされています|と書かれていました|と書かれています)$/, "");
+  if (!/とありました$/.test(found)) found = `${found}とありました`;
+
+  let rest = text.slice(end + 1);
+  const nextEnd = rest.indexOf("。");
+  const next = nextEnd >= 0 ? rest.slice(0, nextEnd + 1) : rest;
+  if (/どうでしょう/.test(next) && !/^\s*我々も/.test(next)) {
+    rest = rest.replace(
+      /^\s*(?:(?:チームでも|チームで|皆さんも|私たちも|みんなで)、?)?/,
+      "我々も、",
+    );
+  }
+  return `${text.slice(0, start)}${found}。${rest}`;
 }
 
 /**
