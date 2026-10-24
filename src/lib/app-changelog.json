@@ -1,0 +1,475 @@
+{
+  "head": "00efaa2",
+  "entries": [
+    {
+      "hash": "3db924f",
+      "date": "2026-10-24",
+      "subject": "要約を紹介する丁寧語にし、所感の検索結果を定型の2文で書く"
+    },
+    {
+      "hash": "1e6865d",
+      "date": "2026-09-05",
+      "subject": "レビュー生成の既定モデルを Gemini 3.8 Flash にする"
+    },
+    {
+      "hash": "22b87fc",
+      "date": "2026-09-05",
+      "subject": "設定の履歴読み込みで TypeScript が落ちないようにする"
+    },
+    {
+      "hash": "735015d",
+      "date": "2026-09-05",
+      "subject": "ローテに当番マトリクスを出し、同テーマ前回の口頭を共有にあったにする"
+    },
+    {
+      "hash": "5f582d6",
+      "date": "2026-09-05",
+      "subject": "ローテ: 本番現表を履歴の正にし、未経験指針と隣回避をハード化する"
+    },
+    {
+      "hash": "40b7bd3",
+      "date": "2026-08-29",
+      "subject": "共有: Google検索の自動判定を強化（説明文・調べる手順中）"
+    },
+    {
+      "hash": "f0b68cf",
+      "date": "2026-08-29",
+      "subject": "共有: 点数で自動振り分け、曖昧なら行き先を選ばせる（A案）"
+    },
+    {
+      "hash": "eac9aab",
+      "date": "2026-08-29",
+      "subject": "共有: WowTalk本文のため POST を multipart に戻す"
+    },
+    {
+      "hash": "407962f",
+      "date": "2026-08-29",
+      "subject": "共有: Googleの空urlでも検索ワードから調べる参照を入れる"
+    },
+    {
+      "hash": "a2e778b",
+      "date": "2026-08-29",
+      "subject": "共有: POSTをPWA内の /share-target で受け、Google URLをクエリに出さない"
+    },
+    {
+      "hash": "da4aa03",
+      "date": "2026-08-29",
+      "subject": "共有: 記事URL付きのGoogle結果も調べるへ。定型があるときだけ①本文"
+    },
+    {
+      "hash": "9f11f94",
+      "date": "2026-08-29",
+      "subject": "共有: Google AIモードの長文も調べるへ送り、投稿定型だけ本文欄へ"
+    },
+    {
+      "hash": "5da774e",
+      "date": "2026-08-29",
+      "subject": "共有: Googleのurlパラメータを外し、検索ワードから調べるURLを組み立てる"
+    },
+    {
+      "hash": "d480c27",
+      "date": "2026-08-29",
+      "subject": "共有: Googleの検索URLを調べるの参照へ戻す"
+    },
+    {
+      "hash": "f5725df",
+      "date": "2026-08-29",
+      "subject": "共有: WowTalk向けに GET /share-target を正本へ戻す"
+    },
+    {
+      "hash": "3a7db6a",
+      "date": "2026-08-29",
+      "subject": "共有: WowTalkのコメントは投稿欄へ、Googleだけ調べるへ"
+    },
+    {
+      "hash": "fd76f99",
+      "date": "2026-08-29",
+      "subject": "共有: Google結果をPOSTで受け、WowTalkへ飛ばないようにする"
+    },
+    {
+      "hash": "6c099c7",
+      "date": "2026-08-29",
+      "subject": "設定: メンバーの表示順を配列順にし、上へ／下へで並べ替える"
+    },
+    {
+      "hash": "5291789",
+      "date": "2026-08-29",
+      "subject": "所感へ: クリップボード本文を貼ってから要点を作る"
+    },
+    {
+      "hash": "31dc062",
+      "date": "2026-08-27",
+      "subject": "ローテ: 人の一巡を優先し、同一人物の2回を禁止する"
+    },
+    {
+      "hash": "0244fb4",
+      "date": "2026-08-27",
+      "subject": "ローテ: 同じ行動指針の繰り返しを最優先で避ける"
+    },
+    {
+      "hash": "fcdfbfe",
+      "date": "2026-08-27",
+      "subject": "ローテ: ノート用プレビューから運用説明文を外す"
+    },
+    {
+      "hash": "1c3c749",
+      "date": "2026-08-25",
+      "subject": "同テーマ前回: テーマずれを検出・除外し、参照元をUIに表示"
+    },
+    {
+      "hash": "89d0313",
+      "date": "2026-08-23",
+      "subject": "Pin first shin cycle themes from notebook export."
+    },
+    {
+      "hash": "306ae14",
+      "date": "2026-08-23",
+      "subject": "Add Aug 28 rotation cycle from notebook paste."
+    },
+    {
+      "hash": "450ac2d",
+      "date": "2026-08-23",
+      "subject": "Align shin rotation theme sequence around Aug 24 4-1."
+    },
+    {
+      "hash": "8a27510",
+      "date": "2026-08-23",
+      "subject": "Fix Aug 24 rotation theme to 4-1 for Kobayashi Taku."
+    },
+    {
+      "hash": "9120aad",
+      "date": "2026-08-23",
+      "subject": "Auto-backup review history on 6-4 lap close and restore via reload."
+    },
+    {
+      "hash": "c3e34eb",
+      "date": "2026-08-22",
+      "subject": "Remove legacy provider fields and dead deprecated exports."
+    },
+    {
+      "hash": "cf09b55",
+      "date": "2026-08-22",
+      "subject": "Restore history JSON import via reload and ship review UI tweaks."
+    },
+    {
+      "hash": "ce621b0",
+      "date": "2026-08-22",
+      "subject": "Harden same-theme quotes from summary mid and clarify skill SSoT."
+    },
+    {
+      "hash": "4ec5239",
+      "date": "2026-08-22",
+      "subject": "Improve same-theme quotes and strip leader preambles."
+    },
+    {
+      "hash": "2d3f087",
+      "date": "2026-08-21",
+      "subject": "Insert same-theme prior quotes as a fixed app-built sentence."
+    },
+    {
+      "hash": "ccee570",
+      "date": "2026-08-21",
+      "subject": "Keep periods in summary mid-text instead of collapsing them to commas."
+    },
+    {
+      "hash": "08b14d9",
+      "date": "2026-08-21",
+      "subject": "Allow intro-only same-theme quotes and prefer practice closest to the theme."
+    },
+    {
+      "hash": "f542e96",
+      "date": "2026-08-21",
+      "subject": "Quote same-theme from member posts and soften light/rich summary contrast."
+    },
+    {
+      "hash": "91ba257",
+      "date": "2026-08-21",
+      "subject": "Drop OpenAI and ship Gemini light/rich summaries plus stronger same-theme quotes."
+    },
+    {
+      "hash": "fb1639c",
+      "date": "2026-08-17",
+      "subject": "Copy review text on the first tap instead of opening the share sheet first."
+    },
+    {
+      "hash": "d961c94",
+      "date": "2026-08-17",
+      "subject": "Rotate review history at 6-④, drop the JSON backup UI, and keep existing localStorage on launch."
+    },
+    {
+      "hash": "cf63615",
+      "date": "2026-08-17",
+      "subject": "Keep review history as previous plus one theme cycle, not rotation headcount."
+    },
+    {
+      "hash": "826b5f1",
+      "date": "2026-08-17",
+      "subject": "Stop pruning review history on view, and add a JSON backup on the history page."
+    },
+    {
+      "hash": "1d1f1ab",
+      "date": "2026-08-17",
+      "subject": "Restore clipboard paste on the leader-note page so shared Google pages can fill the body field again."
+    },
+    {
+      "hash": "f830cc6",
+      "date": "2026-08-17",
+      "subject": "Use the share sheet on phones so copy no longer triggers the Android passkey prompt."
+    },
+    {
+      "hash": "973caf6",
+      "date": "2026-08-17",
+      "subject": "Add exec summary and appendix to parked graduation outline P-20260817-A."
+    },
+    {
+      "hash": "fc8ffb0",
+      "date": "2026-08-17",
+      "subject": "Copy via execCommand so Android passkey sheet does not open on clipboard."
+    },
+    {
+      "hash": "82493db",
+      "date": "2026-08-17",
+      "subject": "Say 同テーマ前回の〇〇さん in leader notes so 前回 is not read as yesterday."
+    },
+    {
+      "hash": "910ebd0",
+      "date": "2026-08-17",
+      "subject": "Say 検索して調べた結果 in leader notes instead of leaking 調べた要点."
+    },
+    {
+      "hash": "b8d680d",
+      "date": "2026-08-17",
+      "subject": "Align history preview with posted text, and route leader notes through the summary's chosen model."
+    },
+    {
+      "hash": "669519e",
+      "date": "2026-08-15",
+      "subject": "Keep spiral icon comparison assets for the home icon choice."
+    },
+    {
+      "hash": "bb2d01a",
+      "date": "2026-08-15",
+      "subject": "Put the notebook copy button next to the rotation preview."
+    },
+    {
+      "hash": "91bbb5f",
+      "date": "2026-08-15",
+      "subject": "Differentiate Gemini vs ChatGPT summary angle, and keep thicken from inventing facts."
+    },
+    {
+      "hash": "6123216",
+      "date": "2026-08-15",
+      "subject": "Give summary revise its own prompt so thicken/shorten can actually change length."
+    },
+    {
+      "hash": "436ef89",
+      "date": "2026-08-15",
+      "subject": "Keep only free-form summary revise, and spell out OpenAI quota errors."
+    },
+    {
+      "hash": "23aa30d",
+      "date": "2026-08-15",
+      "subject": "Drop the casual summary-revise shortcut; keep thicker, shorter, and free-form."
+    },
+    {
+      "hash": "9aebe30",
+      "date": "2026-08-15",
+      "subject": "Show ChatGPT summary failures instead of dropping the second draft silently."
+    },
+    {
+      "hash": "f798700",
+      "date": "2026-08-15",
+      "subject": "Shorten the rotation heading to ローテシャッフル for the phone header."
+    },
+    {
+      "hash": "96d5293",
+      "date": "2026-08-15",
+      "subject": "Fix creed chart IndexedDB name so production typecheck can pass."
+    },
+    {
+      "hash": "123a097",
+      "date": "2026-08-15",
+      "subject": "Ship graduation naming, local history, spiral icon, and keep the creed chart off the public web."
+    },
+    {
+      "hash": "f1bea0f",
+      "date": "2026-08-15",
+      "subject": "Ship graduation naming, local history, spiral icon, and keep the creed chart off the public web."
+    },
+    {
+      "hash": "e82f989",
+      "date": "2026-08-15",
+      "subject": "Close remaining parking for graduation: names, Gemini final-check warns, seed-delete script."
+    },
+    {
+      "hash": "a0a5cd4",
+      "date": "2026-08-15",
+      "subject": "Let summaries pick Gemini or ChatGPT, paste into briefs, and land org-wide 所感."
+    },
+    {
+      "hash": "f6b440e",
+      "date": "2026-08-15",
+      "subject": "Ship week-2 review-app features already in use (history, share, creed, chrome, passkey)."
+    },
+    {
+      "hash": "6608207",
+      "date": "2026-08-15",
+      "subject": "Record A–P triage for the week-2 review-app parking board."
+    },
+    {
+      "hash": "b5e1adc",
+      "date": "2026-08-09",
+      "subject": "Strip guideline code restates after the summary template."
+    },
+    {
+      "hash": "d259659",
+      "date": "2026-08-09",
+      "subject": "Ship review date and tighter rotation fairness rules."
+    },
+    {
+      "hash": "4fb011b",
+      "date": "2026-08-09",
+      "subject": "Note DECISIONS/diagram sync for P-20260808-D as done."
+    },
+    {
+      "hash": "c6996e0",
+      "date": "2026-08-09",
+      "subject": "Note app title rename parking after home-screen feedback."
+    },
+    {
+      "hash": "5c355e5",
+      "date": "2026-08-09",
+      "subject": "Point the web manifest at /icon.png for home-screen installs."
+    },
+    {
+      "hash": "6b20a4c",
+      "date": "2026-08-09",
+      "subject": "Ship static home-screen icons matching the in-app AppIcon."
+    },
+    {
+      "hash": "2c4f7e9",
+      "date": "2026-08-09",
+      "subject": "Fix home-screen icon to match the in-app relay mark."
+    },
+    {
+      "hash": "8428dcb",
+      "date": "2026-08-09",
+      "subject": "Paste reference URL and focus comment together."
+    },
+    {
+      "hash": "bac6f72",
+      "date": "2026-08-09",
+      "subject": "Propose closings that echo the leader note insight."
+    },
+    {
+      "hash": "db0a337",
+      "date": "2026-08-09",
+      "subject": "Add closing call-out variations for daily review drafts."
+    },
+    {
+      "hash": "541745f",
+      "date": "2026-08-09",
+      "subject": "Remove manual previous-rotation paste registration from the UI."
+    },
+    {
+      "hash": "cb276b3",
+      "date": "2026-08-09",
+      "subject": "Put notebook copy above previous-rotation and drop wrapped gap warning."
+    },
+    {
+      "hash": "9879e19",
+      "date": "2026-08-09",
+      "subject": "Add prior-assignment gap to notebook paste rows."
+    },
+    {
+      "hash": "4d41271",
+      "date": "2026-08-09",
+      "subject": "Seed fair-assign history from the live 新ローテーション."
+    },
+    {
+      "hash": "2333c71",
+      "date": "2026-08-08",
+      "subject": "Tune rotation start/gap display and drop history hint UI."
+    },
+    {
+      "hash": "6aa07a3",
+      "date": "2026-08-08",
+      "subject": "Add seed script for provisional review history from local sample."
+    },
+    {
+      "hash": "245f571",
+      "date": "2026-08-08",
+      "subject": "Inject related review history into summary and leader drafts."
+    },
+    {
+      "hash": "b5d57b8",
+      "date": "2026-08-08",
+      "subject": "Persist review history on Neon and save on copy."
+    },
+    {
+      "hash": "4f10026",
+      "date": "2026-08-08",
+      "subject": "Add final review lint and adopt relay-wheel app icon A."
+    },
+    {
+      "hash": "d5453aa",
+      "date": "2026-08-08",
+      "subject": "Ship PoC review loop: research paste-back then leader draft."
+    },
+    {
+      "hash": "66de687",
+      "date": "2026-08-08",
+      "subject": "Lock review summary to relay facts via leader understanding."
+    },
+    {
+      "hash": "4fe7b5b",
+      "date": "2026-08-08",
+      "subject": "Default Gemini model to gemini-2.5-flash after 2.0 retirement."
+    },
+    {
+      "hash": "cae07c4",
+      "date": "2026-08-08",
+      "subject": "Wire review summary generation through Gemini API with stub fallback."
+    },
+    {
+      "hash": "0a2f207",
+      "date": "2026-08-08",
+      "subject": "Add drafting-daily-reviews skill with real review structure."
+    },
+    {
+      "hash": "39241f5",
+      "date": "2026-08-08",
+      "subject": "Improve review stub to simple summary with light praise."
+    },
+    {
+      "hash": "dcd3ea5",
+      "date": "2026-08-08",
+      "subject": "Ignore local .vercel directory from CLI link artifacts."
+    },
+    {
+      "hash": "1a53511",
+      "date": "2026-08-08",
+      "subject": "Add staged review UI POC with stub draft and search steps."
+    },
+    {
+      "hash": "3b7e5d4",
+      "date": "2026-08-08",
+      "subject": "Make rotation daily-ops defaults hands-free."
+    },
+    {
+      "hash": "dc63dbf",
+      "date": "2026-08-08",
+      "subject": "Ship theme-first rotation rules for real cycle generation."
+    },
+    {
+      "hash": "c189674",
+      "date": "2026-08-08",
+      "subject": "Add rotation fair-assign POC with local JSON settings and auth gate."
+    },
+    {
+      "hash": "52b0a92",
+      "date": "2026-08-08",
+      "subject": "Scaffold Next.js app with shadcn and review/rotation entry stubs."
+    }
+  ]
+}

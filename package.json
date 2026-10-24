@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/write-app-changelog.mjs && next build",
+    "vercel-build": "node scripts/write-app-changelog.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "icons:generate": "tsx scripts/generate-app-icons.mts"

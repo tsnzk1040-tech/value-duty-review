@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, History } from "lucide-react";
 
 import { CorporateCreedPanel } from "@/components/creed/corporate-creed-panel";
+import { AppChangelogSettings } from "@/components/settings/app-changelog-settings";
 import { useSettings } from "@/components/settings/settings-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export function SettingsForm() {
     settings.calendar.holidays.join("\n"),
   );
   const [platformAuth, setPlatformAuth] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   useEffect(() => {
     setHolidayDraft(settings.calendar.holidays.join("\n"));
@@ -54,6 +56,23 @@ export function SettingsForm() {
 
   if (!ready) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
+  }
+
+  if (changelogOpen) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-fit px-2"
+          onClick={() => setChangelogOpen(false)}
+        >
+          設定へ戻る
+        </Button>
+        <h2 className="text-sm font-medium">改修履歴</h2>
+        <AppChangelogSettings />
+      </div>
+    );
   }
 
   function flash(text: string) {
@@ -165,6 +184,21 @@ export function SettingsForm() {
           {message}
         </p>
       ) : null}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium">このアプリ</h2>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          これまでの改修。番号は git のコミットで、リポとデプロイの照合に使う。
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setChangelogOpen(true)}
+        >
+          <History aria-hidden />
+          改修履歴
+        </Button>
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">認証</h2>
