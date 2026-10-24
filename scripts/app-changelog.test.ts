@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { groupChangelogByYear } from "./app-changelog.ts";
+import { groupChangelogByYear } from "../src/lib/app-changelog.ts";
 
 test("groupChangelogByYear groups newest-first entries under year, month, then day", () => {
   const groups = groupChangelogByYear([
