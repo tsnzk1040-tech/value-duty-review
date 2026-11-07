@@ -14,6 +14,7 @@ import type {
   RotationDay,
   ValueItemId,
 } from "./types";
+import { formatThemeRepeat, repeatedThemesAgainstHistory } from "./repeated-theme";
 import { valueGroupForItem } from "./value-group";
 
 /** Mulberry32 — small deterministic PRNG from a numeric seed. */
@@ -405,7 +406,6 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
 
   let cooldownHits = 0;
   let maxGapHits = 0;
-  let sameThemeHits = 0;
   let sameValueHits = 0;
   let neighborHits = 0;
   for (let i = 0; i < built.length; i += 1) {
@@ -424,9 +424,6 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
         maxGapHits += 1;
       }
     }
-    if (prevDays.some((d) => d.valueItemId === day.valueItemId)) {
-      sameThemeHits += 1;
-    }
     const prevTheme = prevDays.at(-1)?.valueItemId;
     if (prevTheme) {
       const a = valueGroupForItem(prevTheme, input.valueItems);
@@ -439,9 +436,10 @@ export function fairAssign(input: FairAssignOptions): FairAssignResult {
       neighborHits += 1;
     }
   }
-  if (sameThemeHits > 0) {
+  const themeRepeats = repeatedThemesAgainstHistory(built, historyDays);
+  for (const hit of themeRepeats) {
     warnings.push(
-      `履歴と同じ行動指針の当番が ${sameThemeHits} 件（候補が尽きた例外・手直し可）`,
+      `${formatThemeRepeat(hit, input.members, input.valueItems)}。候補が尽きた例外。このまま保存すると発表者が同じテーマの続きになる`,
     );
   }
   if (cooldownHits > 0) {

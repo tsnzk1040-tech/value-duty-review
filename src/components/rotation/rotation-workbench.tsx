@@ -15,8 +15,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { copyOrShare, copyOrShareHint } from "@/lib/clipboard";
+import { todayYmdJst } from "@/lib/rotation/business-days";
 import { fairAssign } from "@/lib/rotation/fair-assign";
 import { formatNotebookCopy } from "@/lib/rotation/format-notebook";
+import {
+  formatThemeRepeat,
+  repeatedThemesAgainstHistory,
+  repeatedThemesInHistory,
+} from "@/lib/rotation/repeated-theme";
 import {
   appendHistoryCycle,
   cycleFromDays,
@@ -35,6 +41,19 @@ export function RotationWorkbench() {
 
   const hasPrevious = hasPreviousRotation(settings.rotation.historyCycles);
   const previous = latestPreviousCycle(settings.rotation.historyCycles);
+  const today = todayYmdJst();
+  const historyRepeats = useMemo(
+    () => repeatedThemesInHistory(settings.rotation.historyCycles),
+    [settings.rotation.historyCycles],
+  );
+  const previewRepeats = useMemo(
+    () =>
+      repeatedThemesAgainstHistory(
+        days,
+        settings.rotation.historyCycles.flatMap((cycle) => cycle.days),
+      ),
+    [days, settings.rotation.historyCycles],
+  );
 
   const previousNotebookText = useMemo(() => {
     if (!previous) return "";
@@ -118,10 +137,29 @@ export function RotationWorkbench() {
     setWarnings([]);
   }
 
+  function repeatLines(
+    hits: ReturnType<typeof repeatedThemesInHistory>,
+  ): string[] {
+    return hits.map((hit) => {
+      const line = formatThemeRepeat(hit, settings.members, settings.valueItems);
+      return hit.date < today ? `${line}（済）` : line;
+    });
+  }
+
   async function copyNotebook() {
     if (days.length === 0) {
       setCopyHint("コピーする日別ローテがない");
       return;
+    }
+    if (previewRepeats.length > 0) {
+      const lines = repeatLines(previewRepeats).join("\n");
+      const ok = window.confirm(
+        `同じテーマの2度目があります。保存すると発表者がそのテーマをもう一度担当します。\n\n${lines}\n\n当番を直してからコピーするならキャンセル。このまま保存するなら OK。`,
+      );
+      if (!ok) {
+        setCopyHint("保存を止めた。同じテーマの2度目がある当番を直してからコピーする。");
+        return;
+      }
     }
     const sent = await copyOrShare(notebookText);
     if (sent === "aborted" || sent === "failed") {
@@ -192,6 +230,13 @@ export function RotationWorkbench() {
               );
             })}
           </ul>
+          {historyRepeats.length > 0 ? (
+            <ul className="flex flex-col gap-1 text-sm text-amber-800 dark:text-amber-200">
+              {repeatLines(historyRepeats).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
           <DutyHistoryMatrix
             cycles={settings.rotation.historyCycles}
             members={settings.members}
@@ -246,6 +291,15 @@ export function RotationWorkbench() {
             value={notebookText}
             className="min-h-48 font-mono text-xs"
           />
+          {previewRepeats.length > 0 ? (
+            <ul className="flex flex-col gap-1 text-sm text-amber-800 dark:text-amber-200">
+              {repeatLines(previewRepeats).map((line) => (
+                <li key={line}>
+                  {line}。このままコピーすると発表者が同じテーマの続きになる
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <Button
             className="h-11 w-full"
             onClick={() => void copyNotebook()}
