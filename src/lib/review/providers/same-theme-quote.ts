@@ -1,5 +1,6 @@
 import { buildCreedAlignmentBlock } from "@/lib/creed/corporate-creed";
 import { looksLikeLeaderEmpathyQuote } from "@/lib/review/history";
+import { buildHumanVoiceBlock } from "@/lib/review/human-voice";
 import { callGeminiRaw } from "@/lib/review/providers/gemini";
 
 export type SameThemeQuoteMode = "bridge" | "intro";
@@ -190,6 +191,8 @@ export async function resolveSameThemeQuoteClosed(opts: {
     "- 目安 28〜90字。長くても120字。途中切れ禁止",
     "- 入力にない事実を足さない",
     "- 無理なら {\"mode\":\"intro\",\"quote\":\"\"}",
+    "",
+    buildHumanVoiceBlock("quote"),
     "",
     buildCreedAlignmentBlock(opts.themeLabel),
     "",
