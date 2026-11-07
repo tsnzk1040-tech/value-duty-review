@@ -3,7 +3,7 @@ import type { Member, RotationCycle, ValueItem } from "@/lib/rotation/types";
 export const SETTINGS_STORAGE_KEY = "vdr.settings.v1";
 export const AUTH_SESSION_KEY = "vdr.auth.session.v1";
 /** Bump when default masters change. Rotation historyCycles survive bumps (stub cycles stripped). */
-export const SETTINGS_VERSION = 21 as const;
+export const SETTINGS_VERSION = 22 as const;
 
 export type CalendarRules = {
   /** Skip Sat/Sun (default true) */

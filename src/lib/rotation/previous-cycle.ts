@@ -40,9 +40,11 @@ export function withoutStubHistoryCycles(
 }
 
 /**
- * Keep extras older than the canonical actuals, then append seed cycles.
- * Colliding start dates and anything from the latest canonical start onward
- * are replaced so generated tables cannot outrank production.
+ * Keep stored cycles that sit outside the canonical actuals, then append seed.
+ * A stored cycle is dropped when its start matches a canonical start, or when
+ * it begins inside the latest canonical window (generated stand-in).
+ * A stored cycle that starts after the latest canonical end is kept, so the
+ * next rotation set in the app survives reload and becomes the comparison base.
  */
 export function mergeCanonicalHistory(
   stored: RotationCycle[],
@@ -57,23 +59,34 @@ export function mergeCanonicalHistory(
       .map((c) => c.days[0]?.date)
       .filter((d): d is string => Boolean(d)),
   );
-  const latestStart = canon[canon.length - 1]!.days[0]!.date;
+  const latest = canon[canon.length - 1]!;
+  const latestStart = latest.days[0]!.date;
+  const latestEnd = latest.days[latest.days.length - 1]!.date;
 
-  const extras = storedClean.filter((c) => {
-    const first = c.days[0]?.date;
-    if (!first) return false;
-    if (canonicalStarts.has(first)) return false;
-    if (first >= latestStart) return false;
-    return true;
-  });
+  const older: RotationCycle[] = [];
+  const newer: RotationCycle[] = [];
+  for (const cycle of storedClean) {
+    const first = cycle.days[0]?.date;
+    if (!first) continue;
+    if (canonicalStarts.has(first)) continue;
+    if (first > latestEnd) {
+      newer.push(cycle);
+      continue;
+    }
+    if (first < latestStart) older.push(cycle);
+  }
 
-  return [
-    ...extras,
+  const merged = [
+    ...older,
     ...canon.map((c) => ({
       ...c,
       days: structuredClone(c.days),
     })),
+    ...newer,
   ];
+  return merged.sort((a, b) =>
+    (a.days[0]?.date ?? "").localeCompare(b.days[0]?.date ?? ""),
+  );
 }
 
 /** Undirected next-door pairs from one cycle (consecutive days only). */

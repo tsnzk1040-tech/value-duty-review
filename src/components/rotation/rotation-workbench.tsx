@@ -161,7 +161,7 @@ export function RotationWorkbench() {
         <p className="text-xs text-muted-foreground">
           毎日回す前提: 開始日・開始テーマは自動（違うときだけ手動）。前回ローテ必須。枠＝人数。最終は常塚。
           人を一巡（同一人物の2回なし）。未経験の行動指針・違う Value 帯は残り人数の中で優先。前回となりは隣の日に載せない（シャッフルは同点のときだけ）。
-          既定の現状は本番・現ローテ（2026-08-28〜09-29）。その前が 7/29〜8/27 実績。ノート用コピーで増える。バージョン上げでも履歴は残す。
+          既定の現状は本番・現ローテ（2026-10-29〜11-27）。履歴は 7/29〜8/27、8/28〜9/29、9/30〜10/28 も残す。現ローテの最終日よりあとにノート用コピーした分は残る。バージョン上げでも履歴は残す。
           メンバー{settings.members.filter((m) => m.active).length}・行動指針
           {settings.valueItems.length}・間隔
           {settings.rotation.cooldownBusinessDays}〜
@@ -179,8 +179,19 @@ export function RotationWorkbench() {
         <section className="flex flex-col gap-2" aria-label="当番の履歴">
           <h2 className="text-sm font-medium">当番の履歴（人 × テーマ）</h2>
           <p className="text-xs text-muted-foreground">
-            縦が人、横がテーマ番号。セルは当番回数と日付。空欄はまだ当たっていない指針。
+            記録済みのローテ（古い順）。縦が人、横がテーマ番号。セルは当番回数と日付。
           </p>
+          <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+            {settings.rotation.historyCycles.map((cycle) => {
+              const first = cycle.days[0]?.date ?? "";
+              const last = cycle.days[cycle.days.length - 1]?.date ?? first;
+              return (
+                <li key={cycle.id}>
+                  {cycle.label}（{first}〜{last}、{cycle.days.length}日）
+                </li>
+              );
+            })}
+          </ul>
           <DutyHistoryMatrix
             cycles={settings.rotation.historyCycles}
             members={settings.members}

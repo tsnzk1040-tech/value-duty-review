@@ -143,7 +143,7 @@ const SHIN_CYCLE_SCHEDULE = [
 ] as const;
 
 /**
- * 本番・現ローテ（2026-08-28〜09-29）。トシオ実績（本番環境）。
+ * 本番ローテ（2026-08-28〜09-29）。トシオ実績（本番環境）。
  * 20日・人の一巡。テーマは 5-② からカタログ順（前サイクル最終 1-② の次＝1-③ ではない）。
  * 最終は常塚 5-②。9/19〜23 は土日祝で空ける。
  */
@@ -170,6 +170,63 @@ const PROD_CYCLE_SCHEDULE = [
   { date: "2026-09-29", memberId: "m-tsunezuka", valueItemId: "v5-2" },
 ] as const;
 
+/**
+ * 本番ローテ（2026-09-30〜10-28）。トシオ実績。
+ * 20日・人の一巡。テーマは 5-③ からカタログ順（前サイクル最終 5-② の次）。
+ * 最終は常塚 5-③。10/14 の「小林（恵久）さん」はマスタの小林(恵)さん。
+ */
+const PROD_CYCLE_2026_09_30 = [
+  { date: "2026-09-30", memberId: "m-furutaka", valueItemId: "v5-3" },
+  { date: "2026-10-01", memberId: "m-arita", valueItemId: "v6-1" },
+  { date: "2026-10-02", memberId: "m-kobayashi-taku", valueItemId: "v6-2" },
+  { date: "2026-10-05", memberId: "m-amakawa", valueItemId: "v6-3" },
+  { date: "2026-10-06", memberId: "m-tanaka", valueItemId: "v6-4" },
+  { date: "2026-10-07", memberId: "m-tagawa", valueItemId: "v1-1" },
+  { date: "2026-10-08", memberId: "m-sakurai", valueItemId: "v1-2" },
+  { date: "2026-10-09", memberId: "m-chigira", valueItemId: "v1-3" },
+  { date: "2026-10-13", memberId: "m-tamada", valueItemId: "v1-4" },
+  { date: "2026-10-14", memberId: "m-kobayashi-megumi", valueItemId: "v2-1" },
+  { date: "2026-10-15", memberId: "m-makishima", valueItemId: "v2-2" },
+  { date: "2026-10-16", memberId: "m-susuga", valueItemId: "v3-1" },
+  { date: "2026-10-19", memberId: "m-matsumoto", valueItemId: "v3-2" },
+  { date: "2026-10-20", memberId: "m-kato", valueItemId: "v3-3" },
+  { date: "2026-10-21", memberId: "m-tateishi", valueItemId: "v4-1" },
+  { date: "2026-10-22", memberId: "m-shinohara", valueItemId: "v4-2" },
+  { date: "2026-10-23", memberId: "m-nakajo", valueItemId: "v4-3" },
+  { date: "2026-10-26", memberId: "m-sakuma", valueItemId: "v5-1" },
+  { date: "2026-10-27", memberId: "m-takeya", valueItemId: "v5-2" },
+  { date: "2026-10-28", memberId: "m-tsunezuka", valueItemId: "v5-3" },
+] as const;
+
+/**
+ * 本番・現ローテ（2026-10-29〜11-27）。トシオ実績。
+ * 20日・人の一巡。テーマは 6-① からカタログ順（前サイクル最終 5-③ の次）。
+ * 最終は常塚 6-①。11/7 時点では 11/6 まで実績どおり。11/9 以降は設定済みの予定。
+ * 10/29 の有田 6-① は 10/01 に続く2度目。9月表が履歴から落ちた状態で組んだため。
+ */
+const PROD_CYCLE_2026_10_29 = [
+  { date: "2026-10-29", memberId: "m-arita", valueItemId: "v6-1" },
+  { date: "2026-10-30", memberId: "m-kato", valueItemId: "v6-2" },
+  { date: "2026-11-02", memberId: "m-makishima", valueItemId: "v6-3" },
+  { date: "2026-11-04", memberId: "m-amakawa", valueItemId: "v6-4" },
+  { date: "2026-11-05", memberId: "m-matsumoto", valueItemId: "v1-1" },
+  { date: "2026-11-06", memberId: "m-nakajo", valueItemId: "v1-2" },
+  { date: "2026-11-09", memberId: "m-kobayashi-taku", valueItemId: "v1-3" },
+  { date: "2026-11-10", memberId: "m-takeya", valueItemId: "v1-4" },
+  { date: "2026-11-11", memberId: "m-furutaka", valueItemId: "v2-1" },
+  { date: "2026-11-12", memberId: "m-sakurai", valueItemId: "v2-2" },
+  { date: "2026-11-13", memberId: "m-shinohara", valueItemId: "v3-1" },
+  { date: "2026-11-16", memberId: "m-chigira", valueItemId: "v3-2" },
+  { date: "2026-11-17", memberId: "m-kobayashi-megumi", valueItemId: "v3-3" },
+  { date: "2026-11-18", memberId: "m-tanaka", valueItemId: "v4-1" },
+  { date: "2026-11-19", memberId: "m-susuga", valueItemId: "v4-2" },
+  { date: "2026-11-20", memberId: "m-tamada", valueItemId: "v4-3" },
+  { date: "2026-11-24", memberId: "m-tagawa", valueItemId: "v5-1" },
+  { date: "2026-11-25", memberId: "m-sakuma", valueItemId: "v5-2" },
+  { date: "2026-11-26", memberId: "m-tateishi", valueItemId: "v5-3" },
+  { date: "2026-11-27", memberId: "m-tsunezuka", valueItemId: "v6-1" },
+] as const;
+
 function cycleDaysFrom(
   schedule: readonly {
     date: string;
@@ -186,7 +243,8 @@ function cycleDaysFrom(
 
 /**
  * Prior cycles for fair-assign. Older first.
- * 7/29 実績の次に、本番・現ローテ（8/28〜9/29）を置く。これ以外の生成結果は実績にしない。
+ * 7/29、8/28、9/30 の実績の次に、本番・現ローテ（10/29〜11/27）を置く。
+ * 正本に無い生成結果は実績にしない。現ローテ最終日よりあとの保存は読み込みで残す。
  */
 export const POC_HISTORY_CYCLES: RotationCycle[] = [
   {
@@ -196,8 +254,18 @@ export const POC_HISTORY_CYCLES: RotationCycle[] = [
   },
   {
     id: "cycle-prod-2026-08-28",
-    label: "本番・現ローテ",
+    label: "本番ローテ 2026-08-28〜09-29",
     days: cycleDaysFrom(PROD_CYCLE_SCHEDULE),
+  },
+  {
+    id: "cycle-prod-2026-09-30",
+    label: "本番ローテ 2026-09-30〜10-28",
+    days: cycleDaysFrom(PROD_CYCLE_2026_09_30),
+  },
+  {
+    id: "cycle-prod-2026-10-29",
+    label: "本番・現ローテ",
+    days: cycleDaysFrom(PROD_CYCLE_2026_10_29),
   },
 ];
 
