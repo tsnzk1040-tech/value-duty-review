@@ -18,6 +18,7 @@ import {
 import {
   generateLeaderGemini,
   generateLeaderStub,
+  type LeaderCandidateItem,
 } from "@/lib/review/providers/leader";
 import {
   generateResearchBriefGemini,
@@ -166,9 +167,12 @@ export type ReviewSummaryReviseResponse = {
   fallbackReason?: string;
 };
 
+export type ReviewLeaderCandidate = LeaderCandidateItem;
+
 export type ReviewLeaderGenerateResponse = {
   kind: "leader";
   leaderNote: string;
+  candidates: ReviewLeaderCandidate[];
   provider: GenerateProviderId;
   model?: string;
   fallbackReason?: string;
@@ -516,6 +520,7 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: "",
+      candidates: [],
       provider: "stub",
       fallbackReason: "selected links required",
     };
@@ -524,6 +529,7 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: "",
+      candidates: [],
       provider: "stub",
       fallbackReason: "research focus and brief required",
     };
@@ -552,6 +558,7 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: stub.leaderNote,
+      candidates: stub.candidates,
       provider: "stub",
       fallbackReason: gate.reason,
       sameThemeApplied: stub.sameThemeApplied,
@@ -564,6 +571,7 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: result.leaderNote,
+      candidates: result.candidates,
       provider: result.provider,
       model: result.model,
       sameThemeApplied: result.sameThemeApplied,
@@ -575,6 +583,7 @@ export async function generateReviewLeaderDraft(
     return {
       kind: "leader",
       leaderNote: stub.leaderNote,
+      candidates: stub.candidates,
       provider: "stub",
       fallbackReason: message,
       sameThemeApplied: stub.sameThemeApplied,

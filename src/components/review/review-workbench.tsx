@@ -56,7 +56,7 @@ import {
   checkDraftThemeConsistency,
   themeConsistencyToFinalIssues,
 } from "@/lib/review/theme-consistency";
-import { extractSummaryBody } from "@/lib/review/prompts";
+import { extractSummaryBody, leaderFlavorMeta } from "@/lib/review/prompts";
 
 function providerLabel(
   provider?: string,
@@ -110,6 +110,16 @@ export function ReviewWorkbench() {
   >([]);
   const [summaryRevise, setSummaryRevise] = useState("");
   const [showSummaryCompare, setShowSummaryCompare] = useState(true);
+  const [leaderCandidates, setLeaderCandidates] = useState<
+    {
+      variant: string;
+      leaderNote: string;
+      provider: string;
+      model?: string;
+      fallbackReason?: string;
+    }[]
+  >([]);
+  const [showLeaderCompare, setShowLeaderCompare] = useState(true);
   const [sameThemeQuoteNotice, setSameThemeQuoteNotice] = useState<{
     tone: "ok" | "warn" | "muted";
     text: string;
@@ -260,6 +270,7 @@ export function ReviewWorkbench() {
     setDraft((prev) => {
       if (!prev || prev.themeId === nextId) return prev;
       setSummaryCandidates([]);
+      setLeaderCandidates([]);
       setSameThemeQuoteNotice(null);
       return {
         ...prev,
@@ -287,6 +298,7 @@ export function ReviewWorkbench() {
     const changed = hit.id !== draft!.themeId;
     if (changed && draft!.summary.trim()) {
       setSummaryCandidates([]);
+      setLeaderCandidates([]);
       setSameThemeQuoteNotice(null);
       patch({
         sourcePost,
@@ -715,6 +727,13 @@ export function ReviewWorkbench() {
         });
         const data = (await res.json()) as {
           leaderNote?: string;
+          candidates?: {
+            variant: string;
+            leaderNote: string;
+            provider: string;
+            model?: string;
+            fallbackReason?: string;
+          }[];
           provider?: string;
           model?: string;
           fallbackReason?: string;
@@ -726,20 +745,41 @@ export function ReviewWorkbench() {
           setHint(data.error ?? "所感の生成に失敗した");
           return;
         }
-        const leaderNoteRaw = data.leaderNote ?? "";
         // サーバが意図的に外したときはクライアントで再差し込みしない（混線防止）
         const serverSkippedQuote =
           Boolean(sameTheme.fixedSentence) && data.sameThemeApplied === false;
-        const leaderNote =
+        const applyFallbackQuote = (rawNote: string) =>
           sameTheme.fixedSentence &&
           !serverSkippedQuote &&
-          !/同テーマ前回の/.test(leaderNoteRaw)
-            ? applySameThemeFixedSentence(
-                leaderNoteRaw,
-                sameTheme.fixedSentence,
-                { mode: "intro" },
-              )
-            : leaderNoteRaw;
+          !/同テーマ前回の/.test(rawNote)
+            ? applySameThemeFixedSentence(rawNote, sameTheme.fixedSentence, {
+                mode: "intro",
+              })
+            : rawNote;
+        const normalizedCandidates = (
+          data.candidates?.length
+            ? data.candidates
+            : data.leaderNote
+              ? [
+                  {
+                    variant: "standard",
+                    leaderNote: data.leaderNote,
+                    provider: data.provider ?? "stub",
+                    model: data.model,
+                    fallbackReason: data.fallbackReason,
+                  },
+                ]
+              : []
+        ).map((c) => ({
+          ...c,
+          leaderNote: applyFallbackQuote(c.leaderNote),
+        }));
+        const leaderNoteRaw = data.leaderNote ?? "";
+        const leaderNote =
+          normalizedCandidates[0]?.leaderNote ??
+          applyFallbackQuote(leaderNoteRaw);
+        setLeaderCandidates(normalizedCandidates);
+        setShowLeaderCompare(normalizedCandidates.length > 1);
         patch({ leaderNote });
         const via = providerLabel(
           data.provider,
@@ -829,6 +869,15 @@ export function ReviewWorkbench() {
         setGenerating(false);
       }
     })();
+  }
+
+  function adoptLeaderCandidate(c: { variant: string; leaderNote: string }) {
+    patch({ leaderNote: c.leaderNote });
+    setShowLeaderCompare(false);
+    const meta = leaderFlavorMeta(c.variant);
+    setHint(
+      `${meta.title}を採用した。必要なら下の「締めの別案」も所感に合わせて出し直して`,
+    );
   }
 
   function runClosingDraft() {
@@ -1594,8 +1643,51 @@ export function ReviewWorkbench() {
               !canGenerateLeaderNote(draft)
             }
           >
-            {generating ? "生成中…" : "所感下書きを出す"}
+            {generating ? "3案を生成中…" : "所感下書きを出す（3案）"}
           </Button>
+          {leaderCandidates.length > 1 && showLeaderCompare ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                使う所感を選ぶ。スタンダードは一手提案、視点ずらしは見方を広げ、軽めは短めに返す。
+              </p>
+              {leaderCandidates.map((c) => {
+                const meta = leaderFlavorMeta(c.variant);
+                const selected = draft.leaderNote === c.leaderNote;
+                return (
+                  <div
+                    key={`${c.variant}-${c.leaderNote.slice(0, 24)}`}
+                    className="flex flex-col gap-2 rounded-lg border border-border p-3"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-sm font-medium">{meta.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {meta.blurb} · およそ{c.leaderNote.length}字
+                      </p>
+                    </div>
+                    <p className="text-sm leading-relaxed">{c.leaderNote}</p>
+                    <Button
+                      type="button"
+                      variant={selected ? "default" : "outline"}
+                      className="h-11 w-full"
+                      onClick={() => adoptLeaderCandidate(c)}
+                    >
+                      {selected ? "採用中" : "これを使う"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {leaderCandidates.length > 1 && !showLeaderCompare ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 w-full"
+              onClick={() => setShowLeaderCompare(true)}
+            >
+              所感の別案をもう一度見比べる
+            </Button>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="leader">所感・着想（ここで脚色）</Label>
             {sameThemeQuoteNotice ? (
