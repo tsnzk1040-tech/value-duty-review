@@ -1,7 +1,7 @@
 # メンバー投稿へのレビュー — 構成ルール（SSoT）
 
-実運用ログ（例: 2026-08 抽出）から確定した **返信の並び**。  
-味・合格感は [output-taste.md](output-taste.md)。プロセス全体は卒業制作 `DECISIONS.md` §2a。
+実運用ログから確定した **返信の並び**。  
+味・合格感は [output-taste.md](output-taste.md)。アプリ全体の企画・現在地は [`docs/program.md`](../../../../docs/program.md) / [`docs/status.md`](../../../../docs/status.md)。
 
 ## 並び（必須順）
 

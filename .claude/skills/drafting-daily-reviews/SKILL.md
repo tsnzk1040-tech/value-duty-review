@@ -15,7 +15,7 @@ description: メンバーの振り返り投稿へのレビューを、実運用�
 | **構成ルール（SSoT）** | [references/structure.md](references/structure.md) |
 | 出力の味（SSoT） | [references/output-taste.md](references/output-taste.md) |
 | **同テーマ前回の引用（SSoT）** | [references/same-theme-quote.md](references/same-theme-quote.md) |
-| 実プロセス・段階UI | 卒業制作 `DECISIONS.md` §2a（personal-visual-explainers） |
+| 全体企画・現在地 | [`docs/program.md`](../../../docs/program.md) / [`docs/status.md`](../../../docs/status.md) |
 | 組み立て・生成入口 | `src/lib/review/draft.ts` / `generate.ts` / `POST /api/review/draft` |
 | プロンプト | `src/lib/review/prompts.ts` |
 | 評価の見方 | [references/eval-scenarios.md](references/eval-scenarios.md) |

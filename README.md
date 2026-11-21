@@ -1,61 +1,35 @@
-# value-duty-review
+# value-duty-review（企業理念リレー）
 
-ADS 卒業制作用の **トシオ専用モバイル Web**。  
-企業理念浸透の通勤運用（毎日レビュー＋日別ローテアサイン）を、アプリ内で回しやすくする。
+管理本部の企業理念浸透リレー（毎日レビュー下書き＋月次ローテ設計）を、通勤中でも手早く回すための自分用モバイル Web アプリ。
 
-## 設計の正本
+## まず見る場所
 
-範囲・段階UI・POC・公平ローテルールなどは学習リポ側:
+- 全体企画・SSoT の地図：[`docs/program.md`](docs/program.md)
+- 現在の稼働状況・次の一手：[`docs/status.md`](docs/status.md)
+- 保留中のアイデア：[`ideas-parking.md`](ideas-parking.md)
+- AI エージェント向け最小指示：[`AGENTS.md`](AGENTS.md)（`CLAUDE.md` は `@AGENTS.md` で参照）
 
-`C:\Users\pc\personal-visual-explainers\docs\course\monthly\2026-08-graduation\DECISIONS.md`
-
-このリポは **実装**。方針が変わったら先に DECISIONS を更新する。
-
-改修アイデアの退避は [`ideas-parking.md`](ideas-parking.md)（「パークして」で追記）。
-
-## スタック
-
-- Next.js App Router（16）
-- TypeScript / Tailwind CSS v4
-- shadcn/ui（base-nova）
-
-## 画面の入口（予定）
+## 主な画面
 
 | パス | 役割 |
 |------|------|
-| `/` | ホーム（今日のレビュー / ローテ） |
-| `/review` | 毎日レビュー（下書き） |
-| `/rotation` | 当番ローテ |
-| `/rotation` | ローテアサイン（公平スキル） |
+| `/` | `/review` へリダイレクト |
+| `/review` | 毎日レビューの下書き作成（お礼→要約→調べる→所感→締め→最終チェック） |
+| `/rotation` | 日別ローテの公平アサイン・手直し・ノート貼付用コピー |
+| `/history` | 端末内に保存したレビュー履歴の確認 |
+| `/settings` | マスタ設定・理念チャートの端末取込・認証設定・改修履歴 |
+| `/share-target` | PWA 共有の受け口 |
 
-## 秘密情報
+## スタックとデータ方針
 
-- API キー・理念全文・実名・実チャットはリポに置かない
-- ローカルは `.env.local`（`.gitignore` 済み）。雛形は `.env.example`
+- **スタック**：Next.js App Router（16）／TypeScript／Tailwind CSS v4／shadcn/ui（base-nova）／Gemini API
+- **データ保存**：マスタ・レビュー履歴・理念チャートはすべて **端末の `localStorage`**。外部 DB は使わない。
+- **秘密情報**：API キー・理念全文・実名・実チャットはリポジトリに置かない。環境変数は `.env.local`（`.gitignore` 済み、雛形は `.env.example`）。
 
 ## コマンド
 
 ```bash
-npm run dev
-npm run build
-npm run lint
+npm run dev    # 開発サーバー起動
+npm run build  # 本番ビルド（改修履歴 JSON の更新を含む）
+npm run lint   # ESLint
 ```
-
-## POC 進捗
-
-| 証拠 | 状態 |
-|------|------|
-| ローテ公平スキル → 1サイクル → 手直し → ノート用コピー | **済み**（`/rotation`・設定マスタ連動） |
-| 設定 JSON（localStorage）＋認証ゲート | **済み**（`/settings`・`/login`） |
-| 段階レビュー＋参考リンク | 未着手 |
-
-### データ／認証
-
-- マスタ正本: **localStorage**（JSON）。端末またぎなし
-- **レビュー履歴正本: 同じ端末の localStorage**（コピー時保存。Parking `P-20260809-D`）
-- バックアップ: 設定画面で JSON コピー／取り込み（マスタ）。履歴は端末内
-- 認証: 設定でパスワード有効化（ハッシュ保存）。タブ単位の session 解除
-- 理念全文・理念チャートはリポ／公開URLに置かない。チャートは設定からこの端末へ取り込む
-
-ローテスキル正本: `.claude/skills/rotation-fair-assign/SKILL.md`  
-実装: `src/lib/rotation/fair-assign.ts`
