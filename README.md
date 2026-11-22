@@ -23,7 +23,7 @@
 ## スタックとデータ方針
 
 - **スタック**：Next.js App Router（16）／TypeScript／Tailwind CSS v4／shadcn/ui（base-nova）／Gemini API
-- **データ保存**：マスタ・レビュー履歴・理念チャートはすべて **端末の `localStorage`**。外部 DB は使わない。
+- **データ保存**：マスタ・レビュー履歴・理念チャートは **端末の `localStorage`**（設定画面で JSON バックアップ可）。外部 DB は使わない。当番実績の正本（`src/lib/rotation/seed.ts`）と改修履歴（`src/lib/app-changelog.json`）はリポジトリ内に置く。
 - **秘密情報**：API キー・理念全文・実名・実チャットはリポジトリに置かない。環境変数は `.env.local`（`.gitignore` 済み、雛形は `.env.example`）。
 
 ## コマンド
