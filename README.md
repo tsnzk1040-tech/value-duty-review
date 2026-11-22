@@ -7,7 +7,7 @@
 - 全体企画・SSoT の地図：[`docs/program.md`](docs/program.md)
 - 現在の稼働状況・次の一手：[`docs/status.md`](docs/status.md)
 - 保留中のアイデア：[`ideas-parking.md`](ideas-parking.md)
-- AI エージェント向け最小指示：[`AGENTS.md`](AGENTS.md)（`CLAUDE.md` は `@AGENTS.md` で参照）
+- AI エージェント向け最小指示：[`AGENTS.md`](AGENTS.md)
 
 ## 主な画面
 
