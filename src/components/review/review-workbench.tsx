@@ -1234,7 +1234,9 @@ export function ReviewWorkbench() {
               }}
             >
               <SelectTrigger id="team" className="w-full">
-                <SelectValue placeholder="未選択" />
+                <SelectValue placeholder="未選択">
+                  {reviewTeamLabel(draft.teamId) || "未選択"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={REVIEW_TEAM_NONE_VALUE}>未選択</SelectItem>
