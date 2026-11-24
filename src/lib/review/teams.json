@@ -1,0 +1,9 @@
+{
+  "teams": [
+    { "id": "management", "label": "マネジメントチーム" },
+    { "id": "accounting", "label": "経理チーム" },
+    { "id": "performance", "label": "業績管理チーム" },
+    { "id": "it-systems", "label": "ITシステムチーム" },
+    { "id": "support", "label": "サポートチーム" }
+  ]
+}

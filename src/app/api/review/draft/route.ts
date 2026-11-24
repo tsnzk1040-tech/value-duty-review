@@ -206,6 +206,8 @@ export async function POST(req: Request) {
         typeof body.sameThemeQuoteMaterial === "string"
           ? body.sameThemeQuoteMaterial
           : undefined,
+      teamLabel:
+        typeof body.teamLabel === "string" ? body.teamLabel : undefined,
     });
     return NextResponse.json(result);
   }

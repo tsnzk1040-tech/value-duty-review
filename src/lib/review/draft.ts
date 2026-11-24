@@ -3,6 +3,7 @@ import { repairDuplicatedGuidelinePhrase, repairMissingOpeningKagi } from "@/lib
 import { formatThanks } from "@/lib/review/thanks";
 import { DEFAULT_CLOSING } from "@/lib/review/closing";
 import { defaultReviewDateYmd } from "@/lib/rotation/business-days";
+import { isReviewTeamId } from "@/lib/review/teams";
 
 export { extractSummaryPoints } from "@/lib/review/draft-extract";
 export { formatThanks } from "@/lib/review/thanks";
@@ -18,7 +19,7 @@ export {
   pickClosingVariation,
 } from "@/lib/review/closing";
 
-export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v9";
+export const REVIEW_DRAFT_STORAGE_KEY = "vdr.review.draft.v10";
 
 /** Fallback only — real opener is formatThanks(presenterName). */
 export const DEFAULT_OPENER =
@@ -45,6 +46,11 @@ export type ReviewDraft = {
   sourcePost: string;
   /** 呼び名（お礼用） */
   presenterName: string;
+  /**
+   * 所属チーム（任意・その日の下書き用）。
+   * 所感の場面語彙ヒントだけに効く。空＝未選択。正本は `teams.json`。
+   */
+  teamId: string;
   themeId: string;
   /** 要約前の観点（要約を厚くする。所感には渡さない） */
   lens: string;
@@ -125,6 +131,7 @@ export function createEmptyDraft(themeId = ""): ReviewDraft {
     reviewDate: defaultReviewDateYmd(),
     sourcePost: "",
     presenterName: "",
+    teamId: "",
     themeId,
     lens: "",
     opener: DEFAULT_OPENER,
@@ -216,6 +223,10 @@ export function loadReviewDraft(): ReviewDraft | null {
           ? parsed.reviewDate.slice(0, 10)
           : defaultReviewDateYmd(),
       presenterName: parsed.presenterName ?? "",
+      teamId:
+        typeof parsed.teamId === "string" && isReviewTeamId(parsed.teamId)
+          ? parsed.teamId
+          : "",
       researchFocus: parsed.researchFocus ?? "",
       researchPagePaste: parsed.researchPagePaste ?? "",
       researchNeedsPagePaste: Boolean(parsed.researchNeedsPagePaste),

@@ -86,6 +86,8 @@ export type ReviewLeaderGenerateRequest = {
   sameThemeFixedSentence?: string;
   /** 引用整文用の要約あいだなど */
   sameThemeQuoteMaterial?: string;
+  /** 所属チーム表示名（任意・所感の場面ヒント） */
+  teamLabel?: string;
 };
 
 export type ReviewSearchGenerateRequest = {
@@ -538,6 +540,7 @@ export async function generateReviewLeaderDraft(
   const historyNotes = input.historyNotes?.trim() ?? "";
   const sameThemeFixedSentence = input.sameThemeFixedSentence?.trim() ?? "";
   const sameThemeQuoteMaterial = input.sameThemeQuoteMaterial?.trim() ?? "";
+  const teamLabel = input.teamLabel?.trim() ?? "";
 
   const leaderInput: LeaderGenerateInput = {
     sourcePost: input.sourcePost,
@@ -550,6 +553,7 @@ export async function generateReviewLeaderDraft(
     historyNotes,
     sameThemeFixedSentence,
     sameThemeQuoteMaterial,
+    teamLabel: teamLabel || undefined,
   };
 
   const gate = shouldUseStub();

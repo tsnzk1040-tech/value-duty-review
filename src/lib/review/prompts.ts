@@ -412,6 +412,11 @@ export type LeaderGenerateInput = {
   sameThemeFixedSentence?: string;
   /** 引用整文用の要約あいだなど（任意） */
   sameThemeQuoteMaterial?: string;
+  /**
+   * 所属チーム表示名（任意）。
+   * 所感の場面語彙ヒントだけ。空／未指定なら出さない。
+   */
+  teamLabel?: string;
 };
 
 export type LeaderFlavor = "standard" | "reframe" | "light";
@@ -575,6 +580,17 @@ export function buildLeaderInstructions(
         "",
       ].join("\n")
     : "";
+  const teamLabel = input.teamLabel?.trim() ?? "";
+  const teamScene = teamLabel
+    ? [
+        "【場面語彙のヒント（任意・チーム）】",
+        `所属チームのヒント: ${teamLabel}`,
+        "- 所感の提案・場面づくりの弱いヒント。投稿に具体があるときは投稿を優先する。",
+        "- チーム名から性格・教訓・ステレオタイプを作らない。チーム名を本文に無理に出さない。",
+        "- 効かせるのは主にスタンダード案の『いつ・どの場面で』。共感・ほめは投稿の言葉から。",
+        "",
+      ].join("\n")
+    : "";
 
   return [
     "あなたは職場のグループチャット向けに、リーダー（上司・同僚の先輩）が返す「所感・着想」の下書きを書く助手です。",
@@ -611,11 +627,15 @@ export function buildLeaderInstructions(
     "同テーマ前回の山田さんの共有にあった、「期限を先に切る」と通じるものがありますね。（②はアプリが入れるので書かない）",
     "",
     history,
+    teamScene,
     buildCreedAlignmentBlock(input.themeLabel),
     "",
     "【入力】",
     `今日の枠の識別用（所感にコード全文を書かない）: ${input.themeLabel}`,
     `Value帯名（長々再掲しない）: ${heading}`,
+    ...(teamLabel
+      ? [`所属チーム（場面ヒント・本文に無理に出さない）: ${teamLabel}`]
+      : []),
     keywords,
     focus,
     links,

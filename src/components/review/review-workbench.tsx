@@ -57,6 +57,11 @@ import {
   themeConsistencyToFinalIssues,
 } from "@/lib/review/theme-consistency";
 import { extractSummaryBody, leaderFlavorMeta } from "@/lib/review/prompts";
+import {
+  REVIEW_TEAM_NONE_VALUE,
+  REVIEW_TEAMS,
+  reviewTeamLabel,
+} from "@/lib/review/teams";
 
 function providerLabel(
   provider?: string,
@@ -135,6 +140,7 @@ export function ReviewWorkbench() {
         ...saved,
         themeId: saved.themeId || fallbackTheme,
         presenterName: saved.presenterName ?? "",
+        teamId: saved.teamId ?? "",
       });
     } else {
       setDraft(createEmptyDraft(fallbackTheme));
@@ -720,6 +726,7 @@ export function ReviewWorkbench() {
             researchFocus: draft!.researchFocus,
             researchBrief: draft!.researchBrief,
             presenterName: draft!.presenterName,
+            teamLabel: reviewTeamLabel(draft!.teamId) || undefined,
             historyNotes: sameTheme.fixedSentence ? "" : sameTheme.notes,
             sameThemeFixedSentence: sameTheme.fixedSentence,
             sameThemeQuoteMaterial: sameTheme.quoteMaterial,
@@ -1208,6 +1215,39 @@ export function ReviewWorkbench() {
               onChange={(e) => patch({ presenterName: e.target.value })}
               placeholder="または手入力（例: 隆さん）"
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="team">チーム（任意・所感の場面ヒント）</Label>
+            <Select
+              value={
+                draft.teamId &&
+                REVIEW_TEAMS.some((team) => team.id === draft.teamId)
+                  ? draft.teamId
+                  : REVIEW_TEAM_NONE_VALUE
+              }
+              onValueChange={(value) => {
+                if (!value || value === REVIEW_TEAM_NONE_VALUE) {
+                  patch({ teamId: "" });
+                  return;
+                }
+                patch({ teamId: value });
+              }}
+            >
+              <SelectTrigger id="team" className="w-full">
+                <SelectValue placeholder="未選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={REVIEW_TEAM_NONE_VALUE}>未選択</SelectItem>
+                {REVIEW_TEAMS.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>
+                    {team.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              所感の「いつ・どの場面で」にだけ効く。空なら今までどおり。メンバーマスタには保存しない。
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="post">① 投稿本文（ペースト）</Label>
