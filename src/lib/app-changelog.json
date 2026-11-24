@@ -1,8 +1,13 @@
 {
-  "head": "6fa1479",
+  "head": "aeff602",
   "entries": [
     {
-      "hash": "6fa1479",
+      "hash": "aeff602",
+      "date": "2026-11-24",
+      "subject": "視点ずらしは判断軸結び、軽めはほめ主役に寄せる"
+    },
+    {
+      "hash": "2ea128a",
       "date": "2026-11-24",
       "subject": "チーム選択後も日本語ラベルを表示する"
     },
@@ -15,11 +20,6 @@
       "hash": "e58a596",
       "date": "2026-11-24",
       "subject": "レビューにチーム選択を足して所感の場面ヒントにする"
-    },
-    {
-      "hash": "d9c6af7",
-      "date": "2026-11-24",
-      "subject": "改修履歴の head をチーム選択コミットに揃える"
     },
     {
       "hash": "1a07d3f",
@@ -225,6 +225,16 @@
       "hash": "4ec5239",
       "date": "2026-08-22",
       "subject": "Improve same-theme quotes and strip leader preambles."
+    },
+    {
+      "hash": "6fa1479",
+      "date": "2026-11-24",
+      "subject": "チーム選択後も日本語ラベルを表示する"
+    },
+    {
+      "hash": "d9c6af7",
+      "date": "2026-11-24",
+      "subject": "改修履歴の head をチーム選択コミットに揃える"
     },
     {
       "hash": "2d3f087",

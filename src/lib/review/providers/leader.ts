@@ -64,7 +64,7 @@ function buildStubBodyForFlavor(
     return [
       lead,
       cite,
-      "手順を足すだけでなく、どこで立ち止まるかの見方を持っておくと、普段の確認仕事でも見え方が変わりそうです。",
+      "確認仕事でも、やり方を足す前に『どこで立ち止まるか』の軸を持てると、同じ場面の見え方が変わりそうです。",
     ].join("");
   }
 
@@ -73,13 +73,9 @@ function buildStubBodyForFlavor(
       ? `「${hook}」の工夫、忙しい中でも丁寧に向き合っていますね。`
       : "今日の振り返り、現場の工夫が見えて心強いですね。";
     const cite = briefPoint
-      ? `調べてみたところ、「${briefPoint.slice(0, 42)}」ともありました。`
+      ? `調べてみたところ、「${briefPoint.slice(0, 32)}」とも。`
       : "";
-    return [
-      lead,
-      cite,
-      "こういう小さな確認の積み重ねが、周りの動きやすさにも効いてきそうですね。",
-    ].join("");
+    return [lead, cite, "その丁寧さ、周りにも効いていきそうですね。"].join("");
   }
 
   const briefHint = briefPoint

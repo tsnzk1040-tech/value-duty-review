@@ -1690,7 +1690,7 @@ export function ReviewWorkbench() {
           {leaderCandidates.length > 1 && showLeaderCompare ? (
             <div className="flex flex-col gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                使う所感を選ぶ。スタンダードは一手提案、視点ずらしは見方を広げ、軽めは短めに返す。
+                使う所感を選ぶ。スタンダードは一手提案、視点ずらしは判断軸、軽めはほめ主役の短め。
               </p>
               {leaderCandidates.map((c) => {
                 const meta = leaderFlavorMeta(c.variant);
